@@ -10,7 +10,8 @@ It does not contain a lab service or a working digital twin workflow.
 
 See [the offline example instructions](examples/evpn-symmetric-irb/README.md) for prerequisites, commands, outputs, and validation limits.
 The example uses `pyavd[ansible]==6.5.0` and builds exactly six switch configurations.
-The build-only GitHub Actions workflow needs no cloud account, device image, or live credentials.
+The offline workflow also tests a Containerlab bundle with six switches and a SHA-256 digest.
+It needs no cloud account, installed device image, or live credentials.
 An offline build does not establish working MLAG or a functioning digital twin.
 
 ## First milestone

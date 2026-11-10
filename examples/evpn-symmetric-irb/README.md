@@ -82,12 +82,73 @@ LACP combines physical links into one logical link.
 The example retains BGP authentication, peer filtering, multipath routing, MLAG routing peers, dual-primary detection, and endpoint trunks with LACP.
 The physical platform profile remains `7050X3` for configuration generation. This does not select a supported runtime image.
 
+## Build the offline bundle
+
+After the dependency installation, use the same credential variables from the Build section.
+Supply an explicit cEOS image reference through `DRYDOCK_CEOS_IMAGE`.
+For offline tests, use this placeholder. No command below pulls or runs an image:
+
+```sh
+export DRYDOCK_CEOS_IMAGE=ceos:offline-placeholder
+make example-bundle-test
+cd artifacts/example/containerlab
+sha256sum -c bundle.tar.sha256
+tar -tf bundle.tar
+```
+
+`make example-bundle` renders and packages the bundle without the regression tests.
+`make example-bundle-test` also tests the actual generated bundle.
+Both commands run from the repository root and use the existing build playbook with `containerlab.yml` overrides.
+They render separate output below `artifacts/example/containerlab/` and preserve the original build output.
+AVD digital twin mode adapts the configurations for cEOS.
+It removes BGP `update wait-install` and the spine `update wait-for-convergence` commands.
+The bundle uses the Containerlab preview generator in AVD 6.5.0.
+
+`bundle.tar` contains exactly these files:
+
+- `FABRIC-topology.clab.yml` defines six `arista_ceos` nodes with the supplied image reference.
+- `interface_mapping.json` maps Linux interfaces to EOS names, including `eth0` to `Management1`.
+- `intended/configs/<name>.cfg` supplies one startup configuration for each switch.
+
+All startup configuration and mapping paths are relative to the topology.
+An empty Containerlab prefix preserves the six AVD device names.
+Management addresses match the configurations in `192.0.2.0/24`.
+The twelve links include eight leaf-to-spine links and Ethernet6 and Ethernet7 within both MLAG pairs.
+Endpoint definitions remain in the EOS configurations but create no host containers or lab links.
+
+`bundle.tar.sha256` records the SHA-256 digest, a fingerprint of the archive bytes.
+The archive uses a fixed file order, timestamps, ownership, and permissions.
+Identical file contents and image values produce identical archive bytes, even after file timestamps change.
+Different password salts, credentials, configurations, or image values change the digest.
+The checksum establishes content identity. It does not establish who supplied the bundle.
+
+Keep the bundle private. It contains password hashes and reversible BGP authentication values.
+The offline workflow uses synthetic credentials and the placeholder image, and it does not upload the bundle.
+It makes sure that archived device identities, management addresses, interface mappings, and links match AVD output.
+It also tests both MLAG pair definitions, reproducible packaging, digest changes, and missing inputs.
+
+For an optional parser test, use Containerlab 0.78.2 on an isolated Linux build host.
+The parser also needs access to the local Docker daemon.
+From the repository root, extract the archive into a private temporary directory:
+
+```sh
+bundle_dir="$(mktemp -d)"
+tar -xf artifacts/example/containerlab/bundle.tar -C "$bundle_dir"
+containerlab validate -t "$bundle_dir/FABRIC-topology.clab.yml"
+```
+
+This command parses the topology without deploying a lab.
+The AVD generator uses the fixed management network `custom_mgmt` and preserves original device names.
+It does not support concurrent labs on one host. Lifecycle isolation remains future work.
+Startup delivery and the selected image still require live evidence before task 1.1 can pass.
+
 ## Validation limits
 
 A passing build proves that AVD can render this inventory.
 It does not prove routing convergence, packet forwarding, working MLAG, runtime compatibility, or a functioning digital twin.
 The four endpoint definitions do not establish host traffic coverage.
-No Containerlab integration, GKE resources, lifecycle commands, independent cleanup, or live ANTA execution exists in this PR.
+The offline bundle does not establish Containerlab startup or clabernetes compatibility.
+No GKE resources, lifecycle commands, independent cleanup, or live ANTA execution exists in this PR.
 The separate MLAG investigation remains unresolved and does not block offline generation.
 No experimental firewall workaround is included.
 
@@ -106,3 +167,17 @@ It found MLAG domains `PAIR1` and `PAIR2`, peer links on Ethernet6 and Ethernet7
 It also found BGP routing, EVPN and route-target membership, VXLAN mappings, both tenant VRFs, and all four virtual gateways.
 Inspection found no reference identities or inspected source authentication values in the output.
 This evidence does not establish runtime MLAG or network acceptance.
+
+Task 2.4 also passed from a clean source export on November 10, 2026, with the existing pinned dependencies reused.
+`make example-build example-bundle-test spec-check` passed, including all four bundle tests.
+`sha256sum -c bundle.tar.sha256` passed for the archive from that export.
+Containerlab 0.78.2 accepted its extracted topology with six nodes and twelve links without deployment.
+Comparison of all six EOS configurations found only the documented BGP wait commands removed by digital twin mode.
+The bundle contained exactly the topology, interface mapping, and six configurations.
+This sample used synthetic credentials and `ceos:offline-placeholder`:
+
+```text
+SHA-256: bc1898c9a6c793e9e7bd1039613e65db575b18e4ee60fb67b1a3aa6020d415fa
+```
+
+The digest identifies that sample only. A new password salt produces a different bundle digest.
