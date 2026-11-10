@@ -33,10 +33,41 @@ Generated files stay ignored and are not uploaded by this workflow.
 AVD validates its input models. Generated configurations require no separate assertion tests.
 The first PR records manual inspection of six configurations, both MLAG pairs, all spine links, and the routing and overlay configuration.
 
-Containerlab integration, GKE, lifecycle commands, cleanup, live ANTA, and runtime versions remain deferred.
+GKE, lifecycle commands, cleanup, live ANTA, and runtime versions remain deferred.
 The separate MLAG investigation does not block offline generation.
 An offline build does not prove working MLAG or a functioning digital twin.
 See [the example instructions](../../../examples/evpn-symmetric-irb/README.md) for commands and output locations.
+
+### Build the offline Containerlab bundle
+
+Task 2.4 reuses the Containerlab generator in the pinned AVD 6.5.0 dependency.
+A separate digital twin build preserves the existing offline build and keeps its output apart from the bundle.
+AVD derives the switch nodes, links, management addresses, and interface mapping from the same fabric input.
+This avoids a second topology template that can diverge from the configurations.
+The generated topology contains six `arista_ceos` switches, eight spine links, and four MLAG peer links.
+Endpoint definitions remain in the configurations but create no containers or lab links.
+An empty Containerlab prefix preserves the original device names.
+
+Use the startup configuration paths and interface mapping that AVD generates.
+Digital twin mode removes BGP `update wait-install` and the spine `update wait-for-convergence` commands from the EOS output.
+Offline comparison found no other EOS changes when both builds used the same credentials.
+This is a rendering choice only. Startup delivery still requires live acceptance under task 1.1.
+The lifecycle command interface remains a proposal.
+
+Require `DRYDOCK_CEOS_IMAGE` when packaging instead of retaining the generator's implicit `arista/ceos:latest` image.
+The offline workflow uses `ceos:offline-placeholder` and never pulls or runs that image.
+An explicit image value records the requested image. It does not establish runtime support.
+The AVD preview generator uses one fixed management network and subnet, so this bundle does not establish concurrent lab isolation.
+The lifecycle implementation must resolve that boundary before live use.
+
+Package only the topology, interface mapping, and six referenced EOS configurations in a portable tar archive.
+Keep all paths relative and normalize archive order, timestamps, ownership, and permissions.
+Record the SHA-256 digest beside the archive in a format that `sha256sum -c` accepts.
+Identical inputs produce identical archive bytes. Changed credentials or image values change the digest.
+The archive contains lab authentication material, so keep it ignored and do not upload it from the offline workflow.
+Tests compare the archived identities, management addresses, and links with AVD output and require both MLAG pairs.
+Tests also cover missing input files, digest changes, and reproducible packaging.
+These tests establish offline bundle consistency, not switch startup, routing, MLAG convergence, or cleanup.
 
 ### Propose startup configuration delivery
 

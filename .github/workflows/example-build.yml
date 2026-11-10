@@ -30,6 +30,8 @@ jobs:
       - name: Build the example
         env:
           DRYDOCK_LAB_PASSWORD: offline-example-only
+          DRYDOCK_CEOS_IMAGE: ceos:offline-placeholder
         run: |
           export DRYDOCK_LAB_PASSWORD_HASH="$(printf '%s' "$DRYDOCK_LAB_PASSWORD" | openssl passwd -6 -stdin)"
           make example-build
+          make example-bundle-test

@@ -1,0 +1,6 @@
+---
+root_dir: "{{ playbook_dir }}/../../artifacts/example/containerlab"
+avd_digital_twin_mode: true
+digital_twin:
+  environment: containerlab
+  fabric: {}
