@@ -102,6 +102,8 @@ Both commands run from the repository root and use the existing build playbook w
 They render separate output below `artifacts/example/containerlab/` and preserve the original build output.
 AVD digital twin mode adapts the configurations for cEOS.
 It removes BGP `update wait-install` and the spine `update wait-for-convergence` commands.
+The lab build also enables HTTPS eAPI in the management VRF for ANTA.
+AVD digital twin metadata excludes unused endpoint interfaces from validation.
 The bundle uses the Containerlab preview generator in AVD 6.5.0.
 
 `bundle.tar` contains exactly these files:
@@ -109,6 +111,7 @@ The bundle uses the Containerlab preview generator in AVD 6.5.0.
 - `FABRIC-topology.clab.yml` defines six `arista_ceos` nodes with the supplied image reference.
 - `interface_mapping.json` maps Linux interfaces to EOS names, including `eth0` to `Management1`.
 - `intended/configs/<name>.cfg` supplies one startup configuration for each switch.
+- `intended/structured_configs/<name>.yml` supplies matching AVD inputs for `arista.avd.anta_runner`.
 
 All startup configuration and mapping paths are relative to the topology.
 An empty Containerlab prefix preserves the six AVD device names.
@@ -139,7 +142,9 @@ containerlab validate -t "$bundle_dir/FABRIC-topology.clab.yml"
 
 This command parses the topology without deploying a lab.
 The AVD generator uses the fixed management network `custom_mgmt` and preserves original device names.
-It does not support concurrent labs on one host. Lifecycle isolation remains future work.
+It does not support concurrent Containerlab labs on one host.
+The GKE lifecycle uses separate namespaces, worker pools, and management network names.
+Concurrent runtime isolation still needs live evidence.
 Startup delivery and the selected image still require live evidence before task 1.1 can pass.
 
 ## Validation limits
@@ -148,7 +153,8 @@ A passing build proves that AVD can render this inventory.
 It does not prove routing convergence, packet forwarding, working MLAG, runtime compatibility, or a functioning digital twin.
 The four endpoint definitions do not establish host traffic coverage.
 The offline bundle does not establish Containerlab startup or clabernetes compatibility.
-No GKE resources, lifecycle commands, independent cleanup, or live ANTA execution exists in this PR.
+The [CLI flow](../../docs/demo-flow.md) adds lifecycle commands and independent cleanup.
+No live cloud or ANTA acceptance ran for that implementation.
 The separate MLAG investigation remains unresolved and does not block offline generation.
 No experimental firewall workaround is included.
 

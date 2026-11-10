@@ -3,46 +3,51 @@
 ## Why
 
 Network changes need a temporary digital twin before deployment.
-Drydock needs one small workflow that proves lab creation, network tests, report collection, and cleanup together.
+Drydock needs one small flow that connects lab creation, automated network tests, retained reports, and complete cleanup.
 
 ## What Changes
 
-The agreed first milestone will:
+The agreed delivery starts with a CLI demo:
 
-- Build an anonymized AVD fabric with two spines and two MLAG leaf pairs.
-- Create a temporary cEOS lab from a complete topology and rendered configurations.
-- Run ANTA from a private GitHub Actions runner with explicit MLAG coverage.
-- Retain reports and diagnostics with the tested commit and lab identity.
-- Delete temporary resources after success, failure, cancellation, timeout, and runner loss.
+- Build the anonymized AVD fabric with two spines and two MLAG leaf pairs.
+- Deploy GKE Standard and clabernetes on demand in an existing dedicated demo project through scripted `gcloud` commands.
+- Start switches with rendered configurations and allocate dedicated temporary workers per lab.
+- Use `arista.avd.anta_runner` to generate catalogs from AVD structured configurations and execute ANTA through internal management tunnels.
+- Retain JSON, JUnit, generated catalogs, diagnostics, and provenance, then delete the lab after every allocation attempt.
+- Expire abandoned labs independently through a five-minute cluster-side cleaner.
+- Destroy shared infrastructure manually after the demo and preserve the existing project.
 
-The infrastructure direction is GKE Standard with clabernetes and dedicated temporary workers per lab.
-GitHub Actions owns AVD, ANTA, and reports. Drydock owns the lab lifecycle and management access.
+The CLI returns JSON. Kubernetes stores ownership and expiry records.
+No HTTP service or database is selected.
+Lab expiry defaults to two hours and cannot exceed four hours from acceptance.
+Failed deletion retries every five minutes indefinitely.
+The deletion target is thirty minutes after expiry while APIs are available.
+Overdue cleanup remains visible.
 
-Configuration delivery, the initial service boundary, expiry duration, and development infrastructure lifetime remain design decisions.
-The supported runtime depends on the separate MLAG investigation.
-No experimental firewall workaround is accepted.
-
-CloudVision, host containers, fork contributions, production deployment, and 1,000-device qualification are outside this milestone.
-No framework, database, or provisioning tool is selected by this proposal.
+GitHub Actions orchestration follows the CLI delivery.
+The runner stays outside GKE.
+Runtime support and deletion timing still require live evidence.
+The separate MLAG investigation remains open. No experimental firewall workaround is accepted.
+CloudVision, host containers, interactive switch access, fork contributions, production deployment, and large-scale qualification remain out of scope.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `example-fabric`: An anonymized six-switch AVD example that preserves the selected reference behavior.
-- `switch-lab-lifecycle`: Temporary switch labs with private access, observable readiness, and cleanup independent of runner survival.
-- `digital-twin-pipeline`: GitHub Actions orchestration with ANTA acceptance, reports, and failure visibility.
+- `example-fabric`: An anonymized six-switch AVD example with portable startup and structured configurations.
+- `switch-lab-lifecycle`: Temporary switch labs with private ANTA transport, authenticated readiness, independent expiry, and ownership-based cleanup.
+- `digital-twin-pipeline`: CLI orchestration with AVD-managed ANTA acceptance, reports, cleanup outcomes, and later GitHub Actions integration.
 
 ### Modified Capabilities
 
-None. The repository contains no implemented capability specifications.
+None. The change remains active and unarchived.
 
 ## Impact
 
-Implementation will add the AVD example, lab lifecycle integration, GitHub Actions workflow, tests, and operator instructions.
-The first offline example uses `pyavd[ansible]==6.5.0`, matching the current reference dependency.
-The compatible cEOS, clabernetes, and Kubernetes versions still require evidence.
+Implementation adds lifecycle commands, infrastructure scripts, an AVD role playbook, offline failure-path tests, a cleaner image recipe, and operator instructions.
+The dependency baseline is AVD 6.5.0 and ANTA 1.10.0.
+Runtime versions and image digests are explicit operator inputs. They are not claims of compatibility.
 
-The sources are the Vantage digital twin pipeline and the PS EVPN-symmetric-IRB fabric.
-See [the reference notes](../../../docs/references.md) for their local paths and observed limitations.
-Source repositories remain unchanged. The bootstrap does not provision infrastructure or implement this proposal.
+The sources remain the Vantage digital twin pipeline and PS EVPN-symmetric-IRB fabric.
+See [the reference notes](../../../docs/references.md) for provenance and observed limitations.
+Reference repositories remain unchanged.

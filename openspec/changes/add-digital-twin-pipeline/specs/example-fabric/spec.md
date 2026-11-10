@@ -39,3 +39,17 @@ The topology MUST NOT include CloudVision.
 - WHEN the workflow creates a Containerlab topology from the example
 - THEN every deployed device is a supported switch
 - AND no CloudVision or host container is requested
+
+
+### Requirement: Portable AVD test inputs
+
+The bundle MUST include the structured configurations that correspond to all six rendered startup configurations.
+The digital twin build MUST enable HTTPS eAPI for ANTA.
+The CLI MUST reject mismatches between rendered and structured configurations before allocation.
+The offline workflow MUST NOT upload bundled authentication material.
+
+#### Scenario: Rebuild a lab bundle
+
+- WHEN the operator packages the digital twin build
+- THEN the bundle digest identifies the topology, mapping, startup configurations, and structured configurations together
+- AND `anta_runner` can generate per-device catalogs without the reference repository

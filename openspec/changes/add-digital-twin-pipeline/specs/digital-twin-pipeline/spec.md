@@ -8,7 +8,8 @@ Test proposed network changes through a temporary lab and retain results that id
 
 ### Requirement: Trusted private workflow
 
-The workflow MUST support trusted contributors in private GitHub repositories.
+The delivery MUST provide the CLI demo before GitHub Actions integration.
+The eventual workflow MUST support trusted contributors in private GitHub repositories.
 It MUST build with AVD, request a lab, wait for infrastructure readiness, run ANTA, retain available results, and request deletion.
 Lab access MUST use an authorized private runner.
 
@@ -67,3 +68,23 @@ Independent lab expiry MUST cover cancellation or runner loss that prevents work
 - WHEN cancellation prevents the runner from completing deletion
 - THEN the independent lab expiry mechanism remains responsible for resource deletion
 - AND the canceled run is not recorded as a successful network acceptance run
+
+
+### Requirement: AVD-managed ANTA catalogs
+
+The test command MUST use `arista.avd.anta_runner` to generate catalogs from bundled AVD structured configurations and execute ANTA.
+It MUST reject missing mandatory coverage before allocation and retain generated catalogs and expected result counts.
+Dry-run reports MUST NOT establish network acceptance.
+
+#### Scenario: Required coverage disappears
+
+- WHEN a generated catalog omits a required switch link or MLAG test
+- THEN the CLI rejects the request before lab allocation
+- AND interface tests must include every switch link and leaf VXLAN interface
+- AND unused endpoint exclusions must preserve required switch coverage
+
+#### Scenario: The CLI test completes
+
+- WHEN a valid bundle passes bounded AVD-managed ANTA tests
+- THEN the CLI retains available reports, closes internal tunnels, and deletes the lab
+- AND overall success requires complete deletion and successful report collection

@@ -1,1 +1,3 @@
 pyavd[ansible]==6.5.0
+anta==1.10.0
+PyYAML==6.0.3

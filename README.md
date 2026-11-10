@@ -1,64 +1,67 @@
 # Drydock
 
-Drydock will create temporary switch labs for tests before network deployment.
-A digital twin is an emulated copy of a network.
+Drydock creates temporary switch labs for automated tests before network deployment.
+The CLI deploys demo infrastructure, starts the six-switch example, runs AVD-managed ANTA tests, retains reports, and deletes the lab.
+You destroy the shared infrastructure after the demo.
+The implementation passed offline tests. Live runtime acceptance remains open.
 
-This repository contains an anonymized AVD example, an offline build workflow, and an active OpenSpec proposal.
-It does not contain a lab service or a working digital twin workflow.
+## Run a demo
 
-## Build the example
+Follow [the operator instructions](docs/demo-flow.md) for prerequisites, deployment, testing, reports, and teardown.
+The main commands are:
 
-See [the offline example instructions](examples/evpn-symmetric-irb/README.md) for prerequisites, commands, outputs, and validation limits.
-The example uses `pyavd[ansible]==6.5.0` and builds exactly six switch configurations.
-The offline workflow also tests a Containerlab bundle with six switches and a SHA-256 digest.
-It needs no cloud account, installed device image, or live credentials.
-An offline build does not establish working MLAG or a functioning digital twin.
+```sh
+.venv/bin/python -m drydock --environment artifacts/environment.yml infra deploy
+.venv/bin/python -m drydock --environment artifacts/environment.yml test --help
+.venv/bin/python -m drydock --environment artifacts/environment.yml infra destroy
+```
 
-## First milestone
+The flow uses an existing Google Cloud project, GKE Standard, clabernetes, and temporary workers for each lab.
+Switches boot with rendered startup configurations.
+The operator machine stays outside GKE and reaches eAPI through internal Kubernetes tunnels.
+The `arista.avd.anta_runner` role generates catalogs from the bundled AVD structured configurations and runs the tests.
+No service framework, database, or direct switch connection command is required.
 
-A GitHub Actions workflow will build an example with AVD, create a lab, run ANTA, save results, and delete the lab.
-The workflow targets trusted contributors in private GitHub repositories.
-Labs contain switches only, starting with cEOS. CloudVision is permanently excluded.
+Labs expire after two hours by default, with a four-hour maximum.
+An independent cleaner runs every five minutes and retries incomplete deletion indefinitely.
+The target is complete deletion within thirty minutes after expiry while provider APIs are available.
+Live timing evidence is still required.
+Shared infrastructure has no automatic expiry. You own its teardown.
 
-The example contains two spines and four leaves arranged as two MLAG pairs.
-MLAG lets two switches act as one logical pair.
-The example preserves the reference configuration behavior with generic names, synthetic addresses, and lab credentials supplied at runtime.
+## Build and test offline
 
-GKE Standard and clabernetes are the infrastructure direction.
-GitHub Actions owns AVD, ANTA, and test reports.
-Drydock owns lab creation, readiness, private management access, and cleanup.
-The framework, database, runner deployment, and provisioning tools remain undecided.
+See [the example instructions](examples/evpn-symmetric-irb/README.md) for build dependencies, credentials, and output paths.
+The example uses `pyavd[ansible]==6.5.0` and contains two spines and two MLAG leaf pairs.
+It uses generic names, synthetic addresses, and runtime lab credentials.
+The bundle contains the topology, interface mapping, startup configurations, and matching structured configurations.
+Keep the bundle private because it contains authentication material.
+
+After the documented example build, run:
+
+```sh
+make test
+make spec-check
+```
+
+The offline GitHub workflow builds the example and runs these gates.
+It generates ANTA catalogs in dry-run mode without contacting switches or cloud APIs.
+GitHub Actions orchestration for live labs remains follow-up work.
+Labs contain switches only. CloudVision and host containers remain excluded.
+
+## Acceptance
+
+The milestone requires passing routing, EVPN, VXLAN, switch-link, and MLAG tests on both pairs.
+It also requires saved reports and evidence of complete cleanup across success and failure paths.
+Missing, skipped, errored, or failed required results prevent acceptance.
+A passing offline test or OpenSpec result does not prove working MLAG or a supported runtime.
+
+The separate MLAG investigation remains open.
+Drydock includes no experimental firewall workaround and makes no claim about its suspected cause.
+See [the reference notes](docs/references.md) for the source material and prior limitations.
 
 ## Work with OpenSpec
 
-Use OpenSpec 1.16.0. The bootstrap used the standalone CLI.
-Run these commands from this repository:
-
-```sh
-make spec-check
-make spec-status
-```
-
-OpenSpec generated the Codex skills in `.agents/skills/`.
-Use `$openspec-propose` to plan a change and `$openspec-apply-change` to implement an authorized change.
-Use `$openspec-archive-change` after implementation and validation.
-
-The first proposal is [add-digital-twin-pipeline](openspec/changes/add-digital-twin-pipeline/proposal.md).
-Proposed requirements stay under `openspec/changes/` until implementation and archive.
-Current implemented requirements belong under `openspec/specs/`, which is empty at bootstrap.
-
-## Acceptance and remaining decisions
-
-The milestone requires working MLAG, passing network tests, saved reports, and evidence that temporary resources are deleted.
-Cleanup must also cover failures, cancellation, timeout, and loss of the runner.
-A passing OpenSpec result establishes document structure only.
-
-The previous clabernetes experiment left MLAG unresolved.
-Its firewall workaround and suspected connection-tracking cause are not accepted Drydock behavior.
-The separate investigation must establish a supported runtime before acceptance.
-
-The proposal records configuration delivery, the service boundary, lab expiry, and development infrastructure lifetime as decisions before implementation.
-No fixed budget cap or lab timeout is agreed.
-The eventual 1,000-device target is outside this milestone.
-
-See [the reference notes](docs/references.md) for the source material and investigation context.
+Use OpenSpec 1.16.0 and [the active change](openspec/changes/add-digital-twin-pipeline/proposal.md).
+Run `make spec-status` to see its state.
+Keep proposals under `openspec/changes/` until implementation and live acceptance are complete.
+Do not archive this change based on offline evidence alone.

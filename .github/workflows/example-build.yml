@@ -35,3 +35,5 @@ jobs:
           export DRYDOCK_LAB_PASSWORD_HASH="$(printf '%s' "$DRYDOCK_LAB_PASSWORD" | openssl passwd -6 -stdin)"
           make example-build
           make example-bundle-test
+      - name: Test the CLI offline
+        run: make test

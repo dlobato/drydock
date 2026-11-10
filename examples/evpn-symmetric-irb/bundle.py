@@ -21,9 +21,11 @@ def build_bundle(source_dir: Path, image: str) -> Path:
         topology_path.name: yaml.safe_dump(topology, sort_keys=False).encode(),
         "interface_mapping.json": (source_dir / "interface_mapping.json").read_bytes(),
     }
-    for node in topology["topology"]["nodes"].values():
+    for name, node in topology["topology"]["nodes"].items():
         config_path = node["startup-config"]
         files[config_path] = (source_dir / config_path).read_bytes()
+        structured_path = f"intended/structured_configs/{name}.yml"
+        files[structured_path] = (source_dir / structured_path).read_bytes()
 
     # Normalize metadata so only the bundled content determines the digest.
     with tempfile.TemporaryDirectory(dir=source_dir) as temporary_dir:
