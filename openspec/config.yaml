@@ -1,0 +1,38 @@
+schema: spec-driven
+
+context: |
+  Drydock supplies temporary switch labs for tests before deployment.
+  The first milestone is a GitHub Actions workflow for trusted contributors
+  in private repositories: build with AVD, create a lab, run ANTA, retain
+  results, and delete all temporary lab resources.
+  Labs contain switches only, starting with cEOS. CloudVision and host
+  containers are permanently excluded from labs.
+  The example derives from the PS EVPN-symmetric-IRB reference at AVD 6.4.0:
+  two spines and four leaves in two MLAG pairs. Anonymize names, addresses,
+  identifiers, and credentials. Preserve network behavior and do not modify
+  reference repositories.
+  GKE Standard with clabernetes is the infrastructure direction. Retain a
+  shared control plane and system workers, with dedicated temporary workers
+  per lab. GitHub Actions owns AVD, ANTA, and results. Drydock owns lifecycle,
+  readiness, private management access, and cleanup.
+  A complete Containerlab topology and rendered configurations form the
+  proposed input. Direct startup configuration versus eAPI delivery remains
+  a decision. Framework, database, service boundary, runner deployment, and
+  provisioning tools are not selected.
+  MLAG is an unresolved external investigation. No firewall workaround or
+  connection-tracking diagnosis is accepted. Require explicit MLAG coverage.
+  Cleanup must cover success, failure, cancellation, timeout, and runner loss.
+  No fixed budget cap or numeric lab timeout is agreed. The 1,000-device
+  target is outside the first milestone. Do not provision cloud resources
+  during bootstrap.
+
+rules:
+  proposal:
+    - Distinguish agreed scope, proposed design, and unresolved decisions.
+    - State exclusions and reference provenance without copying source data.
+  design:
+    - Keep unselected technologies and runtime versions explicit.
+    - Cover cleanup independent of the GitHub runner and MLAG acceptance.
+  tasks:
+    - Put material design decisions before implementation tasks.
+    - Include failure-path evidence and keep unperformed work unchecked.
