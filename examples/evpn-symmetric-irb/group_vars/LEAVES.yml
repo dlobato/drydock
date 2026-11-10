@@ -1,0 +1,92 @@
+---
+type: l3leaf
+custom_structured_configuration_vlans:
+  - id: 1
+    name: unused
+    state: suspend
+l3leaf:
+  defaults:
+    virtual_router_mac_address: 02:00:00:00:00:01
+    platform: 7050X3
+    uplink_ipv4_pool: 10.242.0.0/24
+    loopback_ipv4_pool: 10.240.1.0/24
+    vtep_loopback_ipv4_pool: 10.241.0.0/24
+    uplink_switches: [spine1, spine2]
+    mlag: true
+    mlag_peer_ipv4_pool: 10.243.0.0/24
+    mlag_peer_l3_ipv4_pool: 10.243.1.0/24
+    mlag_dual_primary_detection: true
+    spanning_tree_priority: 4096
+    bgp_defaults:
+      - timers bgp 5 15
+      - neighbor default send-community
+  node_groups:
+    - group: PAIR1
+      bgp_as: "65100.1"
+      nodes:
+        - name: leaf1
+          id: 1
+          mgmt_ip: 192.0.2.21/24
+          uplink_switch_interfaces: [Ethernet1, Ethernet1]
+        - name: leaf2
+          id: 2
+          mgmt_ip: 192.0.2.22/24
+          uplink_switch_interfaces: [Ethernet2, Ethernet2]
+    - group: PAIR2
+      bgp_as: "65100.2"
+      nodes:
+        - name: leaf3
+          id: 3
+          mgmt_ip: 192.0.2.23/24
+          uplink_switch_interfaces: [Ethernet3, Ethernet3]
+        - name: leaf4
+          id: 4
+          mgmt_ip: 192.0.2.24/24
+          uplink_switch_interfaces: [Ethernet4, Ethernet4]
+tenants:
+  - name: tenant_one
+    mac_vrf_vni_base: 20000
+    enable_mlag_ibgp_peering_vrfs: true
+    vrfs:
+      - name: VRF_A
+        vrf_vni: 2001
+        vtep_diagnostic:
+          loopback: 110
+          loopback_ip_range: 10.244.0.0/24
+        svis:
+          - id: 110
+            name: segment_a1
+            enabled: true
+            ip_address_virtual: 10.10.110.1/24
+          - id: 130
+            name: segment_a2
+            enabled: true
+            ip_address_virtual: 10.10.130.1/24
+  - name: tenant_two
+    mac_vrf_vni_base: 20000
+    enable_mlag_ibgp_peering_vrfs: true
+    vrfs:
+      - name: VRF_B
+        vrf_vni: 2002
+        vtep_diagnostic:
+          loopback: 111
+          loopback_ip_range: 10.244.1.0/24
+        svis:
+          - id: 120
+            name: segment_b1
+            enabled: true
+            ip_address_virtual: 10.10.120.1/24
+          - id: 140
+            name: segment_b2
+            enabled: true
+            ip_address_virtual: 10.10.140.1/24
+  - name: tenant_local
+    l2vlans:
+      - id: 3
+        name: native
+        vxlan: false
+port_profiles:
+  - profile: endpoint_trunk
+    mode: trunk
+    spanning_tree_portfast: edge
+    vlans: 110,120,130,140

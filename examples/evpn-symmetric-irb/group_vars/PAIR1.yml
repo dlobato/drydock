@@ -1,0 +1,18 @@
+---
+servers:
+  - name: endpoint1
+    adapters:
+      - endpoint_ports: [Ethernet1, Ethernet2]
+        switch_ports: [Ethernet4, Ethernet4]
+        switches: [leaf1, leaf2]
+        profile: endpoint_trunk
+        port_channel:
+          mode: active
+  - name: endpoint2
+    adapters:
+      - endpoint_ports: [Ethernet1, Ethernet2]
+        switch_ports: [Ethernet5, Ethernet5]
+        switches: [leaf1, leaf2]
+        profile: endpoint_trunk
+        port_channel:
+          mode: active

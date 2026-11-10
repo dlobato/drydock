@@ -3,7 +3,8 @@
 ## Context
 
 See [the proposal](proposal.md) for the milestone and [the reference notes](../../../docs/references.md) for observed source behavior.
-The repository currently contains no implementation.
+The first PR implements only the anonymized example and an offline build workflow.
+The broader milestone remains active.
 The reference deploys configurations through eAPI after ACT starts the lab.
 The earlier Drydock direction starts switches with the proposed configurations.
 
@@ -22,6 +23,20 @@ It does not establish capacity for large labs.
 It does not migrate the Vantage project or change the source fabric.
 
 ## Decisions
+
+### Build the example offline first
+
+The authorized first PR uses `pyavd[ansible]==6.5.0` and the matching `arista.avd` collection.
+It renders two spines and two MLAG leaf pairs without the reference repository or live credentials.
+Runtime lab credentials enter through environment variables. The build workflow supplies synthetic values.
+Generated files stay ignored and are not uploaded by this workflow.
+AVD validates its input models. Generated configurations require no separate assertion tests.
+The first PR records manual inspection of six configurations, both MLAG pairs, all spine links, and the routing and overlay configuration.
+
+Containerlab integration, GKE, lifecycle commands, cleanup, live ANTA, and runtime versions remain deferred.
+The separate MLAG investigation does not block offline generation.
+An offline build does not prove working MLAG or a functioning digital twin.
+See [the example instructions](../../../examples/evpn-symmetric-irb/README.md) for commands and output locations.
 
 ### Propose startup configuration delivery
 
@@ -76,7 +91,7 @@ The shared development environment lifetime requires operator approval before pr
 
 ### Keep test ownership in GitHub Actions
 
-Build the anonymized example with AVD 6.4.0 as the starting compatibility baseline.
+Build the anonymized example with AVD 6.5.0 as the offline baseline.
 Run ANTA through the returned private management inventory after infrastructure readiness.
 Keep convergence waits bounded and record runtime versions with the submitted bundle digest.
 Pin the supported runtime only after the separate MLAG investigation provides evidence.

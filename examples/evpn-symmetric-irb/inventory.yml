@@ -1,0 +1,22 @@
+---
+all:
+  vars:
+    ansible_connection: local
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  children:
+    FABRIC:
+      children:
+        SPINES:
+          hosts:
+            spine1:
+            spine2:
+        LEAVES:
+          children:
+            PAIR1:
+              hosts:
+                leaf1:
+                leaf2:
+            PAIR2:
+              hosts:
+                leaf3:
+                leaf4:
