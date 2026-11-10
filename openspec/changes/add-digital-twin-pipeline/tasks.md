@@ -1,7 +1,8 @@
 # Tasks
 
-These tasks describe future implementation. Bootstrap does not complete any of them.
-Review the proposed design before implementation or cloud provisioning.
+The first PR covers only the anonymized example and offline build evidence.
+Runtime design decisions and the separate MLAG investigation do not block offline generation.
+The broader milestone remains active. Unperformed work stays unchecked.
 
 ## 1. Establish the implementation baseline
 
@@ -11,11 +12,11 @@ Review the proposed design before implementation or cloud provisioning.
 
 ## 2. Build the anonymized example
 
-- [ ] 2.1 Add the six-switch AVD inventory with synthetic names, addresses, and identifiers. Demonstrate two spines and two MLAG pairs in generated output.
-- [ ] 2.2 Add pinned AVD dependencies and build commands. Demonstrate a clean build with AVD 6.4.0 without source repository access.
-- [ ] 2.3 Supply lab credentials at runtime. Inspect retained build output to establish that it contains no source identity or authentication material.
+- [x] 2.1 Add the six-switch AVD inventory with synthetic names, addresses, and identifiers. Demonstrate two spines and two MLAG pairs in generated output.
+- [x] 2.2 Add pinned AVD dependencies and build commands. Demonstrate a clean build with AVD 6.5.0 without source repository access.
+- [x] 2.3 Supply lab credentials at runtime. Inspect retained build output to establish that it contains no source identity or authentication material.
 - [ ] 2.4 Produce the complete switch-only Containerlab topology and configuration bundle. Demonstrate matching device identities, links, and a recorded bundle digest.
-- [ ] 2.5 Document the example build and test boundary. Run the documented commands from a clean checkout and compare the topology with the reference behavior.
+- [x] 2.5 Document the example build and test boundary. Run the documented commands from a clean checkout and compare the topology with the reference behavior.
 
 ## 3. Implement the lab lifecycle
 

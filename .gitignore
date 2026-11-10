@@ -1,4 +1,6 @@
 .venv/
+.collections/
+.ansible/
 __pycache__/
 .env
 .env.*

@@ -1,0 +1,19 @@
+---
+type: spine
+bgp_update_wait_for_convergence: true
+spine:
+  defaults:
+    platform: 7050X3
+    spanning_tree_mode: none
+    bgp_as: "65100.0"
+    loopback_ipv4_pool: 10.240.0.0/24
+    bgp_defaults:
+      - timers bgp 5 15
+      - neighbor default send-community
+  nodes:
+    - name: spine1
+      id: 1
+      mgmt_ip: 192.0.2.11/24
+    - name: spine2
+      id: 2
+      mgmt_ip: 192.0.2.12/24

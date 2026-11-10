@@ -7,7 +7,8 @@ context: |
   results, and delete all temporary lab resources.
   Labs contain switches only, starting with cEOS. CloudVision and host
   containers are permanently excluded from labs.
-  The example derives from the PS EVPN-symmetric-IRB reference at AVD 6.4.0:
+  The example derives from the PS EVPN-symmetric-IRB reference with
+  pyavd[ansible]==6.5.0 as the authorized offline build baseline:
   two spines and four leaves in two MLAG pairs. Anonymize names, addresses,
   identifiers, and credentials. Preserve network behavior and do not modify
   reference repositories.
@@ -21,6 +22,8 @@ context: |
   provisioning tools are not selected.
   MLAG is an unresolved external investigation. No firewall workaround or
   connection-tracking diagnosis is accepted. Require explicit MLAG coverage.
+  The first PR implements only the example and an offline build workflow.
+  Runtime compatibility and the MLAG investigation do not block rendering.
   Cleanup must cover success, failure, cancellation, timeout, and runner loss.
   No fixed budget cap or numeric lab timeout is agreed. The 1,000-device
   target is outside the first milestone. Do not provision cloud resources

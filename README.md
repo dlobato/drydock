@@ -3,8 +3,15 @@
 Drydock will create temporary switch labs for tests before network deployment.
 A digital twin is an emulated copy of a network.
 
-This repository currently contains the project bootstrap and an OpenSpec proposal.
+This repository contains an anonymized AVD example, an offline build workflow, and an active OpenSpec proposal.
 It does not contain a lab service or a working digital twin workflow.
+
+## Build the example
+
+See [the offline example instructions](examples/evpn-symmetric-irb/README.md) for prerequisites, commands, outputs, and validation limits.
+The example uses `pyavd[ansible]==6.5.0` and builds exactly six switch configurations.
+The build-only GitHub Actions workflow needs no cloud account, device image, or live credentials.
+An offline build does not establish working MLAG or a functioning digital twin.
 
 ## First milestone
 
@@ -12,9 +19,9 @@ A GitHub Actions workflow will build an example with AVD, create a lab, run ANTA
 The workflow targets trusted contributors in private GitHub repositories.
 Labs contain switches only, starting with cEOS. CloudVision is permanently excluded.
 
-The example will contain two spines and four leaves arranged as two MLAG pairs.
+The example contains two spines and four leaves arranged as two MLAG pairs.
 MLAG lets two switches act as one logical pair.
-The example will preserve the reference behavior with generic names, synthetic addresses, and lab credentials supplied at runtime.
+The example preserves the reference configuration behavior with generic names, synthetic addresses, and lab credentials supplied at runtime.
 
 GKE Standard and clabernetes are the infrastructure direction.
 GitHub Actions owns AVD, ANTA, and test reports.

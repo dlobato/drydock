@@ -40,7 +40,8 @@ None. The repository contains no implemented capability specifications.
 ## Impact
 
 Implementation will add the AVD example, lab lifecycle integration, GitHub Actions workflow, tests, and operator instructions.
-The reference uses AVD 6.4.0. The compatible cEOS, clabernetes, and Kubernetes versions still require evidence.
+The first offline example uses `pyavd[ansible]==6.5.0`, matching the current reference dependency.
+The compatible cEOS, clabernetes, and Kubernetes versions still require evidence.
 
 The sources are the Vantage digital twin pipeline and the PS EVPN-symmetric-IRB fabric.
 See [the reference notes](../../../docs/references.md) for their local paths and observed limitations.

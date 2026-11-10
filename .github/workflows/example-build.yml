@@ -1,0 +1,35 @@
+name: Offline example build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install OpenSpec
+        run: npm install --global @fission-ai/openspec@1.16.0
+      - name: Validate specifications
+        run: make spec-check
+      - name: Install example dependencies
+        run: make example-deps
+      - name: Build the example
+        env:
+          DRYDOCK_LAB_PASSWORD: offline-example-only
+        run: |
+          export DRYDOCK_LAB_PASSWORD_HASH="$(printf '%s' "$DRYDOCK_LAB_PASSWORD" | openssl passwd -6 -stdin)"
+          make example-build

@@ -1,0 +1,51 @@
+---
+fabric_name: FABRIC
+dc_name: EXAMPLE
+underlay_routing_protocol: ebgp
+overlay_routing_protocol: ebgp
+evpn_prevent_readvertise_to_server: true
+underlay_filter_peer_as: true
+evpn_vlan_aware_bundles: false
+evpn_overlay_bgp_rtc: true
+bgp_as_notation: asdot
+bgp_maximum_paths: 128
+bgp_ecmp: 128
+bgp_distance:
+  external_routes: 20
+  internal_routes: 200
+  local_routes: 200
+bgp_graceful_restart:
+  enabled: true
+  restart_time: 300
+bgp_update_wait_install: true
+bgp_peer_groups:
+  ipv4_underlay_peers:
+    cleartext_password: "{{ lookup('ansible.builtin.env', 'DRYDOCK_LAB_PASSWORD') }}"
+  evpn_overlay_peers:
+    cleartext_password: "{{ lookup('ansible.builtin.env', 'DRYDOCK_LAB_PASSWORD') }}"
+  mlag_ipv4_underlay_peer:
+    cleartext_password: "{{ lookup('ansible.builtin.env', 'DRYDOCK_LAB_PASSWORD') }}"
+  mlag_ipv4_vrfs_peer:
+    name: MLAG-IPv4-VRFS-PEER
+    cleartext_password: "{{ lookup('ansible.builtin.env', 'DRYDOCK_LAB_PASSWORD') }}"
+bfd_multihop:
+  interval: 300
+  min_rx: 300
+  multiplier: 3
+default_igmp_snooping_enabled: false
+p2p_uplinks_mtu: 9214
+mgmt_gateway: 192.0.2.1
+aaa_settings:
+  local_users:
+    - name: labadmin
+      privilege: 15
+      role: network-admin
+      sha512_password: "{{ lookup('ansible.builtin.env', 'DRYDOCK_LAB_PASSWORD_HASH') }}"
+default_interfaces:
+  - types: [spine]
+    platforms: [7050X3]
+    downlink_interfaces: [Ethernet1-48]
+  - types: [l3leaf]
+    platforms: [7050X3]
+    uplink_interfaces: [Ethernet1, Ethernet2]
+    mlag_interfaces: [Ethernet6, Ethernet7]

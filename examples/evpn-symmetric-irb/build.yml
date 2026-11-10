@@ -1,0 +1,27 @@
+---
+- name: Build the six-switch example offline
+  hosts: FABRIC
+  gather_facts: false
+  vars:
+    root_dir: "{{ playbook_dir }}/../../artifacts/example"
+  pre_tasks:
+    - name: Require runtime lab credentials
+      ansible.builtin.assert:
+        that:
+          - lookup('ansible.builtin.env', 'DRYDOCK_LAB_PASSWORD') | length > 0
+          - lookup('ansible.builtin.env', 'DRYDOCK_LAB_PASSWORD_HASH') is match('^\$6\$[^$]+\$[^$]+$')
+        fail_msg: Set DRYDOCK_LAB_PASSWORD and DRYDOCK_LAB_PASSWORD_HASH as documented.
+      run_once: true
+      no_log: true
+  tasks:
+    - name: Generate structured configurations
+      ansible.builtin.import_role:
+        name: arista.avd.eos_designs
+      vars:
+        eos_designs_documentation:
+          topology_csv: true
+          p2p_links_csv: true
+          connected_endpoints: true
+    - name: Render switch configurations and documentation
+      ansible.builtin.import_role:
+        name: arista.avd.eos_cli_config_gen

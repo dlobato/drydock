@@ -25,7 +25,8 @@ The selected source fabric is:
 /home/dlobato/workspace/ps/skus/ps-sku-l3ls/EVPN-symmetric-IRB
 ```
 
-It pins `pyavd[ansible]==6.4.0` and contains two spines and two MLAG leaf pairs.
+Its current `pyproject.toml` pins `pyavd[ansible]==6.5.0` and contains two spines and two MLAG leaf pairs.
+The older bootstrap notes named AVD 6.4.0. The first offline PR uses 6.5.0.
 Its server definitions describe attached endpoints. Drydock must not deploy host containers.
 The new example must replace names, addresses, identifiers, and credentials while preserving the topology and network behavior.
 
