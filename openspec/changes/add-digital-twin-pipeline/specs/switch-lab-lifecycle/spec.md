@@ -29,7 +29,7 @@ Drydock MUST report ready only when all requested switches and links exist and t
 It MUST preserve original switch identities in the returned connection inventory.
 Infrastructure readiness MUST NOT imply routing convergence or ANTA success.
 The operator MUST run outside GKE.
-Management tunnels MUST remain internal test transport and MUST NOT require interactive switch access.
+Management access MUST NOT require interactive switch access.
 
 #### Scenario: Management API unavailable
 
@@ -42,6 +42,20 @@ Management tunnels MUST remain internal test transport and MUST NOT require inte
 - WHEN all requested switches and links exist and all management APIs are reachable from the runner
 - THEN Drydock returns a connection inventory for every original switch name
 - AND the pipeline remains responsible for protocol convergence and network acceptance
+
+### Requirement: Private Pod-IP transport
+
+Management access MUST use private Pod-IP HTTPS from the external runner.
+The CLI MUST discover current endpoints through authenticated Kubernetes access and retain original switch names and Pod identities.
+The demo MUST authenticate with the runtime password and compare reported EOS hostnames with expected switch names.
+The demo skips TLS certificate verification by user agreement and MUST NOT claim certificate-based identity.
+
+#### Scenario: A switch Pod changes during readiness
+
+- WHEN a switch Pod is replaced before authenticated readiness completes
+- THEN the next readiness attempt discovers its current Pod IP and identity
+- AND missing or duplicate switch Pods prevent readiness
+- AND an unexpected EOS hostname prevents readiness
 
 ### Requirement: Private switch-only resources
 

@@ -79,6 +79,22 @@ class AntaRoleTests(unittest.TestCase):
                 anta.invoke(directory, [], self.structured, False, 1)
         kill.assert_called_once()
 
+    def test_role_preserves_connection_inventory_and_receives_pod_address(self):
+        hosts = [{'name': 'leaf1', 'host': '10.251.2.42', 'port': 443, 'pod_uid': 'current-pod'}]
+        process = Mock(returncode=0)
+        process.poll.return_value = 0
+        with tempfile.TemporaryDirectory() as directory, patch('drydock.anta.subprocess.Popen', return_value=process) as spawn:
+            path = Path(directory)
+            saved = json.dumps({'anta_inventory': {'hosts': hosts}})
+            (path / 'inventory.json').write_text(saved)
+            anta.invoke(path, hosts, self.structured, False, 10)
+            self.assertEqual((path / 'inventory.json').read_text(), saved)
+            inventory = json.loads((path / 'ansible-inventory.json').read_text())
+            self.assertEqual(inventory['all']['children']['FABRIC']['hosts']['leaf1'],
+                             {'ansible_host': '10.251.2.42', 'anta_port': 443})
+            command = spawn.call_args.args[0]
+            self.assertEqual(command[command.index('-i') + 1], str(path / 'ansible-inventory.json'))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,6 +6,7 @@
   vars:
     anta_user: labadmin
     anta_password: "{{ lookup('ansible.builtin.env', 'DRYDOCK_LAB_PASSWORD') }}"
+    anta_enable: true
     avd_catalogs_enabled: true
     user_catalogs_enabled: false
     avd_catalogs_extra_fabric_validation: true

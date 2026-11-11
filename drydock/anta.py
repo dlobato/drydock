@@ -20,7 +20,7 @@ def invoke(directory, hosts, structured_dir, dry_run, timeout):
     inventory = {'all': {'vars': {'ansible_connection': 'local',
         'ansible_python_interpreter': sys.executable}, 'children': {'FABRIC': {'hosts': {
             host['name']: {'ansible_host': host['host'], 'anta_port': host['port']} for host in hosts}}}}}
-    save(directory / 'inventory.json', inventory)
+    save(directory / 'ansible-inventory.json', inventory)
     variables = {'root_dir': str(directory), 'structured_dir': str(structured_dir),
                  'anta_runner_dry_run': dry_run}
     save(directory / 'variables.json', variables)
@@ -30,13 +30,13 @@ def invoke(directory, hosts, structured_dir, dry_run, timeout):
         'ANSIBLE_COLLECTIONS_PATH': str(ROOT / '.collections'), 'ANSIBLE_LOCAL_TEMP': str(ROOT / '.ansible/tmp'),
         'ANSIBLE_LOG_PATH': '/dev/null', 'ANSIBLE_NOCOLOR': '1'}
     process = subprocess.Popen([str(Path(sys.executable).with_name('ansible-playbook')),
-        str(PLAYBOOK), '-i', str(directory / 'inventory.json'), '-e', '@' + str(directory / 'variables.json')],
+        str(PLAYBOOK), '-i', str(directory / 'ansible-inventory.json'), '-e', '@' + str(directory / 'variables.json')],
         cwd=ROOT, env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     try:
         process.wait(timeout=timeout)
     finally:
         if process.poll() is None:
-            # Stop Ansible and its worker processes before removing tunnels or temporary inputs.
+            # Stop Ansible and its worker processes before removing temporary inputs.
             os.killpg(process.pid, signal.SIGTERM)
             try:
                 process.wait(timeout=5)

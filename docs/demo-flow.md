@@ -5,10 +5,11 @@ You deploy infrastructure for a demo session and destroy it afterward.
 The existing Google Cloud project survives teardown.
 No service framework or database is required.
 
-This implementation passed offline tests only.
-No GKE deployment, cleanup image build, live switch test, or deletion timing test ran for this change.
-The cEOS, clabernetes, and GKE combination still needs live acceptance, including both MLAG pairs without the experimental firewall rule.
-Do not describe the runtime as supported before that acceptance.
+The actual November 11 GKE CLI run passed all 54 ANTA results, both MLAG pairs, and complete lab deletion.
+Standalone create, authenticated status, invalid-password rejection, and repeated deletion also passed.
+The tests used a corrected private clabernetes runtime and direct Pod-IP access.
+See [the live validation record](live-gke-validation.md) for tested behavior, fixes, and limits.
+The results apply only to the recorded private build. They do not qualify the official published clabernetes release.
 
 ## Prepare the operator machine
 
@@ -16,13 +17,27 @@ Use Python 3.13, Google Cloud CLI, `gke-gcloud-auth-plugin`, `kubectl`, Helm 3, 
 Run the commands from the repository root.
 The operator machine stays outside GKE.
 It needs HTTPS access to Google Cloud, the GKE API, and the image registries.
-Switch management uses authenticated Kubernetes tunnels through the GKE API.
+
+Switch management uses private Pod-IP HTTPS on TCP port 443.
+The operator machine needs private routes to the GKE Pods and network rules that permit this access.
+You can deploy infrastructure from a separate operator machine through the cloud APIs.
+Run lab status and test commands from the machine with private Pod routes.
+
+The same-VPC private GCE VM passed this path in both the separate experiment and the actual CLI test.
+GitHub registration is necessary only when GitHub Actions schedules jobs on that machine.
+The CLI discovers switch addresses through authenticated Kubernetes access.
+
+The private demo disables TLS certificate verification by user agreement.
+Password authentication and EOS hostname comparison remain required.
+The runner sends credentials without certificate-based proof of the switch identity.
 No public switch endpoint or interactive connection command is provided.
 
 Use an existing, dedicated demo project with billing and sufficient GKE and Compute Engine quotas.
 Enable the Container, Compute Engine, IAM, and Artifact Registry APIs before deployment.
 Authenticate `gcloud` as an operator that can manage clusters, networks, service accounts, custom IAM roles, and project IAM bindings.
 The operator also needs permission to act as the created service accounts and administer Kubernetes resources.
+For a service-account runner, bind Kubernetes permissions to the identity reported by that runner.
+GKE can report a numeric service-account ID instead of its email address.
 This bootstrap uses project-wide permissions for its dedicated service accounts.
 Do not deploy it into a shared production project.
 
@@ -36,6 +51,10 @@ Install the Python dependencies:
 ```sh
 make example-deps
 ```
+
+If the runner uses a read-only container, supply writable Ansible temporary directories.
+The live runner used `ANSIBLE_REMOTE_TEMP=/tmp/ansible-remote` with a writable `/tmp` mount.
+It also supplied writable mounts for `.ansible`, the ownership directory, and reports.
 
 ## Prepare the cleaner image
 
@@ -133,7 +152,8 @@ Overlapping synthetic management addresses remain inside the lab runtime.
 Concurrent lab isolation still requires live evidence.
 
 The command waits for current topology and switch conditions, all twelve switch links, and ready switch pods without restarts.
-It opens localhost-only tunnels and authenticates to every eAPI endpoint.
+It discovers the current private Pod addresses and authenticates to every eAPI endpoint.
+Each readiness attempt refreshes those addresses and Pod identities.
 It also compares each reported hostname with the bundle identity.
 Infrastructure readiness does not establish protocol convergence.
 
@@ -145,6 +165,7 @@ The command retries the complete ANTA catalog every ten seconds until all requir
 It never uses a previous ANTA command cache.
 
 The `arista.avd.anta_runner` role generates catalogs from the bundled structured configurations.
+The role enables privileged mode for generated ping tests.
 Drydock does not build its own catalogs.
 The offline example produces 54 required results with the pinned versions.
 The generated catalogs cover:
@@ -160,7 +181,7 @@ The catalogs establish switch state, protocol state, and generated switch-to-swi
 They do not prove tenant application traffic between hosts.
 Labs contain no host containers or CloudVision.
 
-The command closes tunnels and attempts deletion after success, failure, timeout, SIGINT, or SIGTERM.
+The command attempts deletion after success, failure, timeout, SIGINT, or SIGTERM.
 It waits up to thirty minutes for immediate cleanup.
 An exit code of zero requires passing ANTA results, saved reports, and completed lab deletion.
 Test and cleanup outcomes remain separate in the final JSON result.
@@ -176,12 +197,12 @@ The report files are:
 
 - `run.json`: provenance, runtime, separate test and cleanup outcomes, and overall status.
 - `anta.json` and `anta.xml`: ANTA JSON and JUnit results, including missing required results in JUnit.
-- `expected.json` and `inventory.json`: expected result counts and original switch names with temporary local ports.
+- `expected.json` and `inventory.json`: expected result counts, original switch names, private Pod addresses, and Pod identities.
 - `anta/avd_catalogs/` and `anta/reports/`: AVD-generated catalogs and JSON, CSV, and Markdown reports.
 - `diagnostics.json` and `network.json`: available resource status and read-only protocol diagnostics.
 - `events.json`: final test and cleanup events.
 
-The local ports expire when the command closes its tunnels.
+Pod addresses can change when Kubernetes replaces a Pod and disappear when the lab is deleted.
 Treat the inventory as a record of that run.
 Drydock keeps bundled structured configurations in a private temporary directory outside the reports.
 It retains no startup files, Kubernetes Secrets, arbitrary container logs, or authentication material in the reports.
@@ -211,8 +232,8 @@ Keep `DRYDOCK_LAB_PASSWORD` set for authenticated status:
 .venv/bin/python -m drydock --environment artifacts/environment.yml lab delete "$DRYDOCK_LAB_ID"
 ```
 
-Status returns current readiness and private service identities.
-Its temporary probe tunnels close before it returns.
+Status returns current readiness, private Pod addresses, and Pod identities.
+It authenticates directly to each discovered eAPI endpoint.
 Deletion preserves other labs, the system pool, and shared infrastructure.
 Repeated deletion is safe.
 Ownership mismatches cause refusal and require operator investigation.
@@ -232,7 +253,8 @@ It revisits deleted records to catch late asynchronous allocations.
 It also refreshes registry tokens for running labs every five minutes because Google access tokens expire before the maximum lab lifetime.
 
 The deletion target is thirty minutes after expiry while cloud and Kubernetes APIs are available.
-This target still needs live timing evidence.
+A runner-loss test observed complete deletion 6 minutes 16 seconds after expiry.
+That single observation does not establish timing during outages or concurrent switch isolation.
 Records retain cleanup errors and an `overdue` flag after that boundary.
 The cleaner exits nonzero if any deletion or token refresh fails.
 The cleaner does not forcibly remove finalizers or delete resources with different ownership.
@@ -286,9 +308,9 @@ make spec-check
 Supply the documented example credentials and an explicit image value before the bundle test.
 The existing offline GitHub workflow runs these gates.
 It does not deploy infrastructure or run a live lab.
-Keep live acceptance and the separate MLAG investigation open until their evidence exists.
+Keep the remaining lifecycle and GitHub tasks open until their evidence exists.
 
-The implementation passed 33 offline CLI tests and four bundle tests on Linux with Python 3.13.
+The implementation passes 38 offline CLI tests on Linux with Python 3.13.
 The actual AVD role generated 54 dry-run results from the six-switch build.
 The example build, strict OpenSpec validation, and dependency consistency gate also passed.
-These results do not establish runtime support or live cleanup timing.
+These offline results do not establish runtime support.

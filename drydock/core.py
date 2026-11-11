@@ -103,9 +103,9 @@ class Environment:
         return run(["gcloud", *args, f"--project={self.project}", "--quiet", "--format=json"], data=data)
 
     def kube_command(self, *args):
-        command = ["kubectl", "--request-timeout=30s"]
-        if not os.environ.get("KUBERNETES_SERVICE_HOST"):
-            command += ["--kubeconfig", str(self.directory / "kubeconfig")]
+        kubeconfig = ("/environment/kubeconfig" if os.environ.get("KUBERNETES_SERVICE_HOST")
+                      else str(self.directory / "kubeconfig"))
+        command = ["kubectl", "--request-timeout=30s", "--kubeconfig", kubeconfig]
         return [*command, *args]
 
     def kube(self, *args, data=None):

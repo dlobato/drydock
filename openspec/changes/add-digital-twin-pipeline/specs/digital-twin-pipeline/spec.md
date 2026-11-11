@@ -86,5 +86,5 @@ Dry-run reports MUST NOT establish network acceptance.
 #### Scenario: The CLI test completes
 
 - WHEN a valid bundle passes bounded AVD-managed ANTA tests
-- THEN the CLI retains available reports, closes internal tunnels, and deletes the lab
+- THEN the CLI retains available reports and deletes the lab
 - AND overall success requires complete deletion and successful report collection

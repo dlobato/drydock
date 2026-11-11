@@ -2,10 +2,13 @@
 
 from dataclasses import asdict
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+
+import yaml
 
 from drydock import cloud
 from drydock.core import Environment, save
@@ -28,6 +31,20 @@ class InfrastructureTests(unittest.TestCase):
         self.patch_directory.start()
         self.addCleanup(self.patch_directory.stop)
         save(directory / 'ownership.json', {'environment': asdict(ENV), 'state': 'ready'})
+
+    def test_cleaner_uses_mounted_service_account_without_token_arguments(self):
+        with patch.dict(os.environ, {'KUBERNETES_SERVICE_HOST': '10.252.0.1'}):
+            command = ENV.kube_command('get', 'configmaps')
+        self.assertEqual(command[command.index('--kubeconfig') + 1], '/environment/kubeconfig')
+        configmap = next(o for o in cloud.cleaner_objects(ENV)
+                         if o['kind'] == 'ConfigMap' and o['metadata']['name'] == 'environment')
+        config = yaml.safe_load(configmap['data']['kubeconfig'])
+        self.assertEqual(config['clusters'][0]['cluster'], {
+            'server': 'https://kubernetes.default.svc',
+            'certificate-authority': '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'})
+        self.assertEqual(config['users'][0]['user'], {
+            'tokenFile': '/var/run/secrets/kubernetes.io/serviceaccount/token'})
+        self.assertNotIn('--token', command)
 
     def test_inventory_selects_dependents_without_selecting_other_networks(self):
         data = inventory()

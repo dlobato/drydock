@@ -17,6 +17,13 @@ It MUST preserve the selected reference behavior for EVPN symmetric IRB, routing
 - THEN the build produces intended configurations for exactly six switches
 - AND the topology preserves two MLAG pairs and all leaf-to-spine connections
 
+#### Scenario: Build anonymized MLAG peer VLANs
+
+- WHEN a contributor builds the example with the reference VRF VNIs 1001 and 1002
+- THEN all four leaves use peer VLANs 4000 and 4001 for VRF_A and VRF_B
+- AND generated VLAN IDs and VLAN interface numbers stay within 1 through 4094
+- AND the primary MLAG interface Vlan4094 stays in the default VRF
+
 ### Requirement: Anonymous source data
 
 The example MUST use generic device and tenant names, synthetic addresses and identifiers, and credentials supplied at runtime.

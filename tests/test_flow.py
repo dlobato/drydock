@@ -1,7 +1,7 @@
 """Offline contract tests. No provider calls or device images."""
 
-from contextlib import contextmanager
 from dataclasses import asdict
+import base64
 import io
 import json
 from pathlib import Path
@@ -9,7 +9,7 @@ import signal
 import tarfile
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import yaml
 
@@ -109,7 +109,7 @@ class FakeEnvironment:
                 raise RuntimeError('provider deletion failed')
             self.worker_pools = [p for p in self.worker_pools if p['name'] != args[3]]
         if args[:2] == ('auth', 'print-access-token'):
-            return 'secret-token'
+            return json.dumps({'token': 'secret-token'})
         return '{}'
 
     def assert_record_before_pool(self, lab):
@@ -156,6 +156,14 @@ class OwnershipTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.bundle = make_bundle(self.temp.name)
         self.env = FakeEnvironment()
+
+    def test_registry_auth_extracts_token_from_gcloud_json(self):
+        registry = 'europe-west1-docker.pkg.dev'
+        cloud.registry_secret(self.env, LAB, registry)
+        secret = self.env.applied[-1]
+        config = json.loads(secret['stringData']['.dockerconfigjson'])
+        auth = base64.b64decode(config['auths'][registry]['auth']).decode()
+        self.assertEqual(auth, 'oauth2accesstoken:secret-token')
 
     def test_validation_precedes_allocation(self):
         for lifetime in (0, 241, True):
@@ -265,8 +273,8 @@ class AcceptanceTests(unittest.TestCase):
         with patch('drydock.flow.eapi', return_value=[{'hostname': 'other'}, {'version': 'test'}]):
             with self.assertRaises(ValueError):
                 flow.probe([{'name': 'leaf1', 'port': 12345}], 'secret')
-        with patch('drydock.flow.probe', side_effect=OSError):
-            self.assertIsNone(flow.available_probe([], 'secret'))
+        with patch('drydock.flow.snapshot', side_effect=OSError):
+            self.assertIsNone(flow.available_probe(ENV, LAB, 'secret'))
 
     def test_empty_and_stale_readiness_fail(self):
         self.assertTrue(readiness([]))
@@ -274,12 +282,61 @@ class AcceptanceTests(unittest.TestCase):
             'metadata': {'generation': 2}, 'status': {'observedGeneration': 1, 'topologyReady': True, 'topologyState': 'running'}}]))
 
     def test_status_probes_api_and_preserves_switch_identities(self):
-        with patch('drydock.flow.snapshot', return_value=({}, [], [])), \
-             patch('drydock.flow.tunnels', side_effect=fake_tunnels), \
+        with patch('drydock.flow.snapshot', return_value=({}, switch_pods(), [])), \
              patch('drydock.flow.probe', side_effect=OSError):
             result = flow.status(ENV, LAB, 'secret')
         self.assertFalse(result['ready'])
         self.assertEqual({host['name'] for host in result['inventory']}, NODES)
+        self.assertTrue(all(host['host'].startswith('10.251.') and host['pod_uid'] for host in result['inventory']))
+        with patch('drydock.flow.snapshot', return_value=({}, switch_pods(), [])), \
+             patch('drydock.flow.eapi', side_effect=lambda host, password, commands:
+                   [{'hostname': host['name']}, {'version': 'test'}]):
+            self.assertTrue(flow.status(ENV, LAB, 'secret')['ready'])
+
+    def test_connections_reject_missing_duplicate_and_invalid_pods(self):
+        pods = switch_pods()
+        variants = [pods[:-1], pods + [pods[0]], [pods[0]] * len(NODES)]
+        for address in ('', 'not-an-ip', '8.8.8.8', '127.0.0.1', '169.254.1.1', '0.0.0.0', '::1'):
+            changed = switch_pods()
+            changed[0]['status']['podIP'] = address
+            variants.append(changed)
+        for field in ('uid', 'deletionTimestamp'):
+            changed = switch_pods()
+            changed[0]['metadata'][field] = '' if field == 'uid' else '2026-11-11T00:00:00Z'
+            variants.append(changed)
+        duplicate_ip = switch_pods()
+        duplicate_ip[0]['status']['podIP'] = duplicate_ip[1]['status']['podIP']
+        variants.append(duplicate_ip)
+        for items in variants:
+            with self.subTest(items=items), self.assertRaises(ValueError):
+                flow.connections(items)
+
+    def test_readiness_discovers_replacement_pod_and_preserves_probe_gate(self):
+        first, second = switch_pods(), switch_pods()
+        second[0]['metadata'].update(name='replacement', uid='new-uid')
+        second[0]['status']['podIP'] = '10.251.2.42'
+        with patch('drydock.flow.snapshot', side_effect=[({}, first, []), ({}, second, [])]), \
+             patch('drydock.flow.probe', side_effect=[OSError, {n: 'test' for n in NODES}]) as probe:
+            self.assertIsNone(flow.available_probe(ENV, LAB, 'secret'))
+            hosts, versions = flow.available_probe(ENV, LAB, 'secret')
+        self.assertEqual(hosts[0]['host'], '10.251.2.42')
+        self.assertEqual(hosts[0]['pod_uid'], 'new-uid')
+        self.assertEqual(probe.call_args.args[0], hosts)
+        self.assertEqual(set(versions), NODES)
+        with patch('drydock.flow.snapshot', return_value=({}, first, ['not ready'])), \
+             patch('drydock.flow.probe') as probe:
+            self.assertIsNone(flow.available_probe(ENV, LAB, 'secret'))
+            probe.assert_not_called()
+
+    def test_eapi_uses_discovered_address_with_demo_tls_policy(self):
+        response = io.BytesIO(b'{"result": [{"hostname": "leaf1"}]}')
+        with patch('drydock.flow.urlopen') as urlopen:
+            urlopen.return_value.__enter__.return_value = response
+            flow.eapi({'host': '10.251.2.42', 'port': 443}, 'secret', ['show hostname'])
+        args, kwargs = urlopen.call_args
+        self.assertEqual(args[0].full_url, 'https://10.251.2.42:443/command-api')
+        import ssl
+        self.assertEqual(kwargs['context'].verify_mode, ssl.CERT_NONE)
 
     def test_one_reachability_result_cannot_replace_another(self):
         from collections import Counter
@@ -289,9 +346,10 @@ class AcceptanceTests(unittest.TestCase):
         self.assertFalse(flow.acceptance(rows, expected)['passed'])
 
 
-@contextmanager
-def fake_tunnels(env, lab):
-    yield [{'name': n, 'port': 12345, 'host': '127.0.0.1', 'tags': [n]} for n in sorted(NODES)]
+def switch_pods():
+    return [{'kind': 'Pod', 'metadata': {'name': name + '-pod', 'uid': name + '-uid',
+             'labels': {'c9s.run/direct-workload': name}}, 'status': {'podIP': f'10.251.1.{index + 10}'}}
+            for index, name in enumerate(sorted(NODES))]
 
 
 class FlowTests(unittest.TestCase):
@@ -309,11 +367,20 @@ class FlowTests(unittest.TestCase):
                     raise flow.Canceled('cancel')
                 return flow.acceptance(results, required)
 
+            def wait_for(action, timeout, *args):
+                result = action()
+                if result is None:
+                    raise TimeoutError('timeout')
+                return result
+
             with patch('drydock.flow.prepare', return_value=(Path(directory), expected)), \
                  patch('drydock.flow.create_lab', side_effect=RuntimeError if failure == 'allocation' else None), \
-                 patch('drydock.flow.snapshot', return_value=({}, [], [])), \
-                 patch('drydock.flow.tunnels', side_effect=RuntimeError if failure == 'tunnel' else fake_tunnels), \
-                 patch('drydock.flow.probe', return_value={n: 'test' for n in NODES}), \
+                 patch('drydock.flow.snapshot', return_value=({}, switch_pods(), [])), \
+                 patch('drydock.flow.connections', side_effect=ValueError if failure == 'discovery' else None,
+                       return_value=flow.connections(switch_pods())), \
+                 patch('drydock.flow.probe', side_effect=OSError if failure == 'probe' else None,
+                       return_value={n: 'test' for n in NODES}), \
+                 patch('drydock.flow.wait_for', side_effect=wait_for), \
                  patch('drydock.flow.converge', side_effect=converge), \
                  patch('drydock.flow.network_diagnostics', return_value={}), \
                  patch('drydock.flow.diagnostics', return_value={}), \
@@ -335,7 +402,7 @@ class FlowTests(unittest.TestCase):
         self.assertFalse(outcome['cleanup']['deleted'])
 
     def test_failure_paths_always_cleanup(self):
-        for failure in ('allocation', 'tunnel', 'anta', 'report', 'timeout', 'cancel'):
+        for failure in ('allocation', 'discovery', 'probe', 'anta', 'report', 'timeout', 'cancel'):
             with self.subTest(failure=failure):
                 self.assertFalse(self.run_flow(failure)['passed'])
 
@@ -351,18 +418,6 @@ class FlowTests(unittest.TestCase):
         with self.assertRaises(flow.Canceled), flow.cancellation():
             signal.raise_signal(signal.SIGTERM)
         self.assertEqual(signal.getsignal(signal.SIGTERM), previous)
-
-    def test_partial_tunnel_start_stops_children(self):
-        process = Mock()
-        process.poll.return_value = None
-        with patch('drydock.flow.subprocess.Popen', side_effect=[process, OSError]), \
-             patch('drydock.flow.wait_for', return_value=12345):
-            with self.assertRaises(OSError):
-                with flow.tunnels(ENV, LAB):
-                    pass
-        process.terminate.assert_called_once()
-        process.wait.assert_called_once()
-
 
 if __name__ == '__main__':
     unittest.main()

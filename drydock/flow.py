@@ -4,14 +4,12 @@ import base64
 from contextlib import contextmanager
 from collections import Counter
 from importlib.metadata import version
+from ipaddress import IPv4Address
 import json
 from pathlib import Path
-import re
 import signal
 import ssl
-import subprocess
 import tempfile
-import time
 from urllib.request import Request, urlopen
 from uuid import uuid4
 import xml.etree.ElementTree as ET
@@ -61,57 +59,35 @@ def snapshot(env, lab):
     return record, items, errors
 
 
-@contextmanager
-def tunnels(env, lab):
-    processes = []
+def connections(items):
+    pods = [item for item in items if item["kind"] == "Pod" and
+            item["metadata"].get("labels", {}).get("c9s.run/direct-workload") in NODES]
+    if len(pods) != len(NODES) or {
+            pod["metadata"]["labels"]["c9s.run/direct-workload"] for pod in pods} != NODES:
+        raise UserError("Exactly one switch Pod is required for each device.")
     inventory = []
-    try:
-        for name in sorted(NODES):
-            output = tempfile.TemporaryFile(mode="w+")
-            try:
-                process = subprocess.Popen(env.kube_command("-n", env.name + "-" + lab,
-                    "port-forward", "--address=127.0.0.1", "service/" + name, ":443"),
-                    stdout=output, stderr=subprocess.DEVNULL, text=True)
-            except BaseException:
-                output.close()
-                raise
-            processes.append((process, output))
-
-            def port_ready():
-                if process.poll() is not None:
-                    raise RuntimeError(f"Private tunnel failed for {name}.")
-                output.seek(0)
-                match = re.search(r"Forwarding from 127\.0\.0\.1:([0-9]+)", output.read())
-                return int(match[1]) if match else None
-
-            port = wait_for(port_ready, 20, 0.1)
-            inventory.append({"name": name, "host": "127.0.0.1", "port": port, "tags": [name]})
-        yield inventory
-    finally:
-        errors = []
-        for process, output in reversed(processes):
-            try:
-                process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=5)
-            except Exception:
-                errors.append("A private tunnel did not stop.")
-            finally:
-                output.close()
-        if errors:
-            raise RuntimeError("Private tunnel cleanup failed.")
+    for pod in pods:
+        metadata = pod["metadata"]
+        name = metadata["labels"]["c9s.run/direct-workload"]
+        address = IPv4Address(pod.get("status", {}).get("podIP", ""))
+        if (not address.is_private or address.is_loopback or address.is_link_local
+                or address.is_unspecified or address.is_reserved or not metadata.get("uid")
+                or metadata.get("deletionTimestamp")):
+            raise UserError("Switch Pods require current identities and private IPv4 addresses.")
+        inventory.append({"name": name, "host": str(address), "port": 443, "tags": [name],
+                          "pod": metadata["name"], "pod_uid": metadata["uid"]})
+    if len({host["host"] for host in inventory}) != len(NODES):
+        raise UserError("Switch Pod addresses must be distinct.")
+    return sorted(inventory, key=lambda host: host["name"])
 
 
 def eapi(host, password, commands):
     authorization = base64.b64encode(("labadmin:" + password).encode()).decode()
-    request = Request(f"https://127.0.0.1:{host['port']}/command-api",
+    request = Request(f"https://{host['host']}:{host['port']}/command-api",
         data=json.dumps({"jsonrpc": "2.0", "method": "runCmds", "id": "drydock",
                          "params": {"version": 1, "cmds": commands, "format": "json"}}).encode(),
         headers={"Content-Type": "application/json", "Authorization": "Basic " + authorization})
-    # The authenticated Kubernetes tunnel supplies transport trust for lab self-signed certificates.
+    # shortcut: the private demo skips certificate verification by user agreement; revisit before wider use.
     with urlopen(request, context=ssl._create_unverified_context(), timeout=10) as response:
         result = json.loads(response.read(1024 * 1024))
     if "error" in result:
@@ -129,9 +105,13 @@ def probe(inventory, password):
     return versions
 
 
-def available_probe(inventory, password):
+def available_probe(env, lab, password):
     try:
-        return probe(inventory, password)
+        record, items, errors = snapshot(env, lab)
+        if errors:
+            return None
+        inventory = connections(items)
+        return inventory, probe(inventory, password)
     except Exception:
         return None
 
@@ -152,16 +132,17 @@ def network_diagnostics(inventory, password):
 def status(env, lab, password):
     record, items, errors = snapshot(env, lab)
     versions = {}
+    inventory = []
     if not errors:
         try:
-            with tunnels(env, lab) as inventory:
-                versions = probe(inventory, password)
+            inventory = connections(items)
+            versions = probe(inventory, password)
         except Exception:
             errors.append("an authenticated management API is unavailable or has the wrong identity")
     return {"lab": lab, "ready": not errors, "errors": errors, "record": record,
             "eos_versions": versions, "observed_at": now(), "inventory": [
-                {"name": name, "service": name, "namespace": env.name + "-" + lab, "port": 443,
-                 "transport": "internal kubectl port-forward"} for name in sorted(NODES)]}
+                {**host, "namespace": env.name + "-" + lab, "transport": "private Pod-IP HTTPS"}
+                for host in inventory]}
 
 
 def acceptance(results, expected):
@@ -246,17 +227,13 @@ def test_flow(env, bundle, provenance, password, output, lifetime=120, ready_tim
         structured, expected = prepare(bundle, private, directory)
         try:
             create_lab(env, bundle, provenance, lifetime, lab)
-            ready_deadline = time.monotonic() + ready_timeout
-            wait_for(lambda: not snapshot(env, lab)[2], ready_timeout)
-            with tunnels(env, lab) as hosts:
-                result["runtime"]["eos"] = wait_for(lambda: available_probe(hosts, password),
-                    max(1, ready_deadline - time.monotonic()))
-                save(directory / "inventory.json", {"anta_inventory": {"hosts": hosts}})
-                try:
-                    result["tests"] = converge(hosts, structured, directory, expected, test_timeout, rows)
-                finally:
-                    result["tests"] = acceptance(rows, expected)
-                    save(directory / "network.json", network_diagnostics(hosts, password))
+            hosts, result["runtime"]["eos"] = wait_for(lambda: available_probe(env, lab, password), ready_timeout)
+            save(directory / "inventory.json", {"anta_inventory": {"hosts": hosts}})
+            try:
+                result["tests"] = converge(hosts, structured, directory, expected, test_timeout, rows)
+            finally:
+                result["tests"] = acceptance(rows, expected)
+                save(directory / "network.json", network_diagnostics(hosts, password))
         except (Exception, KeyboardInterrupt) as error:
             result["error"] = type(error).__name__
         finally:

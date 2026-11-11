@@ -12,7 +12,7 @@ The agreed delivery starts with a CLI demo:
 - Build the anonymized AVD fabric with two spines and two MLAG leaf pairs.
 - Deploy GKE Standard and clabernetes on demand in an existing dedicated demo project through scripted `gcloud` commands.
 - Start switches with rendered configurations and allocate dedicated temporary workers per lab.
-- Use `arista.avd.anta_runner` to generate catalogs from AVD structured configurations and execute ANTA through internal management tunnels.
+- Use `arista.avd.anta_runner` to generate catalogs from AVD structured configurations and execute ANTA over private Pod-IP HTTPS.
 - Retain JSON, JUnit, generated catalogs, diagnostics, and provenance, then delete the lab after every allocation attempt.
 - Expire abandoned labs independently through a five-minute cluster-side cleaner.
 - Destroy shared infrastructure manually after the demo and preserve the existing project.
@@ -26,8 +26,17 @@ Overdue cleanup remains visible.
 
 GitHub Actions orchestration follows the CLI delivery.
 The runner stays outside GKE.
-Runtime support and deletion timing still require live evidence.
-The separate MLAG investigation remains open. No experimental firewall workaround is accepted.
+
+The separate MLAG experiment passed all 54 live results and both pairs with the corrected private runtime on November 11, 2026.
+The actual CLI subsequently passed all 54 results, retained reports, and complete lab deletion.
+Standalone create, authenticated status, invalid-password rejection, and repeated deletion also passed.
+These results apply only to the recorded private build.
+No experimental EOS firewall workaround is accepted.
+
+The runner needs private routes to the switch Pods and TCP port 443 access.
+The demo skips TLS certificate verification by user agreement.
+Password authentication and EOS hostname comparison remain required.
+The runner sends credentials without certificate-based proof of the switch identity.
 CloudVision, host containers, interactive switch access, fork contributions, production deployment, and large-scale qualification remain out of scope.
 
 ## Capabilities

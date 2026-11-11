@@ -73,7 +73,7 @@ def allocation_record(env, lab):
 
 def registry_secret(env, lab, registry):
     namespace = env.name + "-" + lab
-    token = env.gcloud("auth", "print-access-token").strip().strip('"')
+    token = json.loads(env.gcloud("auth", "print-access-token"))["token"]
     auth = base64.b64encode(("oauth2accesstoken:" + token).encode()).decode()
     env.apply({"apiVersion": "v1", "kind": "Secret", "metadata": object_meta(env, "registry", namespace, lab),
                "type": "kubernetes.io/dockerconfigjson", "stringData": {".dockerconfigjson": json.dumps({
@@ -346,7 +346,13 @@ def cleaner_objects(env):
            "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": role},
            "subjects": [{"kind": "ServiceAccount", "name": "cleaner", "namespace": env.namespace}]}
     yield {"apiVersion": "v1", "kind": "ConfigMap", "metadata": object_meta(env, "environment", env.namespace),
-           "data": {"environment.yml": yaml.safe_dump(asdict(env))}}
+           "data": {"environment.yml": yaml.safe_dump(asdict(env)), "kubeconfig": yaml.safe_dump({
+               "apiVersion": "v1", "kind": "Config", "current-context": "cleaner",
+               "clusters": [{"name": "cluster", "cluster": {"server": "https://kubernetes.default.svc",
+                   "certificate-authority": "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"}}],
+               "users": [{"name": "cleaner", "user": {
+                   "tokenFile": "/var/run/secrets/kubernetes.io/serviceaccount/token"}}],
+               "contexts": [{"name": "cleaner", "context": {"cluster": "cluster", "user": "cleaner"}}]})}}
     yield {"apiVersion": "batch/v1", "kind": "CronJob", "metadata": object_meta(env, "cleanup", env.namespace),
            "spec": {"schedule": "*/5 * * * *", "concurrencyPolicy": "Forbid", "startingDeadlineSeconds": 240,
                     "successfulJobsHistoryLimit": 1, "failedJobsHistoryLimit": 3, "jobTemplate": {"spec": {

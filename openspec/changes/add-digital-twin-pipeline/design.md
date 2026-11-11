@@ -6,7 +6,13 @@ The offline six-switch example and deterministic Containerlab bundle already exi
 The user accepted a CLI-first demo with startup delivery, Kubernetes ownership records, finite lab expiry, and manual shared teardown.
 The user also selected `arista.avd.anta_runner` to own ANTA catalogs.
 The [operator instructions](../../../docs/demo-flow.md) describe the implemented commands and remaining validation boundary.
-Cloud deployment and live labs did not run during implementation.
+
+The initial authorized GKE test reached six running switch pods, but authenticated management readiness failed through Kubernetes port forwarding.
+The separate November 11 experiment passed all 54 live ANTA results and both MLAG pairs with the corrected private runtime.
+The external runner used private Pod-IP access.
+The actual CLI subsequently passed all 54 results, retained reports, and complete lab deletion.
+Standalone create, authenticated status, invalid-password rejection, and repeated deletion also passed on the retained cluster.
+See [the live validation record](../../../docs/live-gke-validation.md) for evidence and limits.
 
 ## Goals / Non-Goals
 
@@ -25,6 +31,9 @@ The digital twin removes unsupported BGP convergence commands and enables HTTPS 
 AVD digital twin metadata excludes unused endpoint interfaces from validation.
 Required spine and MLAG peer links remain included.
 Generated artifacts stay ignored and private.
+Use the reference VNIs 1001 and 1002 for VRF_A and VRF_B.
+AVD derives valid MLAG peer VLANs 4000 and 4001 without explicit overrides.
+Test generated VLAN numbers because AVD 6.5.0 accepts out-of-range values in structured configurations.
 
 ### Bundle the complete AVD input
 
@@ -49,7 +58,7 @@ A completed teardown permits another demo session, including restoration of its 
 Use an existing dedicated demo project, existing registry, and uploaded licensed images.
 Do not create or delete the project, registry, images, or enabled APIs.
 The operator supplies explicit GKE and chart versions and a digest-pinned cleaner image.
-Keep the supported runtime unresolved until live evidence exists.
+Limit runtime evidence to the exact recorded private build until another combination passes live acceptance.
 
 ### Allocate a dedicated lab pool
 
@@ -70,10 +79,23 @@ Retain records after deletion and revisit them to catch late asynchronous alloca
 
 Require current topology generation, ready switch conditions, accepted links, and ready pods without restarts.
 Require private ClusterIP eAPI services.
-Open localhost-only Kubernetes port forwards, authenticate to eAPI, and compare reported hostnames with the bundle.
-Return original switch identities and private service information from status.
-Close status probe tunnels before returning.
-The test command retains its internal tunnels only while ANTA and diagnostics run.
+
+Discover one current Pod for each original switch name through authenticated Kubernetes access.
+Reject missing or duplicate switch Pods and missing or invalid private IPv4 endpoints.
+Refresh endpoint discovery on every readiness attempt and record the Pod name and UID with its address.
+Use the same private Pod-IP HTTPS endpoints for readiness, status, ANTA, and diagnostics.
+
+Authenticate to eAPI and compare reported EOS hostnames with the bundle.
+The external runner requires private routes and TCP port 443 access to the Pods.
+Kubernetes Service DNS and ClusterIP routing from a VM are not prerequisites for this direct path.
+The private demo skips TLS certificate verification by explicit user agreement.
+
+Do not retrieve or pin switch certificates. Keep password authentication and EOS hostname comparison.
+The runner sends credentials before it reads the EOS hostname, without certificate-based proof of the switch identity.
+
+Keep the existing AVD role for both catalog generation and execution.
+Return original switch names, private Pod addresses, and Pod identities from status.
+Keep Management1 and HTTPS eAPI in MGMT. Do not enable default-VRF eAPI to repair forwarding.
 Infrastructure readiness does not establish routing convergence.
 
 ### Let AVD manage ANTA catalogs
@@ -86,7 +108,8 @@ Do not hand-build a second catalog or copy expected peer addresses and VNIs into
 
 Inspect the generated catalogs for mandatory test classes on every relevant device.
 Require every switch-link interface and each leaf Vxlan1 interface in the generated interface test.
-Run the same role with internal tunnel addresses for bounded convergence attempts.
+Run the same role with private Pod-IP addresses for bounded convergence attempts.
+Enable privileged mode through `anta_enable` for generated ping tests.
 A new role invocation creates fresh ANTA clients and command caches.
 Retain the expected multiplicity of generated device-test results.
 Missing, extra duplicate, skipped, errored, or failed required results prevent acceptance.
@@ -95,7 +118,7 @@ A dry-run result never proves network acceptance.
 ### Separate tests, reports, and cleanup
 
 The test command validates input and generates catalogs before allocation.
-After any allocation attempt, it closes tunnels and attempts deletion even if ANTA, diagnostics, report writing, or cancellation fails.
+After any allocation attempt, it attempts deletion even if ANTA, diagnostics, report writing, or cancellation fails.
 It handles SIGINT and SIGTERM and ignores repeated interrupts during immediate cleanup.
 Independent expiry covers SIGKILL and operator or runner loss.
 A zero exit code requires passing acceptance, saved reports, and complete lab deletion.
@@ -135,9 +158,22 @@ Report unknown leftovers for operator action instead of deleting them blindly.
 
 ## Risks / Trade-offs
 
-No runtime combination is accepted yet.
-Both MLAG pairs must pass a cold-start run without the experimental rule before milestone acceptance.
-The cleaner image recipe, provider commands, IAM policy, concurrent isolation, and thirty-minute deletion target still need authorized live validation.
+The separate MLAG experiment passed a cold start without an EOS firewall exception.
+It scoped OUTPUT connection-tracking zone assignment to the existing management interfaces in the private clabernetes runtime.
+The tested combination used GKE `1.36.4-gke.2377000`, engineering EOS `4.36.1F-48405728.4361F`, and fork chart `0.0.0`.
+ANTA `1.10.0` executed the 54 AVD-generated results with exact expected multiplicity.
+
+Both MLAG pairs and all six authenticated endpoints passed, as did focused Make conformance with the race detector.
+Independent inventory found zero owned resources across fifteen infrastructure categories after teardown.
+The subsequent actual CLI run passed all 54 results with exact expected multiplicity and complete lab deletion.
+Standalone lifecycle tests and independent lab cleanup observations also passed.
+Both lifecycles retained the same cluster identity and creation time.
+The evidence does not qualify official clabernetes `0.11.0`.
+
+Live tests cover the cleaner image build, infrastructure deployment, cleaner authentication, and cancellation cleanup.
+Independent expiry deleted a lab after runner loss, with complete deletion observed 6 minutes 16 seconds after expiry.
+The earlier failed port-forward test remains historical evidence.
+Concurrent switch isolation and the remaining failure-path qualification remain unproven.
 Offline mocks do not establish those behaviors on Google Cloud.
 
 The six-switch catalog tests switch and protocol state plus generated switch-to-switch reachability.
@@ -159,5 +195,5 @@ Keep this OpenSpec change active until implementation, live evidence, and review
 
 ## Open Questions
 
-Select and prove a compatible cEOS, clabernetes, and GKE combination through the separate investigation and live acceptance.
+Qualify concurrent isolation and the remaining failure paths before archive or additional runtime combinations.
 Select artifact retention and runner policy when adding GitHub Actions orchestration.

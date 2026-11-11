@@ -16,23 +16,33 @@ context: |
   and destroys it manually after demos. Preserve the existing project.
   Switches boot with rendered startup configurations. CLI commands return
   JSON. Kubernetes stores ownership and expiry. No HTTP service or database.
-  Management tunnels are internal ANTA transport. No interactive access command.
+  Management uses private Pod-IP HTTPS from the external runner.
+  Discover endpoints through authenticated Kubernetes access on each readiness
+  attempt. Preserve switch names and record Pod identities. No interactive access command.
+  The demo skips TLS certificate verification by user agreement. Keep password
+  authentication and compare EOS hostnames. Do not claim certificate-based identity.
   Lab expiry defaults to two hours and cannot exceed four hours from request
   acceptance. A cluster-side cleaner runs every five minutes, retries failed
   deletion every five minutes indefinitely, and flags overdue cleanup.
   Target complete deletion thirty minutes after expiry while cloud and
   Kubernetes APIs are available. Live timing evidence remains required.
   A single test command creates the lab, waits for authenticated readiness,
-  runs bounded ANTA acceptance, saves reports, closes tunnels, and deletes
+  runs bounded ANTA acceptance, saves reports, and deletes
   the lab after success, failure, timeout, or cancellation. Independent expiry
   covers operator or runner loss. Overall success requires complete cleanup.
   Require routing, EVPN, VXLAN, switch-link, and both MLAG-pair coverage.
   Missing, skipped, errored, or failed required results prevent acceptance.
-  MLAG remains a separate unresolved investigation. Include no experimental
-  firewall workaround and claim no proven cause. Runtime versions remain
-  operator inputs until supported combinations have live evidence.
-  Implementation and PR publication are authorized. Cloud provisioning and
-  live lab execution are not authorized in this implementation session.
+  The separate MLAG investigation passed all 54 live results and both pairs
+  on November 11 with the corrected private clabernetes source. It limits
+  OUTPUT connection-tracking zone assignment to management interfaces.
+  No experimental EOS firewall rule was installed. This evidence applies
+  only to the recorded private build, not the official published release.
+  The actual CLI subsequently passed all 54 results and complete lab deletion.
+  Standalone create, authenticated status, invalid-password rejection, and
+  repeated deletion passed on the retained cluster. Concurrent isolation and
+  the remaining failure-path qualification still require live evidence.
+  Implementation and PR publication are authorized. The user also authorized
+  cloud provisioning and live GKE tests after the initial CLI delivery.
   Keep the change active. Do not archive based on offline tests.
   No fixed budget cap is selected. Large-scale qualification is out of scope.
 

@@ -81,6 +81,29 @@ class BundleTest(unittest.TestCase):
                     self.assertEqual(interface["metadata"]["peer"], peer)
                     self.assertEqual(interface["metadata"]["peer_interface"], mapping["EthernetIntf"][peer_port])
 
+    def test_mlag_peer_vlans_are_legal(self):
+        with tarfile.open(SOURCE / "bundle.tar") as archive:
+            for name in sorted(NODES - {"spine1", "spine2"}):
+                with self.subTest(node=name):
+                    structured = yaml.safe_load(archive.extractfile(f"intended/structured_configs/{name}.yml"))
+                    config = archive.extractfile(f"intended/configs/{name}.cfg").read().decode()
+                    self.assertEqual(
+                        {vrf["name"]: vrf["vni"] for vrf in structured["vxlan_interface"]["vxlan1"]["vxlan"]["vrfs"]},
+                        {"VRF_A": 1001, "VRF_B": 1002},
+                    )
+                    vlans = {vlan["id"] for vlan in structured["vlans"]}
+                    interfaces = {interface["name"]: interface for interface in structured["vlan_interfaces"]}
+                    for vlan in vlans:
+                        self.assertIn(vlan, range(1, 4095))
+                    for interface in interfaces:
+                        self.assertIn(int(interface.removeprefix("Vlan")), range(1, 4095))
+                    for vrf, vlan in (("VRF_A", 4000), ("VRF_B", 4001)):
+                        self.assertIn(vlan, vlans)
+                        self.assertEqual(interfaces[f"Vlan{vlan}"]["vrf"], vrf)
+                        self.assertIn(f"\nvlan {vlan}\n", config)
+                        self.assertIn(f"\ninterface Vlan{vlan}\n", config)
+                    self.assertNotIn("vrf", interfaces["Vlan4094"])
+
     def test_digest_and_reproducibility(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
