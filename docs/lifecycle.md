@@ -13,10 +13,19 @@ The CLI does not create image pull credentials or select worker pools.
 The operator supplies scheduling policy through the cluster and clabernetes configuration.
 
 Private image access must cover both kubelet pulls and clabernetes controller metadata reads.
+For a registry with a private CA, the operator supplies certificate trust to the controller and every eligible worker runtime.
+Keep registry TLS verification enabled.
 A pull Secret stores registry credentials in Kubernetes.
 The tested private runtime uses global `imagePull.pullSecrets` references to operator-supplied Secrets in each lab namespace.
 The operator supplies and refreshes those credentials outside the lifecycle CLI.
 Worker identity alone does not supply credentials for the tested controller's metadata reads.
+
+The operator must supply image access before clabernetes starts switch preparation in each new namespace.
+Use an operator-managed mechanism to deliver credentials as namespaces appear.
+The lifecycle CLI does not copy existing registry Secrets into new namespaces.
+If late credentials leave switch preparation failed, the operator must restore access and request backend reconciliation.
+This retry does not extend lab expiry.
+Automatic recovery after late credentials remains unqualified.
 
 The operator creates the `<name>-system` namespace for ownership records and installs an independent cleaner.
 The optional GKE demo setup supplies these resources through separate operator tooling.
@@ -101,8 +110,15 @@ A DNS label uses letters, digits, and internal hyphens.
 The producer supplies valid management addresses or uses the backend defaults.
 Supply `kind` on each node or through `defaults`.
 Supply one shared digest-pinned cEOS image through `kinds.arista_ceos.image`.
-The cEOS image still requires a digest in regional Google Artifact Registry.
-Task 6.4 removes this registry restriction.
+Use an image reference pinned by a SHA-256 digest, such as `registry.example:5000/lab/ceos@sha256:<64-hex-digits>`.
+Any registry is accepted, including hosts with a port and Docker Hub references without an explicit registry.
+Drydock preserves the image reference and records `docker.io` for an implicit Docker Hub registry.
+
+Admission does not prove image availability, registry authorization, or that the image contains cEOS.
+The operator enforces the approved image policy through the cluster.
+Offline CLI tests cover creation, authenticated status, and repeated deletion with non-Google image references.
+The [live acceptance](live-gke-validation.md#november-12-registry-independent-images) passed with a private, authenticated non-Google registry and all six switches.
+That evidence covers the recorded private runtime. Other registries and runtime combinations still require operator qualification.
 
 The producer sets each switch hostname to its topology identity.
 Drydock compares the reported hostname during authenticated readiness without parsing startup configuration syntax.
@@ -122,7 +138,7 @@ topology:
     kind: arista_ceos
   kinds:
     arista_ceos:
-      image: europe-west1-docker.pkg.dev/example-project/images/ceos@sha256:<64-hex-digits>
+      image: registry.example:5000/lab/ceos@sha256:<64-hex-digits>
   nodes:
     edge-a:
       mgmt-ipv4: 10.80.0.10

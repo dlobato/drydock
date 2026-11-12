@@ -53,8 +53,9 @@ The lifecycle core reads switch identities, the link count, and safe file refere
 Admission accepts supported cEOS topology shapes within the documented input limits and distributes startup data across bounded Kubernetes Secrets.
 Task 6.3 protects creation ownership, competing state updates, and namespace deletion with controlled race tests.
 Repeated creation requests receive separate lab identities. Live concurrent network isolation remains unqualified.
-The cEOS image still requires a digest in regional Google Artifact Registry.
+The cEOS image accepts any registry and must use a SHA-256 digest.
 The operator supplies image access through the cluster. The lifecycle CLI does not obtain registry tokens.
+Offline CLI tests cover other registries. A private, authenticated non-Google registry passed the six-switch [live acceptance](docs/live-gke-validation.md#november-12-registry-independent-images).
 Labs still default to 120 minutes with a 240-minute maximum.
 The planned 30-minute default, 60-minute maximum, bounded capacity waiting, and live scale qualification remain open.
 
