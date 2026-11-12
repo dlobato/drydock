@@ -5,6 +5,7 @@ Sections 1 through 5 retain completed work from the earlier GKE demo.
 Task 6.1 records the first revised implementation and its offline and live evidence.
 Tasks 6.2 and 6.3 record topology admission, ownership isolation, and their offline evidence.
 Task 6.3 also records bounded live ownership and two-lab isolation evidence.
+Task 6.4 records implemented registry admission and offline evidence. Its live image-access qualification remains open.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -164,6 +165,25 @@ Namespace race cases used empty test namespaces and controlled failure injection
 The [live validation record](../../../docs/live-gke-validation.md) states the tested source, private runtime, capacity, and operator registry retries.
 This evidence covers two simultaneous six-switch labs. It does not qualify larger concurrency, live scale, or another runtime or provider.
 Tasks 7.4, 9.2, and 9.3 retain their remaining cleanup, concurrency, and live failure qualification.
+
+## Registry admission evidence (task 6.4, live qualification pending)
+
+The lifecycle CLI accepts digest-pinned cEOS image references without a Google registry hostname restriction.
+It preserves the submitted image reference in the clabernetes topology and ownership record.
+The ownership record identifies Docker Hub as `docker.io` when the image reference omits an explicit registry.
+The cluster operator supplies image access for controller metadata reads and switch workloads in each new namespace.
+The lifecycle CLI does not obtain registry tokens or create registry credentials.
+
+Controlled CLI cases cover GHCR, Quay, a registry with a port, localhost, and two implicit Docker Hub forms.
+Each case passes creation, authenticated status, deletion, and repeated deletion with controlled Kubernetes and eAPI responses.
+All 65 offline regression tests and six bundle tests pass.
+The actual AVD role still generates all 54 expected dry-run results with both MLAG pairs covered.
+Pinned Ruff and mypy hooks and strict OpenSpec validation pass.
+
+These cases do not prove live registry authorization, image pulls, switch startup, or recovery after late image credentials.
+Task 6.4 remains unchecked until a live lab uses a digest-pinned image outside Google Artifact Registry and completes deletion.
+The latest recorded live environment was fully removed after the ownership tests.
+The [lifecycle instructions](../../../docs/lifecycle.md#prepare-the-cluster) describe the required operator setup and late-credential limits.
 
 ## Historical demo evidence
 

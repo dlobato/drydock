@@ -75,10 +75,10 @@ def validate_request(bundle, provenance, lifetime):
         raise UserError("Supply repository, commit, run, and attempt identity.")
     image = bundle.topology["topology"]["kinds"]["arista_ceos"]["image"]
     registry = image.split("/")[0]
-    if not re.fullmatch(r"[a-z]+-[a-z]+[0-9]-docker.pkg.dev", registry):
-        raise UserError(
-            "The demo requires a cEOS digest in regional Google Artifact Registry."
-        )
+    if "/" not in image or not (
+        "." in registry or ":" in registry or registry == "localhost"
+    ):
+        registry = "docker.io"
     return image, registry
 
 

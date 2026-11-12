@@ -16,6 +16,7 @@ import yaml
 from test_lifecycle import (
     ENV,
     IDENTITY,
+    IMAGE,
     NODES,
     FakeEnvironment,
     alternate_files,
@@ -157,6 +158,68 @@ class LifecycleCliTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertTrue(result["cleanup"]["deleted"])
         self.assertFalse(self.backend.namespaces)
+
+    def test_registry_images_through_create_status_and_delete(self):
+        for reference, registry in (
+            ("ghcr.io/example/ceos", "ghcr.io"),
+            ("quay.io/example/ceos", "quay.io"),
+            ("registry.example:5000/lab/ceos", "registry.example:5000"),
+            ("localhost/lab/ceos", "localhost"),
+            ("example/ceos", "docker.io"),
+            ("ceos", "docker.io"),
+        ):
+            image = reference + "@sha256:" + "a" * 64
+            with self.subTest(image=image):
+                bundle = make_bundle(
+                    self.directory,
+                    lambda files: files.update(
+                        {
+                            "FABRIC-topology.clab.yml": files[
+                                "FABRIC-topology.clab.yml"
+                            ].replace(IMAGE, image)
+                        }
+                    ),
+                )
+                code, record = self.invoke(*self.create_args)
+                self.assertEqual(code, 0)
+                self.assertEqual(record["registry"], registry)
+                self.assertEqual(record["runtime"]["ceos_image"], image)
+                self.assertEqual(record["bundle_digest"], bundle.digest)
+                topology = next(
+                    obj for obj in self.backend.applied if obj["kind"] == "Topology"
+                )
+                definition = yaml.safe_load(
+                    topology["spec"]["definition"]["containerlab"]
+                )
+                self.assertEqual(
+                    definition["topology"]["kinds"]["arista_ceos"]["image"], image
+                )
+                self.assertTrue(
+                    all(
+                        obj.get("type") == "Opaque"
+                        for obj in self.backend.applied
+                        if obj["kind"] == "Secret"
+                    )
+                )
+                with (
+                    patch.dict(os.environ, {"DRYDOCK_LAB_PASSWORD": "test-only"}),
+                    patch(
+                        "drydock.flow.eapi",
+                        side_effect=lambda host, password, commands: [
+                            {"hostname": host["name"]},
+                            {"version": "test"},
+                        ],
+                    ),
+                ):
+                    code, result = self.invoke("lab", "status", record["id"])
+                self.assertEqual(code, 0)
+                self.assertTrue(result["ready"])
+                for _ in range(2):
+                    code, result = self.invoke("lab", "delete", record["id"])
+                    self.assertEqual(code, 0)
+                    self.assertTrue(result["deleted"])
+                self.assertFalse(self.backend.namespaces)
+                self.assertFalse(self.backend.applied)
 
     def test_id_collision_never_cleans_up_the_existing_lab(self):
         code, existing = self.invoke(*self.create_args)
