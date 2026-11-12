@@ -10,8 +10,8 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from drydock import anta, flow
-from test_flow import make_bundle, IMAGE
+from examples.demo import anta, flow
+from test_lifecycle import make_bundle, IMAGE
 
 
 class AntaRoleTests(unittest.TestCase):
@@ -30,7 +30,7 @@ class AntaRoleTests(unittest.TestCase):
         topology['topology']['kinds']['arista_ceos']['image'] = IMAGE
         files['FABRIC-topology.clab.yml'] = yaml.safe_dump(topology)
         cls.bundle = make_bundle(cls.directory, lambda data: data.update(files))
-        cls.structured, cls.expected = anta.prepare(cls.bundle, cls.directory, cls.directory / 'preview')
+        cls.structured, cls.expected = anta.prepare(cls.bundle, source.parent / 'intended/structured_configs', cls.directory, cls.directory / 'preview')
 
     def test_actual_role_generates_complete_catalog_and_omits_unused_endpoints(self):
         self.assertEqual(sum(self.expected.values()), 54)
@@ -57,15 +57,34 @@ class AntaRoleTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 anta.coverage(directory, self.bundle)
 
+    def test_missing_or_mismatched_models_fail_before_allocation(self):
+        from examples.demo.flow import test_flow
+        from test_lifecycle import ENV, IDENTITY
+
+        source = Path('artifacts/example/containerlab/intended/structured_configs')
+        for missing in (False, True):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory, \
+                 patch('examples.demo.flow.create_lab') as create:
+                path = Path(directory)
+                shutil.copytree(source, path / 'models')
+                model = path / 'models/leaf1.yml'
+                if missing:
+                    model.unlink()
+                else:
+                    model.write_text('hostname: wrong\n')
+                with self.assertRaises((ValueError, FileNotFoundError)):
+                    test_flow(ENV, self.bundle, path / 'models', IDENTITY, 'test-only', path / 'reports')
+                create.assert_not_called()
+
     def test_convergence_keeps_failures_and_requires_role_success(self):
         rows = [{'name': n, 'test': t, 'description': description, 'result': 'success'}
                 for (n, t, description), count in self.expected.items() for _ in range(count)]
         results = []
-        with patch('drydock.anta.invoke', side_effect=[(2, rows), (0, rows)]) as invoke, \
-             patch('drydock.anta.time.sleep'):
+        with patch('examples.demo.anta.invoke', side_effect=[(2, rows), (0, rows)]) as invoke, \
+             patch('examples.demo.anta.time.sleep'):
             self.assertTrue(anta.converge([], self.structured, self.directory, self.expected, 10, results)['passed'])
             self.assertEqual(invoke.call_count, 2)
-        with patch('drydock.anta.invoke', side_effect=TimeoutError), self.assertRaises(TimeoutError):
+        with patch('examples.demo.anta.invoke', side_effect=TimeoutError), self.assertRaises(TimeoutError):
             anta.converge([], self.structured, self.directory, self.expected, 10, results)
         self.assertEqual(len(results), 54)
 
@@ -73,8 +92,8 @@ class AntaRoleTests(unittest.TestCase):
         process = Mock(pid=123456, returncode=None)
         process.wait.side_effect = [subprocess.TimeoutExpired('ansible-playbook', 1), None]
         process.poll.return_value = None
-        with tempfile.TemporaryDirectory() as directory, patch('drydock.anta.subprocess.Popen', return_value=process), \
-             patch('drydock.anta.os.killpg') as kill:
+        with tempfile.TemporaryDirectory() as directory, patch('examples.demo.anta.subprocess.Popen', return_value=process), \
+             patch('examples.demo.anta.os.killpg') as kill:
             with self.assertRaises(subprocess.TimeoutExpired):
                 anta.invoke(directory, [], self.structured, False, 1)
         kill.assert_called_once()
@@ -83,7 +102,7 @@ class AntaRoleTests(unittest.TestCase):
         hosts = [{'name': 'leaf1', 'host': '10.251.2.42', 'port': 443, 'pod_uid': 'current-pod'}]
         process = Mock(returncode=0)
         process.poll.return_value = 0
-        with tempfile.TemporaryDirectory() as directory, patch('drydock.anta.subprocess.Popen', return_value=process) as spawn:
+        with tempfile.TemporaryDirectory() as directory, patch('examples.demo.anta.subprocess.Popen', return_value=process) as spawn:
             path = Path(directory)
             saved = json.dumps({'anta_inventory': {'hosts': hosts}})
             (path / 'inventory.json').write_text(saved)

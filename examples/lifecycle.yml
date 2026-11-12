@@ -1,0 +1,4 @@
+# Run lifecycle commands from the repository root with explicit cluster access.
+name: drydock-demo
+kubeconfig: /absolute/path/to/kubeconfig
+context: your-lab-context

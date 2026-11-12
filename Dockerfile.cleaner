@@ -4,9 +4,9 @@ FROM ${GCLOUD_IMAGE}
 RUN apt-get update && apt-get install -y --no-install-recommends kubectl python3-venv \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY requirements-cleaner.txt .
+COPY requirements.txt .
 RUN python3 -m venv /opt/drydock \
-    && /opt/drydock/bin/pip install --no-cache-dir -r requirements-cleaner.txt
+    && /opt/drydock/bin/pip install --no-cache-dir -r requirements.txt
 COPY drydock/ drydock/
 ENV PYTHONUNBUFFERED=1
 ENTRYPOINT ["/opt/drydock/bin/python", "-m", "drydock"]

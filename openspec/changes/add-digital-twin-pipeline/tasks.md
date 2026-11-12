@@ -1,9 +1,9 @@
 # Tasks
 
-This revision records the November 12 lifecycle-only requirements. It does not implement them or authorize automatic workflow execution.
-The checked tasks below retain completed work from the earlier GKE demo.
-They do not establish compliance with the revised topology, capacity, authentication, or lifetime contracts.
-New implementation tasks remain unchecked.
+The November 12 planning revision records the lifecycle-only requirements without authorizing automatic workflow execution.
+Sections 1 through 5 retain completed work from the earlier GKE demo.
+Task 6.1 records the first revised implementation and its offline evidence.
+The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
 
@@ -54,7 +54,7 @@ The former open demo tasks are replaced without claiming their completion:
 
 ## 6. Separate the lifecycle core
 
-- [ ] 6.1 Move GKE setup and integrated ANTA orchestration outside the lifecycle core. Update callers, dependencies, and command documentation. Demonstrate lifecycle use without AVD, ANTA, or cloud administration access.
+- [x] 6.1 Move GKE setup and integrated ANTA orchestration outside the lifecycle core. Update callers, dependencies, and command documentation. Demonstrate lifecycle use without AVD, ANTA, or cloud administration access.
 - [ ] 6.2 Generalize admission to topology-derived names, links, addresses, mappings, and startup files. Update fixtures and input documentation. Test different fabrics, missing files, unsafe paths, unsupported features, and payloads split within Kubernetes limits.
 - [ ] 6.3 Preserve unique attempt ownership and namespace isolation before allocation. Test competing updates, late creation, repeated input, and deletion that preserves another lab. Document the ownership record and failure output.
 - [ ] 6.4 Replace Google registry token handling with operator-supplied Kubernetes image access. Demonstrate a digest-pinned image outside Google Artifact Registry. Document the cluster prerequisites and keep authentication setup outside the core.
@@ -81,6 +81,29 @@ The former open demo tasks are replaced without claiming their completion:
 - [ ] 9.2 Exercise several concurrent labs with repeated switch names and management addresses. Delete and expire individual labs while the others continue. Record simultaneous lab count, aggregate switch count, and network acceptance for the surviving labs.
 - [ ] 9.3 Exercise live failure, capacity timeout, cancellation, expired workflow credentials, and runner loss. Retain safe partial evidence and independently inspect lab resource deletion. Measure expiry discovery and complete cleanup against the documented target.
 - [ ] 9.4 Compare the revised implementation with every specification scenario and review the final operator instructions. Exercise the lifecycle interface with a non-GKE Kubernetes test context. Separate interface evidence from additional live provider qualification, and keep untested AWS or runtime combinations unqualified.
+
+## Lifecycle separation evidence (task 6.1)
+
+The lifecycle CLI uses an explicit Kubernetes context without importing cloud setup or AVD and ANTA orchestration.
+The optional demo commands live under `examples.demo`.
+The lifecycle bundle contains topology, startup files, and the interface mapping without AVD models.
+The example retains model consistency and mandatory network coverage before allocation.
+Creation, deletion, and expiry no longer call cloud APIs or handle Google registry tokens.
+The operator supplies worker capacity and image access.
+
+An isolated Python 3.13.9 environment contains only pip and PyYAML 6.0.3.
+All 19 lifecycle tests pass there without installed AVD, ANTA, or Ansible.
+They exercise the actual CLI with controlled Kubernetes and eAPI responses.
+Cases include creation, authenticated status, repeated deletion, failed allocation cleanup, and expiry.
+All 42 offline regression tests and six bundle tests pass.
+The actual AVD role generates all 54 expected dry-run results with both MLAG pairs covered.
+Both example builds, dependency consistency, and strict OpenSpec validation pass.
+These results do not establish live runtime acceptance of the refactor.
+
+Broader registry admission and image-access qualification remain task 6.4.
+The remaining cleanup qualification stays in task 7.4.
+The six-switch admission limit and earlier lifetime values remain until tasks 6.2 and 7.3.
+The [lifecycle instructions](../../../docs/lifecycle.md) document those limits and the transition from earlier demo deployments.
 
 ## Historical demo evidence
 

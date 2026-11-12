@@ -1,67 +1,69 @@
 # Drydock
 
-Drydock creates temporary switch labs for automated tests before network deployment.
-The CLI deploys demo infrastructure, starts the six-switch example, runs AVD-managed ANTA tests, retains reports, and deletes the lab.
-You destroy the shared infrastructure after the demo.
-The implementation passed offline tests. Live runtime acceptance remains open.
+Drydock creates temporary switch labs on an existing Kubernetes cluster with clabernetes.
+Its lifecycle CLI creates labs, reports authenticated readiness and private connections, and deletes lab resources.
+The cluster operator supplies capacity, image access, permissions, and private routing.
+The pipeline supplies configurations, network tests, and reports.
 
-## Run a demo
+## Use the lifecycle CLI
 
-Follow [the operator instructions](docs/demo-flow.md) for prerequisites, deployment, testing, reports, and teardown.
-The main commands are:
-
-```sh
-.venv/bin/python -m drydock --environment artifacts/environment.yml infra deploy
-.venv/bin/python -m drydock --environment artifacts/environment.yml test --help
-.venv/bin/python -m drydock --environment artifacts/environment.yml infra destroy
-```
-
-The flow uses an existing Google Cloud project, GKE Standard, clabernetes, and temporary workers for each lab.
-Switches boot with rendered startup configurations.
-The operator machine stays outside GKE and reaches eAPI through internal Kubernetes tunnels.
-The `arista.avd.anta_runner` role generates catalogs from the bundled AVD structured configurations and runs the tests.
-No service framework, database, or direct switch connection command is required.
-
-Labs expire after two hours by default, with a four-hour maximum.
-An independent cleaner runs every five minutes and retries incomplete deletion indefinitely.
-The target is complete deletion within thirty minutes after expiry while provider APIs are available.
-Live timing evidence is still required.
-Shared infrastructure has no automatic expiry. You own its teardown.
-
-## Build and test offline
-
-See [the example instructions](examples/evpn-symmetric-irb/README.md) for build dependencies, credentials, and output paths.
-The example uses `pyavd[ansible]==6.5.0` and contains two spines and two MLAG leaf pairs.
-It uses generic names, synthetic addresses, and runtime lab credentials.
-The bundle contains the topology, interface mapping, startup configurations, and matching structured configurations.
-Keep the bundle private because it contains authentication material.
-
-After the documented example build, run:
+Use Python 3.13 and `kubectl` on a machine with private access to the cluster and switch Pods.
+Install the lifecycle dependency:
 
 ```sh
-make test
-make spec-check
+make lifecycle-deps
 ```
 
-The offline GitHub workflow builds the example and runs these gates.
-It generates ANTA catalogs in dry-run mode without contacting switches or cloud APIs.
-GitHub Actions orchestration for live labs remains follow-up work.
+Copy `examples/lifecycle.yml` to an ignored path.
+Set its environment name, kubeconfig path, and Kubernetes context.
+Follow [the lifecycle instructions](docs/lifecycle.md) for cluster prerequisites, input files, and commands.
+
+```sh
+.venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab create --help
+.venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab status "$DRYDOCK_LAB_ID"
+.venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab delete "$DRYDOCK_LAB_ID"
+```
+
+Lifecycle operations use Kubernetes without cloud administration commands, AVD, or ANTA.
+They do not create workers or run network tests.
+The CLI requires topology and startup files without AVD structured configurations.
+Readiness does not establish routing convergence or network acceptance.
+
+## Run the optional demo
+
+[The demo instructions](docs/demo-flow.md) describe separate GKE setup and six-switch ANTA orchestration.
+These commands live under `examples.demo`:
+
+```sh
+.venv/bin/python -m examples.demo --environment artifacts/environment.yml infra deploy
+.venv/bin/python -m examples.demo --environment artifacts/lifecycle.yml test --help
+.venv/bin/python -m examples.demo --environment artifacts/environment.yml infra destroy
+```
+
+Use `make example-deps` to install the separate AVD and ANTA dependencies.
+[The example instructions](examples/evpn-symmetric-irb/README.md) describe the anonymized fabric and offline build.
+The example contains two spines and two MLAG leaf pairs.
 Labs contain switches only. CloudVision and host containers remain excluded.
 
-## Acceptance
+## Implementation limits
 
-The milestone requires passing routing, EVPN, VXLAN, switch-link, and MLAG tests on both pairs.
-It also requires saved reports and evidence of complete cleanup across success and failure paths.
-Missing, skipped, errored, or failed required results prevent acceptance.
-A passing offline test or OpenSpec result does not prove working MLAG or a supported runtime.
+Task 6.1 separates the lifecycle core from cloud setup and network acceptance.
+Admission still requires the six-switch example topology and a cEOS digest in regional Google Artifact Registry.
+The operator supplies image access through the cluster. The lifecycle CLI does not obtain registry tokens.
+Labs still default to 120 minutes with a 240-minute maximum.
+The planned 30-minute default, 60-minute maximum, arbitrary topologies, bounded capacity waiting, and scale qualification remain open.
 
-The separate MLAG investigation remains open.
-Drydock includes no experimental firewall workaround and makes no claim about its suspected cause.
-See [the reference notes](docs/references.md) for the source material and prior limitations.
+The November 11 demo passed 54 live ANTA results and both MLAG pairs on the recorded private runtime.
+[That historical evidence](docs/live-gke-validation.md) does not qualify this refactor, the published clabernetes release, scale, or concurrent isolation.
+The private demo retains its switch TLS certificate exception with password authentication and hostname comparison.
+Kubernetes certificate verification remains enabled.
 
-## Work with OpenSpec
+## Develop
+
+With lifecycle dependencies installed, run `make lifecycle-test`.
+After the documented example build, run `make test` and `make spec-check`.
+The lifecycle tests use controlled Kubernetes and eAPI responses without cloud resources or switches.
+The example tests also exercise actual AVD catalog generation offline.
 
 Use OpenSpec 1.16.0 and [the active change](openspec/changes/add-digital-twin-pipeline/proposal.md).
-Run `make spec-status` to see its state.
-Keep proposals under `openspec/changes/` until implementation and live acceptance are complete.
-Do not archive this change based on offline evidence alone.
+Keep the change active until implementation and live acceptance are complete.

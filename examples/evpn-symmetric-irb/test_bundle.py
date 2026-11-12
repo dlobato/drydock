@@ -35,14 +35,12 @@ class BundleTest(unittest.TestCase):
             self.assertEqual(
                 set(archive.getnames()),
                 {"FABRIC-topology.clab.yml", "interface_mapping.json"}
-                | {f"intended/configs/{name}.cfg" for name in NODES}
-                | {f"intended/structured_configs/{name}.yml" for name in NODES},
+                | {f"intended/configs/{name}.cfg" for name in NODES},
             )
 
             structured = {}
             for name, node in nodes.items():
                 structured[name] = yaml.safe_load((SOURCE / f"intended/structured_configs/{name}.yml").read_text())
-                self.assertEqual(yaml.safe_load(archive.extractfile(f"intended/structured_configs/{name}.yml")), structured[name])
                 self.assertEqual(structured[name]["hostname"], name)
                 config_path = node["startup-config"]
                 content = archive.extractfile(config_path).read()
@@ -85,7 +83,7 @@ class BundleTest(unittest.TestCase):
         with tarfile.open(SOURCE / "bundle.tar") as archive:
             for name in sorted(NODES - {"spine1", "spine2"}):
                 with self.subTest(node=name):
-                    structured = yaml.safe_load(archive.extractfile(f"intended/structured_configs/{name}.yml"))
+                    structured = yaml.safe_load((SOURCE / f"intended/structured_configs/{name}.yml").read_text())
                     config = archive.extractfile(f"intended/configs/{name}.cfg").read().decode()
                     self.assertEqual(
                         {vrf["name"]: vrf["vni"] for vrf in structured["vxlan_interface"]["vxlan1"]["vxlan"]["vrfs"]},
@@ -124,7 +122,7 @@ class BundleTest(unittest.TestCase):
             self.assertNotEqual(build_bundle(source, "ceos:offline-placeholder").read_bytes(), original)
 
     def test_missing_inputs_do_not_publish_a_bundle(self):
-        for missing in ("intended/configs/leaf1.cfg", "intended/structured_configs/leaf1.yml", "interface_mapping.json", "FABRIC-topology.clab.yml"):
+        for missing in ("intended/configs/leaf1.cfg", "interface_mapping.json", "FABRIC-topology.clab.yml"):
             with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory:
                 source = Path(directory)
                 shutil.copytree(SOURCE, source, dirs_exist_ok=True)
@@ -140,6 +138,15 @@ class BundleTest(unittest.TestCase):
         for image in ("", "   "):
             with self.subTest(image=image), self.assertRaisesRegex(ValueError, "DRYDOCK_CEOS_IMAGE"):
                 build_bundle(SOURCE, image)
+
+    def test_lifecycle_bundle_does_not_require_avd_models(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            shutil.copytree(SOURCE, source, dirs_exist_ok=True)
+            shutil.rmtree(source / 'intended/structured_configs')
+            archive = build_bundle(source, 'ceos:offline-placeholder')
+            with tarfile.open(archive) as bundle:
+                self.assertFalse(any('structured_configs' in name for name in bundle.getnames()))
 
 
 if __name__ == "__main__":

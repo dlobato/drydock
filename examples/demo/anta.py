@@ -1,4 +1,4 @@
-"""AVD owns catalog generation and execution. Drydock enforces required coverage."""
+"""AVD catalog generation and required coverage for the six-switch example."""
 
 from collections import Counter
 import json
@@ -9,9 +9,11 @@ import subprocess
 import sys
 import time
 
-from .core import UserError, NODES, save
+import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+from drydock.core import UserError, NODES, save
+
+ROOT = Path(__file__).resolve().parents[2]
 PLAYBOOK = ROOT / 'playbooks/anta.yml'
 
 
@@ -70,11 +72,18 @@ def coverage(directory, bundle):
     return expected
 
 
-def prepare(bundle, private, directory):
+def prepare(bundle, source, private, directory):
+    from pyavd import get_device_config
+
     structured = Path(private) / 'structured_configs'
     structured.mkdir(mode=0o700)
     for name in sorted(NODES):
-        (structured / f'{name}.yml').write_text(bundle.files[f'intended/structured_configs/{name}.yml'])
+        text = (Path(source) / f'{name}.yml').read_text()
+        model = yaml.safe_load(text)
+        if (model.get('hostname') != name or not model.get('management_api_http', {}).get('enable_https')
+                or get_device_config(model).strip() != bundle.files[f'intended/configs/{name}.cfg'].strip()):
+            raise UserError('Structured configuration must match the startup configuration and enable HTTPS eAPI.')
+        (structured / f'{name}.yml').write_text(text)
     hosts = [{'name': name, 'host': '127.0.0.1', 'port': 10000 + index} for index, name in enumerate(sorted(NODES))]
     code, rows = invoke(directory, hosts, structured, True, 120)
     if code:

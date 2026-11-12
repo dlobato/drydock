@@ -4,7 +4,7 @@ export ANSIBLE_CONFIG := $(CURDIR)/ansible.cfg
 export ANSIBLE_COLLECTIONS_PATH := $(CURDIR)/.collections
 export ANSIBLE_LOCAL_TEMP := $(CURDIR)/.ansible/tmp
 
-.PHONY: spec-check spec-status example-deps example-build example-bundle example-bundle-test test
+.PHONY: spec-check spec-status lifecycle-deps lifecycle-test example-deps example-build example-bundle example-bundle-test test
 
 spec-check:
 	$(OPENSPEC) validate --all --strict --no-interactive
@@ -12,9 +12,16 @@ spec-check:
 spec-status:
 	$(OPENSPEC) list
 
-example-deps:
+lifecycle-deps:
 	$(PYTHON) -m venv .venv
 	.venv/bin/python -m pip install -r requirements.txt
+
+lifecycle-test:
+	.venv/bin/python -m unittest discover -s tests -p 'test_lifecycle*.py' -v
+
+example-deps:
+	$(PYTHON) -m venv .venv
+	.venv/bin/python -m pip install -r requirements-example.txt
 	.venv/bin/ansible-galaxy collection install -r collection-requirements.yml -p .collections
 
 example-build:

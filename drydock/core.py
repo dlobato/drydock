@@ -65,48 +65,27 @@ def wait_for(action, timeout, interval=10):
 
 @dataclass(frozen=True)
 class Environment:
-    project: str
-    zone: str
     name: str
-    cluster_version: str
-    clabernetes_version: str
-    cleanup_image: str
+    kubeconfig: str
+    context: str
 
     def __post_init__(self):
-        patterns = {"project": r"[a-z][a-z0-9-]{4,28}[a-z0-9]",
-                    "zone": r"[a-z]+-[a-z]+[0-9]-[a-z]",
-                    "name": r"drydock-[a-z0-9](?:[a-z0-9-]{0,12}[a-z0-9])?",
-                    "cluster_version": r"[0-9]+\.[0-9]+\.[0-9]+-gke\.[0-9]+",
-                    "clabernetes_version": r"[0-9]+\.[0-9]+\.[0-9]+"}
-        for key, pattern in patterns.items():
-            if not re.fullmatch(pattern, getattr(self, key)):
-                raise UserError(f"Invalid environment field: {key}")
-        require_digest(self.cleanup_image)
+        if not re.fullmatch(r"drydock-[a-z0-9](?:[a-z0-9-]{0,12}[a-z0-9])?", self.name):
+            raise UserError("Invalid environment name.")
+        if not self.kubeconfig or not self.context:
+            raise UserError("Supply a kubeconfig path and Kubernetes context.")
 
     @classmethod
     def load(cls, path):
         return cls(**yaml.safe_load(Path(path).read_text()))
 
     @property
-    def region(self):
-        return self.zone.rsplit("-", 1)[0]
-
-    @property
-    def directory(self):
-        return Path("artifacts/environments") / self.name
-
-    @property
     def namespace(self):
         return self.name + "-system"
 
-    def gcloud(self, *args, data=None):
-        return run(["gcloud", *args, f"--project={self.project}", "--quiet", "--format=json"], data=data)
-
     def kube_command(self, *args):
-        kubeconfig = ("/environment/kubeconfig" if os.environ.get("KUBERNETES_SERVICE_HOST")
-                      else str(self.directory / "kubeconfig"))
-        command = ["kubectl", "--request-timeout=30s", "--kubeconfig", kubeconfig]
-        return [*command, *args]
+        return ["kubectl", "--request-timeout=30s", "--kubeconfig", self.kubeconfig,
+                "--context", self.context, *args]
 
     def kube(self, *args, data=None):
         return run(self.kube_command(*args), data=data)
@@ -148,10 +127,9 @@ class Bundle:
                     raise UserError("Bundle contains an unsafe or duplicate member.")
                 files[member.name] = archive.extractfile(member).read().decode()
         expected = {"FABRIC-topology.clab.yml", "interface_mapping.json"} | {
-            f"intended/configs/{name}.cfg" for name in NODES} | {
-            f"intended/structured_configs/{name}.yml" for name in NODES}
+            f"intended/configs/{name}.cfg" for name in NODES}
         if set(files) != expected:
-            raise UserError("Bundle must contain the topology, mapping, six startup configurations, and six structured configurations.")
+            raise UserError("Bundle must contain the topology, mapping, and six startup configurations.")
         if sum(len(text.encode()) for name, text in files.items() if name.endswith((".cfg", ".json"))) > 512 * 1024:
             raise UserError("Startup files exceed the shared Secret payload limit of 512 KiB.")
         topology = yaml.safe_load(files["FABRIC-topology.clab.yml"])
@@ -203,11 +181,6 @@ class Bundle:
             path = f"intended/configs/{name}.cfg"
             if node["startup-config"] != path or not re.search(rf"^hostname {name}$", files[path], re.M):
                 raise UserError("Switch identity and startup configuration do not match.")
-            from pyavd import get_device_config
-            structured = yaml.safe_load(files[f"intended/structured_configs/{name}.yml"])
-            if (structured.get("hostname") != name or not structured.get("management_api_http", {}).get("enable_https")
-                    or get_device_config(structured).strip() != files[path].strip()):
-                raise UserError("Structured configuration must match the startup configuration and enable HTTPS eAPI.")
         return cls(hashlib.sha256(content).hexdigest(), topology, files, interfaces)
 
 

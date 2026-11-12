@@ -1,225 +1,56 @@
-"""GKE resources, Kubernetes ownership records, and independent lab expiry."""
+"""Operator-owned GKE demo setup. Lifecycle commands never import this module."""
 
-from dataclasses import asdict
-import base64
+from dataclasses import asdict, dataclass
 import json
 import os
+from pathlib import Path
 import re
-from uuid import uuid4
 
 import yaml
 
-from .core import UserError, ENV_LABEL, LAB_LABEL, now, run, save, wait_for
+from drydock.core import Environment, UserError, now, require_digest, run, save, wait_for
+from drydock.lifecycle import object_meta
 
 
-def object_meta(env, name, namespace=None, lab=None):
-    metadata = {"name": name, "labels": {ENV_LABEL: env.name}}
-    if namespace:
-        metadata["namespace"] = namespace
-    if lab:
-        metadata["labels"][LAB_LABEL] = lab
-    return metadata
+@dataclass(frozen=True)
+class GKEEnvironment:
+    project: str
+    zone: str
+    name: str
+    cluster_version: str
+    clabernetes_version: str
+    cleanup_image: str
 
+    def __post_init__(self):
+        patterns = {"project": r"[a-z][a-z0-9-]{4,28}[a-z0-9]",
+                    "zone": r"[a-z]+-[a-z]+[0-9]-[a-z]",
+                    "name": r"drydock-[a-z0-9](?:[a-z0-9-]{0,12}[a-z0-9])?",
+                    "cluster_version": r"[0-9]+\.[0-9]+\.[0-9]+-gke\.[0-9]+",
+                    "clabernetes_version": r"[0-9]+\.[0-9]+\.[0-9]+"}
+        for key, pattern in patterns.items():
+            if not re.fullmatch(pattern, getattr(self, key)):
+                raise UserError(f"Invalid environment field: {key}")
+        require_digest(self.cleanup_image)
 
-def pool_labels(env, lab):
-    return {"drydock-env": env.name, "drydock-lab": lab}
+    @classmethod
+    def load(cls, path):
+        return cls(**yaml.safe_load(Path(path).read_text()))
 
+    @property
+    def region(self):
+        return self.zone.rsplit("-", 1)[0]
 
-def pools(env):
-    return json.loads(env.gcloud("container", "node-pools", "list", f"--cluster={env.name}", f"--zone={env.zone}"))
+    @property
+    def directory(self):
+        return Path("artifacts/environments") / self.name
 
+    @property
+    def namespace(self):
+        return self.name + "-system"
 
-def owned_pool(pool, env, lab):
-    return pool.get("config", {}).get("labels", {}).items() >= pool_labels(env, lab).items()
+    def gcloud(self, *args, data=None):
+        return run(["gcloud", *args, f"--project={self.project}", "--quiet", "--format=json"], data=data)
 
-
-def check_lab(lab):
-    if not re.fullmatch(r"lab-[a-f0-9]{12}", lab):
-        raise UserError("Invalid lab identifier.")
-
-
-def lab_record(env, lab):
-    check_lab(lab)
-    records = env.objects("configmaps", env.namespace, f"{ENV_LABEL}={env.name},{LAB_LABEL}={lab}")
-    if not records:
-        return None
-    record = json.loads(records[0]["data"]["record"])
-    if record["id"] != lab or record["environment"] != env.name:
-        raise UserError("Lab ownership record does not match its labels.")
-    record["resource_version"] = records[0]["metadata"]["resourceVersion"]
-    return record
-
-
-def write_record(env, record, create=False):
-    version = record.pop("resource_version", None)
-    obj = {"apiVersion": "v1", "kind": "ConfigMap",
-           "metadata": object_meta(env, record["id"], env.namespace, record["id"]),
-           "data": {"record": json.dumps(record)}}
-    if create:
-        env.kube("create", "-f", "-", data=json.dumps(obj))
-    else:
-        if not version:
-            raise UserError("Updating ownership requires its resource version.")
-        obj["metadata"]["resourceVersion"] = version
-        env.kube("replace", "-f", "-", data=json.dumps(obj))
-
-
-def allocation_record(env, lab):
-    record = lab_record(env, lab)
-    if not record or record["state"] != "creating" or record["expires_at"] <= now():
-        raise UserError("Allocation stopped because the lab expired or cleanup started.")
-    return record
-
-
-def registry_secret(env, lab, registry):
-    namespace = env.name + "-" + lab
-    token = json.loads(env.gcloud("auth", "print-access-token"))["token"]
-    auth = base64.b64encode(("oauth2accesstoken:" + token).encode()).decode()
-    env.apply({"apiVersion": "v1", "kind": "Secret", "metadata": object_meta(env, "registry", namespace, lab),
-               "type": "kubernetes.io/dockerconfigjson", "stringData": {".dockerconfigjson": json.dumps({
-                   "auths": {registry: {"auth": auth}}})}})
-
-
-def validate_request(bundle, provenance, lifetime):
-    if type(lifetime) is not int or not 1 <= lifetime <= 240:
-        raise UserError("Lab lifetime must be between 1 and 240 minutes.")
-    if not all(isinstance(provenance.get(key), str) and provenance[key].strip()
-               for key in ("repository", "commit", "run", "attempt")):
-        raise UserError("Supply repository, commit, run, and attempt identity.")
-    image = bundle.topology["topology"]["kinds"]["arista_ceos"]["image"]
-    registry = image.split("/")[0]
-    if not re.fullmatch(r"[a-z]+-[a-z]+[0-9]-docker.pkg.dev", registry):
-        raise UserError("The demo requires a cEOS digest in regional Google Artifact Registry.")
-    return image, registry
-
-
-def create_lab(env, bundle, provenance, lifetime=120, lab=None):
-    image, registry = validate_request(bundle, provenance, lifetime)
-    lab = lab or "lab-" + uuid4().hex[:12]
-    check_lab(lab)
-    accepted = now()
-    record = {"id": lab, "environment": env.name, "accepted_at": accepted,
-              "expires_at": accepted + lifetime * 60, "state": "creating",
-              "bundle_digest": bundle.digest, "provenance": provenance, "registry": registry,
-              "runtime": {"ceos_image": image, "gke_requested": env.cluster_version,
-                          "clabernetes": env.clabernetes_version}}
-    # Commit ownership before the first allocation, including the planned pool name.
-    write_record(env, record, create=True)
-    allocation_record(env, lab)
-    labels = pool_labels(env, lab)
-    env.gcloud("container", "node-pools", "create", lab, f"--cluster={env.name}", f"--zone={env.zone}",
-               f"--node-locations={env.zone}", "--num-nodes=2", "--machine-type=e2-standard-4",
-               "--disk-type=pd-standard", "--disk-size=30", "--image-type=UBUNTU_CONTAINERD",
-               "--scopes=cloud-platform",
-               "--node-labels=" + ",".join(f"{k}={v}" for k, v in labels.items()),
-               f"--node-taints=drydock-lab={lab}:NoSchedule", f"--service-account={env.name}-node@{env.project}.iam.gserviceaccount.com",
-               "--workload-metadata=GKE_METADATA", "--async")
-    allocation_record(env, lab)
-    namespace = env.name + "-" + lab
-    env.kube("create", "-f", "-", data=json.dumps({"apiVersion": "v1", "kind": "Namespace",
-             "metadata": {**object_meta(env, namespace, lab=lab), "labels": {
-                 ENV_LABEL: env.name, LAB_LABEL: lab, "pod-security.kubernetes.io/enforce": "privileged"}}}))
-    allocation_record(env, lab)
-    registry_secret(env, lab, registry)
-    files = {f"{name}.cfg": text for name, text in
-             ((name, bundle.files[f"intended/configs/{name}.cfg"]) for name in bundle.interfaces)}
-    files["interface_mapping.json"] = bundle.files["interface_mapping.json"]
-    env.apply({"apiVersion": "v1", "kind": "Secret", "metadata": object_meta(env, "startup", namespace, lab),
-               "type": "Opaque", "stringData": files})
-    nodes = {}
-    attachments = {}
-    for name, original in bundle.topology["topology"]["nodes"].items():
-        nodes[name] = {"kind": "arista_ceos", "image": image, "mgmt-ipv4": original["mgmt-ipv4"],
-                       "enforce-startup-config": True,
-                       "startup-config": f"/drydock/{name}.cfg", "ports": ["443/tcp"],
-                       "binds": ["/drydock/interface_mapping.json:/mnt/flash/EosIntfMapping.json:ro"]}
-        attachments[name] = [{"filePath": f"/drydock/{name}.cfg", "secretName": "startup", "secretPath": f"{name}.cfg"},
-                             {"filePath": "/drydock/interface_mapping.json", "secretName": "startup", "secretPath": "interface_mapping.json"}]
-    allocation_record(env, lab)
-    topology = {"name": "fabric", "prefix": "", "mgmt": {**bundle.topology["mgmt"], "network": lab},
-                "topology": {"nodes": nodes, "links": bundle.topology["topology"]["links"]}}
-    env.apply({"apiVersion": "c9s.run/v1alpha1", "kind": "Topology",
-               "metadata": object_meta(env, "fabric", namespace, lab), "spec": {
-                   "imagePull": {"pullSecrets": ["registry"]},
-                   "expose": {"exposeType": "ClusterIP", "disableAutoExpose": True},
-                   "deployment": {"filesFromSecret": attachments,
-                       "resources": {"default": {"requests": {"cpu": "1", "memory": "2Gi"}, "limits": {"cpu": "2", "memory": "3Gi"}}},
-                       "scheduling": {"nodeSelector": labels, "tolerations": [
-                           {"key": "drydock-lab", "operator": "Equal", "value": lab, "effect": "NoSchedule"}]}},
-                   "definition": {"containerlab": yaml.safe_dump(topology)}}})
-    record = allocation_record(env, lab)
-    record["state"] = "running"
-    write_record(env, record)
-    return record
-
-
-def delete_lab(env, lab):
-    check_lab(lab)
-    record = lab_record(env, lab)
-    namespace = env.name + "-" + lab
-    errors = []
-    if record:
-        record["state"] = "deleting"
-        record["overdue"] = now() > record["expires_at"] + 1800
-        write_record(env, record)
-    namespaces = env.objects("namespaces")
-    for item in namespaces:
-        if item["metadata"]["name"] == namespace:
-            if not item["metadata"].get("labels", {}).items() >= {ENV_LABEL: env.name, LAB_LABEL: lab}.items():
-                raise UserError("Refusing to delete a namespace with different ownership.")
-            try:
-                env.kube("delete", "namespace", namespace, "--wait=false", "--ignore-not-found")
-            except (RuntimeError, TimeoutError) as error:
-                errors.append(str(error))
-    for pool in pools(env):
-        if pool["name"] == lab:
-            if not owned_pool(pool, env, lab):
-                raise UserError("Refusing to delete a worker pool with different ownership.")
-            try:
-                if pool.get("status") != "STOPPING":
-                    env.gcloud("container", "node-pools", "delete", lab, f"--cluster={env.name}", f"--zone={env.zone}", "--async")
-            except (RuntimeError, TimeoutError) as error:
-                errors.append(str(error))
-    remaining_namespace = any(item["metadata"]["name"] == namespace for item in env.objects("namespaces"))
-    remaining_pool = any(pool["name"] == lab for pool in pools(env))
-    operations = json.loads(env.gcloud("container", "operations", "list", f"--zone={env.zone}"))
-    pending = [op["name"] for op in operations if op.get("status") != "DONE" and
-               (op.get("targetLink", "").endswith(f"/clusters/{env.name}/nodePools/{lab}") or
-                op.get("targetLink", "").endswith(f"/clusters/{env.name}"))]
-    complete = not remaining_namespace and not remaining_pool and not pending and not errors
-    result = {"lab": lab, "deleted": complete, "namespace_remaining": remaining_namespace,
-              "pool_remaining": remaining_pool, "pending_operations": pending, "errors": errors}
-    if record:
-        record = lab_record(env, lab)
-        record["state"] = "deleted" if complete else "deleting"
-        record["cleanup"] = result
-        record["overdue"] = now() > record["expires_at"] + 1800
-        write_record(env, record)
-    return result
-
-
-def reap(env):
-    outcomes = []
-    records = env.objects("configmaps", env.namespace, f"{ENV_LABEL}={env.name},{LAB_LABEL}")
-    for item in records:
-        record = json.loads(item["data"]["record"])
-        # Revisit deleted records too: an accepted asynchronous allocation can appear late.
-        if record["expires_at"] <= now() or record["state"] in {"deleting", "deleted"}:
-            try:
-                outcomes.append(delete_lab(env, record["id"]))
-            except Exception as error:
-                outcomes.append({"lab": record["id"], "deleted": False, "error": str(error),
-                                 "overdue": now() > record["expires_at"] + 1800})
-        elif record["state"] == "running":
-            try:
-                namespaces = env.objects("namespaces")
-                namespace = next((n for n in namespaces if n["metadata"]["name"] == env.name + "-" + record["id"]), None)
-                if namespace and namespace["metadata"].get("labels", {}).items() >= {
-                        ENV_LABEL: env.name, LAB_LABEL: record["id"]}.items():
-                    registry_secret(env, record["id"], record["registry"])
-            except Exception:
-                outcomes.append({"lab": record["id"], "error": "Registry token refresh failed."})
-    return outcomes
 
 
 def infrastructure_inventory(env):
@@ -263,34 +94,16 @@ def deploy_infrastructure(env):
     inventory = infrastructure_inventory(env)
     if any(selected_resources(env, inventory).values()):
         raise UserError("A planned resource already exists. Deployment does not adopt existing resources.")
-    role_id = env.name.replace("-", "_")
-    deleted_role = next((r for r in inventory["roles"] if r["name"].rsplit("/", 1)[-1] == role_id), None)
-    if deleted_role and deleted_role.get("description") != "drydock:" + env.name:
-        raise UserError("A deleted role has different ownership.")
     save(journal, {"environment": asdict(env), "state": "creating", "accepted_at": now()})
     marker = "drydock:" + env.name
     env.gcloud("compute", "networks", "create", env.name, "--subnet-mode=custom", "--mtu=1460", f"--description={marker}")
     env.gcloud("compute", "networks", "subnets", "create", env.name, f"--network={env.name}",
                f"--region={env.region}", "--range=10.250.0.0/20",
                "--secondary-range=pods=10.251.0.0/16,services=10.252.0.0/20", f"--description={marker}")
-    for kind in ("node", "cleaner"):
-        env.gcloud("iam", "service-accounts", "create", env.name + "-" + kind, f"--description={marker}")
+    env.gcloud("iam", "service-accounts", "create", env.name + "-node", f"--description={marker}")
     node_sa = f"{env.name}-node@{env.project}.iam.gserviceaccount.com"
-    cleaner_sa = f"{env.name}-cleaner@{env.project}.iam.gserviceaccount.com"
     for role in ("roles/container.defaultNodeServiceAccount", "roles/artifactregistry.reader"):
         env.gcloud("projects", "add-iam-policy-binding", env.project, f"--member=serviceAccount:{node_sa}", f"--role={role}")
-    if deleted_role:
-        env.gcloud("iam", "roles", "undelete", role_id)
-    env.gcloud("iam", "roles", "update" if deleted_role else "create", role_id, f"--title={env.name}", f"--description={marker}",
-               "--permissions=container.clusters.get,container.clusters.list,container.clusters.update,container.operations.get,container.operations.list")
-    # GKE authorizes node-pool deletion through container.clusters.update.
-    env.gcloud("projects", "add-iam-policy-binding", env.project, f"--member=serviceAccount:{cleaner_sa}",
-               f"--role=projects/{env.project}/roles/{role_id}")
-    env.gcloud("projects", "add-iam-policy-binding", env.project, f"--member=serviceAccount:{cleaner_sa}",
-               "--role=roles/artifactregistry.reader")
-    env.gcloud("iam", "service-accounts", "add-iam-policy-binding", cleaner_sa,
-               "--role=roles/iam.workloadIdentityUser",
-               f"--member=serviceAccount:{env.project}.svc.id.goog[{env.namespace}/cleaner]")
     env.gcloud("container", "clusters", "create", env.name, f"--zone={env.zone}", f"--node-locations={env.zone}",
                "--num-nodes=1", "--machine-type=e2-standard-2", "--disk-type=pd-standard", "--disk-size=30",
                "--image-type=UBUNTU_CONTAINERD", f"--network={env.name}", f"--subnetwork={env.name}",
@@ -323,30 +136,30 @@ def configure_infrastructure(env):
          "--create-namespace", "--namespace", env.namespace, "--version", env.clabernetes_version,
          "--kubeconfig", str(env.directory / "kubeconfig"), "--values", "-", "--wait", "--timeout", "5m"],
         data=yaml.safe_dump(values), timeout=330)
+    lifecycle = Environment(env.name, str((env.directory / "kubeconfig").resolve()),
+                            f"gke_{env.project}_{env.zone}_{env.name}")
     for obj in cleaner_objects(env):
-        env.apply(obj)
+        lifecycle.apply(obj)
+    save(env.directory / "lifecycle.yml", asdict(lifecycle))
     save(env.directory / "ownership.json", {**journal, "state": "ready", "observed_gke_version": cluster["currentMasterVersion"]})
     return {"environment": env.name, "state": "ready"}
 
 
 def cleaner_objects(env):
     role = env.name + "-cleaner"
-    yield {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": {
-        **object_meta(env, "cleaner", env.namespace), "annotations": {
-            "iam.gke.io/gcp-service-account": f"{env.name}-cleaner@{env.project}.iam.gserviceaccount.com"}}}
+    yield {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": object_meta(env, "cleaner", env.namespace)}
     yield {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "ClusterRole", "metadata": object_meta(env, role),
-           "rules": [{"apiGroups": [""], "resources": ["namespaces"], "verbs": ["get", "list", "delete"]},
-                     {"apiGroups": [""], "resources": ["secrets"], "verbs": ["get", "create", "patch", "update"]}]}
+           "rules": [{"apiGroups": [""], "resources": ["namespaces"], "verbs": ["get", "list", "delete"]}]}
     yield {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "ClusterRoleBinding", "metadata": object_meta(env, role),
            "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "ClusterRole", "name": role},
            "subjects": [{"kind": "ServiceAccount", "name": "cleaner", "namespace": env.namespace}]}
     yield {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "metadata": object_meta(env, role, env.namespace),
-           "rules": [{"apiGroups": [""], "resources": ["configmaps"], "verbs": ["get", "list", "create", "patch", "update"]}]}
+           "rules": [{"apiGroups": [""], "resources": ["configmaps"], "verbs": ["get", "list", "create", "update"]}]}
     yield {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding", "metadata": object_meta(env, role, env.namespace),
            "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": role},
            "subjects": [{"kind": "ServiceAccount", "name": "cleaner", "namespace": env.namespace}]}
     yield {"apiVersion": "v1", "kind": "ConfigMap", "metadata": object_meta(env, "environment", env.namespace),
-           "data": {"environment.yml": yaml.safe_dump(asdict(env)), "kubeconfig": yaml.safe_dump({
+           "data": {"environment.yml": yaml.safe_dump(asdict(Environment(env.name, "/environment/kubeconfig", "cleaner"))), "kubeconfig": yaml.safe_dump({
                "apiVersion": "v1", "kind": "Config", "current-context": "cleaner",
                "clusters": [{"name": "cluster", "cluster": {"server": "https://kubernetes.default.svc",
                    "certificate-authority": "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"}}],

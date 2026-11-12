@@ -111,7 +111,10 @@ The bundle uses the Containerlab preview generator in AVD 6.5.0.
 - `FABRIC-topology.clab.yml` defines six `arista_ceos` nodes with the supplied image reference.
 - `interface_mapping.json` maps Linux interfaces to EOS names, including `eth0` to `Management1`.
 - `intended/configs/<name>.cfg` supplies one startup configuration for each switch.
-- `intended/structured_configs/<name>.yml` supplies matching AVD inputs for `arista.avd.anta_runner`.
+
+Matching AVD models remain outside the archive under `intended/structured_configs/` beside the topology.
+The example orchestration compares them with startup files before allocation and uses them for `arista.avd.anta_runner`.
+Lifecycle admission does not require AVD models.
 
 All startup configuration and mapping paths are relative to the topology.
 An empty Containerlab prefix preserves the six AVD device names.
@@ -143,9 +146,9 @@ containerlab validate -t "$bundle_dir/FABRIC-topology.clab.yml"
 This command parses the topology without deploying a lab.
 The AVD generator uses the fixed management network `custom_mgmt` and preserves original device names.
 It does not support concurrent Containerlab labs on one host.
-The GKE lifecycle uses separate namespaces, worker pools, and management network names.
+The Kubernetes lifecycle uses separate namespaces and management network names on operator-managed capacity.
 Concurrent runtime isolation still needs live evidence.
-Startup delivery and the selected image still require live evidence before task 1.1 can pass.
+The revised lifecycle implementation and selected runtime still require live evidence.
 
 ## Validation limits
 
@@ -154,8 +157,9 @@ It does not prove routing convergence, packet forwarding, working MLAG, runtime 
 The four endpoint definitions do not establish host traffic coverage.
 The offline bundle does not establish Containerlab startup or clabernetes compatibility.
 The [CLI flow](../../docs/demo-flow.md) adds lifecycle commands and independent cleanup.
-No live cloud or ANTA acceptance ran for that implementation.
-The separate MLAG investigation remains unresolved and does not block offline generation.
+The November 11 private-runtime demo passed 54 live ANTA results and both MLAG pairs.
+See [the historical validation record](../../docs/live-gke-validation.md) for exact runtime limits.
+That evidence does not qualify the later lifecycle refactor or published clabernetes release.
 No experimental firewall workaround is included.
 
 The broader OpenSpec milestone remains active.
