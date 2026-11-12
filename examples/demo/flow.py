@@ -133,7 +133,8 @@ def test_flow(
         raise UserError(
             "Readiness and test deadlines must fit inside the lab lifetime."
         )
-    lab = "lab-" + uuid4().hex[:12]
+    allocation_id = uuid4().hex
+    lab = "lab-" + allocation_id[:12]
     directory = Path(output) / lab
     directory.mkdir(parents=True, mode=0o700, exist_ok=False)
     result = {
@@ -155,7 +156,9 @@ def test_flow(
     with tempfile.TemporaryDirectory() as private, cancellation():
         structured, expected = prepare(bundle, structured_dir, private, directory)
         try:
-            create_lab(env, bundle, provenance, lifetime, lab)
+            create_lab(
+                env, bundle, provenance, lifetime, lab, allocation_id=allocation_id
+            )
             hosts, result["runtime"]["eos"] = wait_for(
                 lambda: available_probe(env, lab, password), ready_timeout
             )
@@ -189,7 +192,7 @@ def test_flow(
                         action()
                     except Exception as error:
                         result[name] = type(error).__name__
-                result["cleanup"] = cleanup(env, lab)
+                result["cleanup"] = cleanup(env, lab, allocation_id=allocation_id)
             finally:
                 for signum, handler in handlers.items():
                     signal.signal(signum, handler)

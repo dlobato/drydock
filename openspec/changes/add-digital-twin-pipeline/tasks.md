@@ -3,7 +3,8 @@
 The November 12 planning revision records the lifecycle-only requirements without authorizing automatic workflow execution.
 Sections 1 through 5 retain completed work from the earlier GKE demo.
 Task 6.1 records the first revised implementation and its offline and live evidence.
-Task 6.2 records topology-driven admission and its offline evidence.
+Tasks 6.2 and 6.3 record topology admission, ownership isolation, and their offline evidence.
+Task 6.3 also records bounded live ownership and two-lab isolation evidence.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -57,7 +58,7 @@ The former open demo tasks are replaced without claiming their completion:
 
 - [x] 6.1 Move GKE setup and integrated ANTA orchestration outside the lifecycle core. Update callers, dependencies, and command documentation. Demonstrate lifecycle use without AVD, ANTA, or cloud administration access.
 - [x] 6.2 Generalize admission without a second network model. Preserve admitted topology fields, inspect only lifecycle identities and safe file references, and delegate network semantics to clabernetes. Keep EOS interface interpretation in the example. Update documentation and test different fabrics, topology preservation, unsafe inputs, and payloads split within Kubernetes limits.
-- [ ] 6.3 Preserve unique attempt ownership and namespace isolation before allocation. Test competing updates, late creation, repeated input, and deletion that preserves another lab. Document the ownership record and failure output.
+- [x] 6.3 Preserve unique attempt ownership and namespace isolation before allocation. Test competing updates, late creation, repeated input, and deletion that preserves another lab. Document the ownership record and failure output.
 - [ ] 6.4 Replace Google registry token handling with operator-supplied Kubernetes image access. Demonstrate a digest-pinned image outside Google Artifact Registry. Document the cluster prerequisites and keep authentication setup outside the core.
 
 ## 7. Deliver bounded lifecycle operations
@@ -132,7 +133,37 @@ The initial revision passed both example builds. The topology-preserving revisio
 Pinned Ruff and mypy hooks and strict OpenSpec validation pass.
 The actual AVD role still generates all 54 expected dry-run results with both MLAG pairs covered.
 This evidence does not establish live startup of other fabrics, 100-switch capacity, concurrency, or another provider.
-Tasks 6.3, 6.4, 7.2, and section 9 retain their remaining ownership, image access, readiness, and live acceptance work.
+Tasks 6.4, 7.2, and section 9 retain their remaining image access, readiness, and live acceptance work.
+
+## Ownership isolation evidence (task 6.3)
+
+Each creation request records an allocation ID before namespace or workload creation.
+The standalone CLI and optional demo pass that ID to cleanup after failed creation.
+An ID collision cannot authorize cleanup of an earlier request.
+Namespace labels must match the record for status and deletion.
+Deletion sends the observed Kubernetes object ID and resource version as API preconditions.
+
+Controlled tests cover repeated input, preserved resources in another lab, competing updates, late namespace creation, and expiry without renewal.
+They also cover namespace replacement, changed labels, lost ownership responses, and unconfirmed ownership without disclosing provider output.
+All 64 offline regression tests pass, including the actual AVD role and its 54 expected catalog results.
+Pinned Ruff and mypy hooks and strict OpenSpec validation pass.
+A localhost HTTP test confirms that the actual `kubectl` command sends both deletion preconditions.
+
+The [lifecycle instructions](../../../docs/lifecycle.md#ownership-and-failure-output) describe ownership records, JSON failure output, and earlier-deployment cleanup.
+The November 12 live follow-up used two concurrent six-switch labs with identical input and request provenance.
+Both labs passed authenticated readiness and all 54 required ANTA results, including both MLAG pairs.
+Deleting one lab preserved the survivor's Pod identities and its next 54 results.
+An eight-minute replacement lab also expired without a caller deletion request.
+The independent cleaner removed its namespace within 263 seconds after expiry and confirmed complete deletion within 516 seconds.
+The survivor kept its original Pod identities and passed another 54 results after expiry cleanup.
+All seven live ANTA runs passed, with 378 successful results and both MLAG pairs covered in each run.
+Independent reads found every lab namespace absent and all seven ownership records deleted before shared teardown.
+The final cloud inventory found zero owned resources across 15 categories and preserved the project and baseline resources.
+Live API cases also passed collision protection, stale updates, lost ownership responses, namespace ownership refusals, deletion preconditions, and late namespace cleanup.
+Namespace race cases used empty test namespaces and controlled failure injection.
+The [live validation record](../../../docs/live-gke-validation.md) states the tested source, private runtime, capacity, and operator registry retries.
+This evidence covers two simultaneous six-switch labs. It does not qualify larger concurrency, live scale, or another runtime or provider.
+Tasks 7.4, 9.2, and 9.3 retain their remaining cleanup, concurrency, and live failure qualification.
 
 ## Historical demo evidence
 

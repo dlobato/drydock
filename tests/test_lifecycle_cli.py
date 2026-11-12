@@ -9,6 +9,7 @@ import unittest
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import yaml
@@ -156,6 +157,57 @@ class LifecycleCliTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertTrue(result["cleanup"]["deleted"])
         self.assertFalse(self.backend.namespaces)
+
+    def test_id_collision_never_cleans_up_the_existing_lab(self):
+        code, existing = self.invoke(*self.create_args)
+        self.assertEqual(code, 0)
+        resources = list(self.backend.applied)
+        namespaces = list(self.backend.namespaces)
+        records = json.loads(json.dumps(self.backend.records))
+        collision = SimpleNamespace(hex=existing["id"].removeprefix("lab-") + "b" * 20)
+        self.assertNotEqual(collision.hex, existing["allocation_id"])
+        with patch("uuid.uuid4", return_value=collision):
+            code, result = self.invoke(*self.create_args)
+        self.assertEqual(code, 1)
+        self.assertFalse(result["cleanup"]["deleted"])
+        self.assertIn("ownership", result["cleanup"]["error"])
+        self.assertEqual(self.backend.applied, resources)
+        self.assertEqual(self.backend.namespaces, namespaces)
+        self.assertEqual(self.backend.records, records)
+
+    def test_lost_ownership_response_still_cleans_up_its_own_record(self):
+        original = self.backend.kube
+
+        def lost_response(*args, data=None):
+            result = original(*args, data=data)
+            if args[0] == "create" and json.loads(data)["kind"] == "ConfigMap":
+                raise TimeoutError("private-provider-output")
+            return result
+
+        with patch.object(self.backend, "kube", side_effect=lost_response):
+            code, result = self.invoke(*self.create_args)
+        self.assertEqual(code, 1)
+        self.assertEqual(result["error"], "TimeoutError")
+        self.assertTrue(result["cleanup"]["deleted"])
+        self.assertNotIn("private-provider-output", json.dumps(result))
+        self.assertEqual(
+            json.loads(self.backend.records[result["lab"]]["data"]["record"])["state"],
+            "deleted",
+        )
+        self.assertFalse(self.backend.namespaces)
+
+    def test_unconfirmed_ownership_returns_failure_without_allocating(self):
+        with patch.object(
+            self.backend, "kube", side_effect=TimeoutError("private-provider-output")
+        ):
+            code, result = self.invoke(*self.create_args)
+        self.assertEqual(code, 1)
+        self.assertFalse(result["cleanup"]["deleted"])
+        self.assertIn("ownership", result["cleanup"]["error"])
+        self.assertNotIn("private-provider-output", json.dumps(result))
+        self.assertFalse(self.backend.records)
+        self.assertFalse(self.backend.namespaces)
+        self.assertFalse(self.backend.applied)
 
     def test_alternate_fabrics_through_create_status_and_delete(self):
         for count, mapping in ((1, False), (3, True), (100, False)):

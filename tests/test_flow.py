@@ -102,7 +102,7 @@ class FlowTests(unittest.TestCase):
                 patch(
                     "examples.demo.flow.create_lab",
                     side_effect=RuntimeError if failure == "allocation" else None,
-                ),
+                ) as create,
                 patch(
                     "drydock.flow.snapshot",
                     return_value=({"switches": sorted(NODES)}, switch_pods(), []),
@@ -134,6 +134,10 @@ class FlowTests(unittest.TestCase):
                     ENV, bundle, directory, IDENTITY, "TOP-SECRET", directory
                 )
                 cleanup.assert_called_once()
+                self.assertEqual(
+                    cleanup.call_args.kwargs["allocation_id"],
+                    create.call_args.kwargs["allocation_id"],
+                )
                 report_text = "".join(
                     p.read_text() for p in (Path(directory) / result["lab"]).iterdir()
                 )

@@ -14,6 +14,7 @@ import yaml
 from drydock import flow
 from drydock import lifecycle as cloud
 from drydock.core import (
+    ALLOCATION_LABEL,
     ENV_LABEL,
     LAB_LABEL,
     PAYLOAD_LIMIT,
@@ -180,6 +181,14 @@ class FakeEnvironment:
                 )
                 self.records[name] = obj
             elif obj["kind"] == "Namespace":
+                if any(
+                    n["metadata"]["name"] == obj["metadata"]["name"]
+                    for n in self.namespaces
+                ):
+                    raise RuntimeError("Conflict")
+                obj["metadata"].update(
+                    uid="namespace-" + str(len(self.calls)), resourceVersion="1"
+                )
                 self.namespaces.append(obj)
                 if self.fail_namespace:
                     raise RuntimeError(
@@ -190,8 +199,19 @@ class FakeEnvironment:
         elif args[0] == "delete":
             if self.fail_delete:
                 raise RuntimeError("namespace deletion failed")
+            name = args[1].removeprefix("--raw=/api/v1/namespaces/")
+            preconditions = json.loads(data)["preconditions"]
+            for item in self.namespaces:
+                if item["metadata"]["name"] == name and any(
+                    item["metadata"][key] != value
+                    for key, value in preconditions.items()
+                ):
+                    raise RuntimeError("Conflict")
             self.namespaces = [
-                n for n in self.namespaces if n["metadata"]["name"] != args[2]
+                n for n in self.namespaces if n["metadata"]["name"] != name
+            ]
+            self.applied = [
+                obj for obj in self.applied if obj["metadata"]["namespace"] != name
             ]
         return "{}"
 
@@ -552,7 +572,15 @@ class OwnershipTests(unittest.TestCase):
                 {
                     "metadata": {
                         "name": ENV.name + "-" + LAB,
-                        "labels": {ENV_LABEL: ENV.name, LAB_LABEL: LAB},
+                        "labels": {
+                            ENV_LABEL: ENV.name,
+                            LAB_LABEL: LAB,
+                            ALLOCATION_LABEL: cloud.lab_record(self.env, LAB)[
+                                "allocation_id"
+                            ],
+                        },
+                        "uid": "late-namespace",
+                        "resourceVersion": "1",
                     }
                 }
             )
@@ -576,6 +604,134 @@ class OwnershipTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             cloud.write_record(self.env, {**stale, "state": "running"})
         self.assertEqual(cloud.lab_record(self.env, LAB)["state"], "deleted")
+
+    def test_repeated_input_creates_separate_owned_resources(self):
+        first = cloud.create_lab(self.env, self.bundle, IDENTITY)
+        second = cloud.create_lab(self.env, self.bundle, IDENTITY)
+        self.assertNotEqual(first["id"], second["id"])
+        self.assertNotEqual(first["allocation_id"], second["allocation_id"])
+        self.assertEqual(first["bundle_digest"], second["bundle_digest"])
+        namespace = ENV.name + "-" + second["id"]
+        resources = [
+            obj for obj in self.env.applied if obj["metadata"]["namespace"] == namespace
+        ]
+        record = cloud.lab_record(self.env, second["id"])
+        cloud.delete_lab(self.env, first["id"])
+        self.assertEqual(self.env.applied, resources)
+        self.assertEqual(cloud.lab_record(self.env, second["id"]), record)
+
+    def test_namespace_allocation_identity_is_required_for_status_and_deletion(self):
+        cloud.create_lab(self.env, self.bundle, IDENTITY, lab=LAB)
+        self.env.namespaces[0]["metadata"]["labels"][ALLOCATION_LABEL] = (
+            "another-allocation"
+        )
+        with self.assertRaisesRegex(UserError, "ownership"):
+            flow.snapshot(self.env, LAB)
+        with self.assertRaisesRegex(UserError, "ownership"):
+            cloud.delete_lab(self.env, LAB)
+        self.assertTrue(self.env.namespaces)
+        self.assertTrue(self.env.applied)
+
+    def test_deletion_requires_a_record_for_an_existing_namespace(self):
+        cloud.create_lab(self.env, self.bundle, IDENTITY, lab=LAB)
+        self.env.records.clear()
+        with self.assertRaisesRegex(UserError, "ownership"):
+            cloud.delete_lab(self.env, LAB)
+        self.assertTrue(self.env.namespaces)
+        self.assertTrue(self.env.applied)
+
+    def test_creation_stops_after_late_namespace_and_cleanup_revisits_it(self):
+        original = self.env.kube
+
+        def delayed_namespace(*args, data=None):
+            if data and json.loads(data)["kind"] == "Namespace":
+                self.assertTrue(cloud.delete_lab(self.env, LAB)["deleted"])
+            return original(*args, data=data)
+
+        with patch.object(self.env, "kube", side_effect=delayed_namespace):
+            with self.assertRaisesRegex(UserError, "cleanup started"):
+                cloud.create_lab(self.env, self.bundle, IDENTITY, lab=LAB)
+        record = cloud.lab_record(self.env, LAB)
+        self.assertEqual(record["state"], "deleted")
+        self.assertTrue(self.env.namespaces)
+        self.assertFalse(self.env.applied)
+        self.assertTrue(cloud.reap(self.env)[0]["deleted"])
+        self.assertFalse(self.env.namespaces)
+        self.assertEqual(
+            cloud.lab_record(self.env, LAB)["expires_at"], record["expires_at"]
+        )
+
+    def test_competing_final_update_cannot_restore_a_deleted_lab(self):
+        original = self.env.kube
+        deleted = None
+
+        def competing_update(*args, data=None):
+            nonlocal deleted
+            obj = json.loads(data) if data else {}
+            if (
+                obj.get("kind") == "ConfigMap"
+                and json.loads(obj["data"]["record"])["state"] == "running"
+            ):
+                cloud.delete_lab(self.env, LAB)
+                deleted = cloud.lab_record(self.env, LAB)
+            return original(*args, data=data)
+
+        with patch.object(self.env, "kube", side_effect=competing_update):
+            with self.assertRaisesRegex(RuntimeError, "Conflict"):
+                cloud.create_lab(self.env, self.bundle, IDENTITY, lab=LAB)
+        self.assertEqual(cloud.lab_record(self.env, LAB), deleted)
+        self.assertFalse(self.env.namespaces)
+        self.assertFalse(self.env.applied)
+
+    def test_delete_preconditions_preserve_a_replaced_namespace(self):
+        cloud.create_lab(self.env, self.bundle, IDENTITY, lab=LAB)
+        original = self.env.kube
+
+        def replace_namespace(*args, data=None):
+            if args[0] == "delete":
+                self.env.namespaces[0]["metadata"]["uid"] = "unrelated-replacement"
+                self.env.namespaces[0]["metadata"]["labels"] = {"unrelated": "true"}
+            return original(*args, data=data)
+
+        with patch.object(self.env, "kube", side_effect=replace_namespace):
+            self.assertFalse(cloud.delete_lab(self.env, LAB)["deleted"])
+        self.assertEqual(
+            self.env.namespaces[0]["metadata"]["uid"], "unrelated-replacement"
+        )
+        self.assertEqual(cloud.lab_record(self.env, LAB)["state"], "deleting")
+
+    def test_changed_namespace_labels_prevent_a_pending_delete(self):
+        cloud.create_lab(self.env, self.bundle, IDENTITY, lab=LAB)
+        original = self.env.kube
+
+        def change_labels(*args, data=None):
+            if args[0] == "delete":
+                self.env.namespaces[0]["metadata"]["resourceVersion"] = "2"
+                self.env.namespaces[0]["metadata"]["labels"] = {"unrelated": "true"}
+            return original(*args, data=data)
+
+        with patch.object(self.env, "kube", side_effect=change_labels):
+            self.assertFalse(cloud.delete_lab(self.env, LAB)["deleted"])
+        self.assertTrue(self.env.namespaces)
+
+    def test_allocation_stops_at_expiry_without_renewing_it(self):
+        original = self.env.kube
+        accepted = 1000
+
+        def expired_namespace(*args, data=None):
+            result = original(*args, data=data)
+            if data and json.loads(data)["kind"] == "Namespace":
+                clock.return_value = accepted + 60
+            return result
+
+        with patch("drydock.lifecycle.now", return_value=accepted) as clock:
+            with patch.object(self.env, "kube", side_effect=expired_namespace):
+                with self.assertRaisesRegex(UserError, "expired"):
+                    cloud.create_lab(
+                        self.env, self.bundle, IDENTITY, lifetime=1, lab=LAB
+                    )
+        self.assertEqual(cloud.lab_record(self.env, LAB)["expires_at"], accepted + 60)
+        self.assertFalse(self.env.applied)
 
 
 class ReadinessTests(unittest.TestCase):

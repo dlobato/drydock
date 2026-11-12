@@ -17,6 +17,7 @@ import yaml
 
 ENV_LABEL = "drydock.io/environment"
 LAB_LABEL = "drydock.io/lab"
+ALLOCATION_LABEL = "drydock.io/allocation"
 PAYLOAD_LIMIT = 512 * 1024
 
 
