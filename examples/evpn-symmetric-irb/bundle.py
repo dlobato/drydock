@@ -3,16 +3,18 @@
 import hashlib
 import io
 import os
-from pathlib import Path
 import tarfile
 import tempfile
+from pathlib import Path
 
 import yaml
 
 
 def build_bundle(source_dir: Path, image: str) -> Path:
     if not image.strip():
-        raise ValueError("Set DRYDOCK_CEOS_IMAGE to an explicit image reference before packaging.")
+        raise ValueError(
+            "Set DRYDOCK_CEOS_IMAGE to an explicit image reference before packaging."
+        )
 
     topology_path = source_dir / "FABRIC-topology.clab.yml"
     topology = yaml.safe_load(topology_path.read_text())

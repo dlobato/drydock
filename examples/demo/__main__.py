@@ -4,8 +4,8 @@ import argparse
 import json
 import logging
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from drydock.core import Bundle, Environment, UserError
 
@@ -21,8 +21,15 @@ def parser():
     test.add_argument("bundle", type=Path)
     test.add_argument("--structured-configs", required=True, type=Path)
     test.add_argument("--output", type=Path, default=Path("reports"))
-    test.add_argument("--ready-timeout", type=int, default=1200, help="Seconds, including authenticated eAPI readiness")
-    test.add_argument("--test-timeout", type=int, default=600, help="Seconds for ANTA convergence")
+    test.add_argument(
+        "--ready-timeout",
+        type=int,
+        default=1200,
+        help="Seconds, including authenticated eAPI readiness",
+    )
+    test.add_argument(
+        "--test-timeout", type=int, default=600, help="Seconds for ANTA convergence"
+    )
     test.add_argument("--lifetime", type=int, default=120, help="Minutes, 1 to 240")
     for field in ("repository", "commit", "run", "attempt"):
         test.add_argument("--" + field, required=True)
@@ -42,9 +49,21 @@ def dispatch(args):
 
     env = Environment.load(args.environment)
     bundle = Bundle.load(args.bundle)
-    provenance = {field: getattr(args, field) for field in ("repository", "commit", "run", "attempt")}
-    result = test_flow(env, bundle, args.structured_configs, provenance, os.environ.get("DRYDOCK_LAB_PASSWORD", ""),
-                       args.output, args.lifetime, args.ready_timeout, args.test_timeout)
+    provenance = {
+        field: getattr(args, field)
+        for field in ("repository", "commit", "run", "attempt")
+    }
+    result = test_flow(
+        env,
+        bundle,
+        args.structured_configs,
+        provenance,
+        os.environ.get("DRYDOCK_LAB_PASSWORD", ""),
+        args.output,
+        args.lifetime,
+        args.ready_timeout,
+        args.test_timeout,
+    )
     return result, result["passed"]
 
 

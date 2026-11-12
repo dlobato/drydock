@@ -3,12 +3,12 @@
 import argparse
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
-from .lifecycle import create_lab, reap, validate_request
 from .core import Bundle, Environment, UserError
 from .flow import cancellation, cleanup, status
+from .lifecycle import create_lab, reap, validate_request
 
 
 def parser():
@@ -32,28 +32,40 @@ def dispatch(args):
     password = os.environ.get("DRYDOCK_LAB_PASSWORD", "")
     if args.command == "reap":
         result = reap(env)
-        return {"cleanup": result}, all(r.get("deleted", True) and "error" not in r for r in result)
+        return {"cleanup": result}, all(
+            r.get("deleted", True) and "error" not in r for r in result
+        )
     if args.command == "lab" and args.action == "delete":
         with cancellation():
             result = cleanup(env, args.lab)
         return result, result["deleted"]
     if args.command == "lab" and args.action == "status":
         if not password:
-            raise UserError("Set DRYDOCK_LAB_PASSWORD to probe authenticated eAPI readiness.")
+            raise UserError(
+                "Set DRYDOCK_LAB_PASSWORD to probe authenticated eAPI readiness."
+            )
         result = status(env, args.lab, password)
         return result, result["ready"]
     bundle = Bundle.load(args.bundle)
-    provenance = {field: getattr(args, field) for field in ("repository", "commit", "run", "attempt")}
+    provenance = {
+        field: getattr(args, field)
+        for field in ("repository", "commit", "run", "attempt")
+    }
     validate_request(bundle, provenance, args.lifetime)
     # Standalone create uses the same cleanup guarantees on a failed allocation.
     from uuid import uuid4
+
     lab = "lab-" + uuid4().hex[:12]
     with cancellation():
         try:
             result = create_lab(env, bundle, provenance, args.lifetime, lab)
             return result, True
         except (Exception, KeyboardInterrupt) as error:
-            result = {"lab": lab, "error": type(error).__name__, "cleanup": cleanup(env, lab)}
+            result = {
+                "lab": lab,
+                "error": type(error).__name__,
+                "cleanup": cleanup(env, lab),
+            }
             return result, False
 
 

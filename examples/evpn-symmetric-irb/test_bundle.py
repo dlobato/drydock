@@ -1,18 +1,16 @@
 """Exercise packaging against the actual offline AVD build."""
 
 import hashlib
-from ipaddress import ip_interface, ip_network
 import json
-from pathlib import Path
 import shutil
 import tarfile
 import tempfile
 import unittest
+from ipaddress import ip_interface, ip_network
+from pathlib import Path
 
 import yaml
-
 from bundle import build_bundle
-
 
 SOURCE = Path(__file__).resolve().parents[2] / "artifacts/example/containerlab"
 NODES = {"spine1", "spine2", "leaf1", "leaf2", "leaf3", "leaf4"}
@@ -30,7 +28,10 @@ class BundleTest(unittest.TestCase):
             self.assertEqual(set(topology["topology"]["kinds"]), {"arista_ceos"})
             kind = topology["topology"]["kinds"]["arista_ceos"]
             self.assertTrue(kind["enforce-startup-config"])
-            self.assertEqual(kind["binds"], ["interface_mapping.json:/mnt/flash/EosIntfMapping.json:ro"])
+            self.assertEqual(
+                kind["binds"],
+                ["interface_mapping.json:/mnt/flash/EosIntfMapping.json:ro"],
+            )
             self.assertEqual(mapping["ManagementIntf"], {"eth0": "Management1"})
             self.assertEqual(
                 set(archive.getnames()),
@@ -40,7 +41,9 @@ class BundleTest(unittest.TestCase):
 
             structured = {}
             for name, node in nodes.items():
-                structured[name] = yaml.safe_load((SOURCE / f"intended/structured_configs/{name}.yml").read_text())
+                structured[name] = yaml.safe_load(
+                    (SOURCE / f"intended/structured_configs/{name}.yml").read_text()
+                )
                 self.assertEqual(structured[name]["hostname"], name)
                 config_path = node["startup-config"]
                 content = archive.extractfile(config_path).read()
@@ -50,21 +53,32 @@ class BundleTest(unittest.TestCase):
                 management = structured[name]["management_interfaces"][0]
                 address = ip_interface(management["ip_address"])
                 self.assertEqual(node["mgmt-ipv4"], str(address.ip))
-                self.assertEqual(address.network, ip_network(topology["mgmt"]["ipv4-subnet"]))
-                management_config = config.split("\ninterface Management1\n")[1].split("\n!")[0]
+                self.assertEqual(
+                    address.network, ip_network(topology["mgmt"]["ipv4-subnet"])
+                )
+                management_config = config.split("\ninterface Management1\n")[1].split(
+                    "\n!"
+                )[0]
                 self.assertIn(f"   ip address {address}", management_config)
                 if name.startswith("leaf"):
                     pair = "PAIR1" if name in {"leaf1", "leaf2"} else "PAIR2"
-                    self.assertEqual(structured[name]["mlag_configuration"]["domain_id"], pair)
+                    self.assertEqual(
+                        structured[name]["mlag_configuration"]["domain_id"], pair
+                    )
                     self.assertIn(f"   domain-id {pair}\n", config)
 
-            links = [tuple(sorted(link["endpoints"])) for link in topology["topology"]["links"]]
+            links = [
+                tuple(sorted(link["endpoints"]))
+                for link in topology["topology"]["links"]
+            ]
             expected = {
                 tuple(sorted((f"leaf{leaf}:eth{spine}", f"spine{spine}:eth{leaf}")))
-                for leaf in range(1, 5) for spine in (1, 2)
+                for leaf in range(1, 5)
+                for spine in (1, 2)
             } | {
                 (f"leaf{first}:eth{port}", f"leaf{first + 1}:eth{port}")
-                for first in (1, 3) for port in (6, 7)
+                for first in (1, 3)
+                for port in (6, 7)
             }
             self.assertEqual(len(links), 12)
             self.assertEqual(set(links), expected)
@@ -74,27 +88,49 @@ class BundleTest(unittest.TestCase):
                 for local, remote in ((left, right), (right, left)):
                     name, port = local.split(":")
                     peer, peer_port = remote.split(":")
-                    interface = next(item for item in structured[name]["ethernet_interfaces"]
-                                     if item["name"] == mapping["EthernetIntf"][port])
+                    interface = next(
+                        item
+                        for item in structured[name]["ethernet_interfaces"]
+                        if item["name"] == mapping["EthernetIntf"][port]
+                    )
                     self.assertEqual(interface["metadata"]["peer"], peer)
-                    self.assertEqual(interface["metadata"]["peer_interface"], mapping["EthernetIntf"][peer_port])
+                    self.assertEqual(
+                        interface["metadata"]["peer_interface"],
+                        mapping["EthernetIntf"][peer_port],
+                    )
 
     def test_mlag_peer_vlans_are_legal(self):
         with tarfile.open(SOURCE / "bundle.tar") as archive:
             for name in sorted(NODES - {"spine1", "spine2"}):
                 with self.subTest(node=name):
-                    structured = yaml.safe_load((SOURCE / f"intended/structured_configs/{name}.yml").read_text())
-                    config = archive.extractfile(f"intended/configs/{name}.cfg").read().decode()
+                    structured = yaml.safe_load(
+                        (SOURCE / f"intended/structured_configs/{name}.yml").read_text()
+                    )
+                    config = (
+                        archive.extractfile(f"intended/configs/{name}.cfg")
+                        .read()
+                        .decode()
+                    )
                     self.assertEqual(
-                        {vrf["name"]: vrf["vni"] for vrf in structured["vxlan_interface"]["vxlan1"]["vxlan"]["vrfs"]},
+                        {
+                            vrf["name"]: vrf["vni"]
+                            for vrf in structured["vxlan_interface"]["vxlan1"]["vxlan"][
+                                "vrfs"
+                            ]
+                        },
                         {"VRF_A": 1001, "VRF_B": 1002},
                     )
                     vlans = {vlan["id"] for vlan in structured["vlans"]}
-                    interfaces = {interface["name"]: interface for interface in structured["vlan_interfaces"]}
+                    interfaces = {
+                        interface["name"]: interface
+                        for interface in structured["vlan_interfaces"]
+                    }
                     for vlan in vlans:
                         self.assertIn(vlan, range(1, 4095))
                     for interface in interfaces:
-                        self.assertIn(int(interface.removeprefix("Vlan")), range(1, 4095))
+                        self.assertIn(
+                            int(interface.removeprefix("Vlan")), range(1, 4095)
+                        )
                     for vrf, vlan in (("VRF_A", 4000), ("VRF_B", 4001)):
                         self.assertIn(vlan, vlans)
                         self.assertEqual(interfaces[f"Vlan{vlan}"]["vrf"], vrf)
@@ -109,21 +145,43 @@ class BundleTest(unittest.TestCase):
             archive = build_bundle(source, "ceos:offline-placeholder")
             original = archive.read_bytes()
             checksum = source / "bundle.tar.sha256"
-            self.assertEqual(checksum.read_text(), f"{hashlib.sha256(original).hexdigest()}  bundle.tar\n")
+            self.assertEqual(
+                checksum.read_text(),
+                f"{hashlib.sha256(original).hexdigest()}  bundle.tar\n",
+            )
             for path in source.rglob("*.cfg"):
                 path.touch()
-            self.assertEqual(build_bundle(source, "ceos:offline-placeholder").read_bytes(), original)
-            self.assertNotEqual(build_bundle(source, "ceos:different-placeholder").read_bytes(), original)
+            self.assertEqual(
+                build_bundle(source, "ceos:offline-placeholder").read_bytes(), original
+            )
+            self.assertNotEqual(
+                build_bundle(source, "ceos:different-placeholder").read_bytes(),
+                original,
+            )
             with tarfile.open(archive) as bundle:
-                topology = yaml.safe_load(bundle.extractfile("FABRIC-topology.clab.yml"))
-                self.assertEqual(topology["topology"]["kinds"]["arista_ceos"]["image"], "ceos:different-placeholder")
+                topology = yaml.safe_load(
+                    bundle.extractfile("FABRIC-topology.clab.yml")
+                )
+                self.assertEqual(
+                    topology["topology"]["kinds"]["arista_ceos"]["image"],
+                    "ceos:different-placeholder",
+                )
             config = source / "intended/configs/leaf1.cfg"
             config.write_text(config.read_text() + "! changed configuration\n")
-            self.assertNotEqual(build_bundle(source, "ceos:offline-placeholder").read_bytes(), original)
+            self.assertNotEqual(
+                build_bundle(source, "ceos:offline-placeholder").read_bytes(), original
+            )
 
     def test_missing_inputs_do_not_publish_a_bundle(self):
-        for missing in ("intended/configs/leaf1.cfg", "interface_mapping.json", "FABRIC-topology.clab.yml"):
-            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory:
+        for missing in (
+            "intended/configs/leaf1.cfg",
+            "interface_mapping.json",
+            "FABRIC-topology.clab.yml",
+        ):
+            with (
+                self.subTest(missing=missing),
+                tempfile.TemporaryDirectory() as directory,
+            ):
                 source = Path(directory)
                 shutil.copytree(SOURCE, source, dirs_exist_ok=True)
                 (source / "bundle.tar").unlink()
@@ -136,17 +194,22 @@ class BundleTest(unittest.TestCase):
 
     def test_explicit_image_is_required(self):
         for image in ("", "   "):
-            with self.subTest(image=image), self.assertRaisesRegex(ValueError, "DRYDOCK_CEOS_IMAGE"):
+            with (
+                self.subTest(image=image),
+                self.assertRaisesRegex(ValueError, "DRYDOCK_CEOS_IMAGE"),
+            ):
                 build_bundle(SOURCE, image)
 
     def test_lifecycle_bundle_does_not_require_avd_models(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
             shutil.copytree(SOURCE, source, dirs_exist_ok=True)
-            shutil.rmtree(source / 'intended/structured_configs')
-            archive = build_bundle(source, 'ceos:offline-placeholder')
+            shutil.rmtree(source / "intended/structured_configs")
+            archive = build_bundle(source, "ceos:offline-placeholder")
             with tarfile.open(archive) as bundle:
-                self.assertFalse(any('structured_configs' in name for name in bundle.getnames()))
+                self.assertFalse(
+                    any("structured_configs" in name for name in bundle.getnames())
+                )
 
 
 if __name__ == "__main__":

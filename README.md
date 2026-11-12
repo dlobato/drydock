@@ -60,6 +60,18 @@ Kubernetes certificate verification remains enabled.
 
 ## Develop
 
+Install the Git hooks in the lifecycle virtual environment:
+
+```sh
+.venv/bin/python -m pip install pre-commit
+.venv/bin/pre-commit install
+.venv/bin/pre-commit run --all-files
+```
+
+Ruff fixes lint issues, sorts imports, and formats Python source and tests.
+Mypy checks function bodies in the lifecycle code, demo code, and bundle builder.
+The hooks install pinned tools in isolated environments without AVD or ANTA.
+
 With lifecycle dependencies installed, run `make lifecycle-test`.
 After the documented example build, run `make test` and `make spec-check`.
 The lifecycle tests use controlled Kubernetes and eAPI responses without cloud resources or switches.
