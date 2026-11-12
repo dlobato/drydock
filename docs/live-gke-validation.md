@@ -1,5 +1,75 @@
 # Live GKE validation
 
+## November 12 ownership and isolation
+
+Executable source at commit `2fb4057a7fb9a04c24da3b0ca941bb8b7d58eac0` passed ownership tests against live Kubernetes APIs.
+Two concurrent six-switch labs used the same bundle, request provenance, switch names, and management addresses.
+Their ownership records, allocation labels, namespaces, and twelve switch Pod identities remained separate.
+Both labs passed authenticated management readiness and all 54 required ANTA results, including both MLAG pairs.
+
+The operator created one temporary cluster before testing and reused it across all cases.
+The operator supplied two shared `e2-standard-8` workers with 80 GB disks.
+Each switch requested one CPU and 2 GiB of memory, with limits of two CPUs and 3 GiB.
+The caller confirmed initial readiness within eight minutes of acceptance and replacement readiness within three minutes.
+These measurements include the operator registry retries described below.
+
+Controlled failure injection exercised the CLI against the live API.
+A forced short-ID collision preserved the earlier lab and refused cleanup by the conflicting allocation ID.
+Stale ownership updates could not extend expiry or restore a deleted state.
+A lost ownership-creation response still allowed cleanup with the matching allocation ID.
+Status and deletion refused a namespace with a different allocation label.
+
+Namespace race tests used separate empty test namespaces.
+Kubernetes returned `Conflict` when deletion used a stale resource version or a replaced namespace's object ID.
+The replacement namespace survived that deletion request.
+The reaper also removed a matching namespace that appeared after its record reached the deleted state.
+Repeated deletion passed, and deleting one switch lab preserved the survivor's Pod identities and its next 54 ANTA results.
+
+A replacement six-switch lab used an eight-minute lifetime and passed all 54 results alongside the survivor.
+The caller then left that lab without requesting deletion or changing its expiry.
+Independent observations found deletion starting within 217 seconds after expiry and namespace removal within 263 seconds.
+The first scheduled cleaner job reported incomplete cleanup while Kubernetes removed the namespace.
+The next scheduled job confirmed complete deletion, observed within 516 seconds after expiry.
+That job used the tested minimal lifecycle image and its Kubernetes service-account token without cloud credentials.
+
+The survivor retained its original Pod identities and passed another 54 results after expiry cleanup.
+All seven ANTA runs matched the exact expected result counts and passed both MLAG pairs.
+They produced 378 successful results in total.
+
+| Case | ANTA runs | Result per run |
+|---|---:|---|
+| Initial concurrent labs | 2 | 54/54 passed |
+| After ownership failure tests | 1 | 54/54 passed |
+| After deleting the other lab | 1 | 54/54 passed |
+| Before independent expiry | 2 | 54/54 passed |
+| After independent expiry | 1 | 54/54 passed |
+
+Independent reads found all seven ownership records deleted and every lab namespace absent before shared infrastructure teardown.
+The cluster identity, creation time, worker pools, and unrelated namespace and Secret survived the test cases.
+The default kubeconfig also remained unchanged.
+The caller used the minimal lifecycle image on a private VM outside Kubernetes. ANTA ran in a separate image.
+Private evidence retains source hashes, image digests, ownership and Pod identities, catalogs, JSON and JUnit reports, and cleaner logs.
+
+After testing, the operator removed the temporary cluster, workers, private runner, network, IAM grants, and registry.
+A fresh independent cloud inventory found zero owned resources across all 15 infrastructure categories.
+Baseline resources in ten inventory categories and the existing project remained intact.
+Temporary access files were removed, and the default kubeconfig still matched its original hash.
+
+The runtime used GKE `1.36.4-gke.2377000`, engineering EOS `4.36.1F-48405728.4361F`, private fork chart `0.0.0`, AVD `6.5.0`, and ANTA `1.10.0`.
+The private runtime digest remained `sha256:d024ebf2e1a8322bb42fbf8a236985ba1f305de764db4c81fa005edebf329e12`.
+No experimental EOS firewall rule was installed.
+Switch probes retained the agreed TLS certificate-verification exception, password authentication, and EOS hostname comparison.
+Kubernetes TLS verification remained enabled.
+
+Some switch objects first reconciled before the operator supplied their registry Secret.
+The operator requested another reconciliation for three switches after those Secrets arrived.
+That action changed metadata only. It did not change switch inputs, images, or expiry.
+Automatic image-access recovery remains unqualified under task 6.4.
+
+This test covers two concurrent six-switch labs on the recorded private runtime.
+Larger concurrency, 100-switch scale, AWS, the official clabernetes release, and the planned lifetime defaults remain unqualified.
+This trusted harness does not qualify the planned Kubernetes admission or GitHub identity controls.
+
 ## November 12 lifecycle separation
 
 The lifecycle core at commit `632d674c6a96acf856d9e91268361376b4bedbd4` passed standalone creation, authenticated status, and inventory retrieval on GKE.

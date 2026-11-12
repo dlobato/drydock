@@ -4,6 +4,7 @@ The November 12 planning revision records the lifecycle-only requirements withou
 Sections 1 through 5 retain completed work from the earlier GKE demo.
 Task 6.1 records the first revised implementation and its offline and live evidence.
 Tasks 6.2 and 6.3 record topology admission, ownership isolation, and their offline evidence.
+Task 6.3 also records bounded live ownership and two-lab isolation evidence.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -132,7 +133,7 @@ The initial revision passed both example builds. The topology-preserving revisio
 Pinned Ruff and mypy hooks and strict OpenSpec validation pass.
 The actual AVD role still generates all 54 expected dry-run results with both MLAG pairs covered.
 This evidence does not establish live startup of other fabrics, 100-switch capacity, concurrency, or another provider.
-Tasks 6.3, 6.4, 7.2, and section 9 retain their remaining ownership, image access, readiness, and live acceptance work.
+Tasks 6.4, 7.2, and section 9 retain their remaining image access, readiness, and live acceptance work.
 
 ## Ownership isolation evidence (task 6.3)
 
@@ -149,7 +150,19 @@ Pinned Ruff and mypy hooks and strict OpenSpec validation pass.
 A localhost HTTP test confirms that the actual `kubectl` command sends both deletion preconditions.
 
 The [lifecycle instructions](../../../docs/lifecycle.md#ownership-and-failure-output) describe ownership records, JSON failure output, and earlier-deployment cleanup.
-This evidence does not establish live concurrent network isolation, live scale, or another runtime or provider.
+The November 12 live follow-up used two concurrent six-switch labs with identical input and request provenance.
+Both labs passed authenticated readiness and all 54 required ANTA results, including both MLAG pairs.
+Deleting one lab preserved the survivor's Pod identities and its next 54 results.
+An eight-minute replacement lab also expired without a caller deletion request.
+The independent cleaner removed its namespace within 263 seconds after expiry and confirmed complete deletion within 516 seconds.
+The survivor kept its original Pod identities and passed another 54 results after expiry cleanup.
+All seven live ANTA runs passed, with 378 successful results and both MLAG pairs covered in each run.
+Independent reads found every lab namespace absent and all seven ownership records deleted before shared teardown.
+The final cloud inventory found zero owned resources across 15 categories and preserved the project and baseline resources.
+Live API cases also passed collision protection, stale updates, lost ownership responses, namespace ownership refusals, deletion preconditions, and late namespace cleanup.
+Namespace race cases used empty test namespaces and controlled failure injection.
+The [live validation record](../../../docs/live-gke-validation.md) states the tested source, private runtime, capacity, and operator registry retries.
+This evidence covers two simultaneous six-switch labs. It does not qualify larger concurrency, live scale, or another runtime or provider.
 Tasks 7.4, 9.2, and 9.3 retain their remaining cleanup, concurrency, and live failure qualification.
 
 ## Historical demo evidence
