@@ -215,10 +215,18 @@ Create a lab from the startup-only bundle:
 The command records ownership before workload allocation.
 It creates a separate lab namespace, startup Secrets, and clabernetes topology.
 It does not allocate cloud workers or wait for authenticated readiness.
+
+The lab expires 30 minutes after acceptance by default.
+Use `--lifetime` to request an integer from 1 through 60 minutes.
+For example, add `--lifetime 60` to request the maximum lifetime.
+Invalid values fail before ownership records or workloads are created.
+Capacity waiting, startup, and tests consume the same lifetime. Retries do not renew expiry.
+
 Use `--startup-timeout` to set the startup budget in seconds, with a default of 1200 seconds.
 The recorded deadline starts at acceptance and cannot exceed lab expiry.
 Allocation time and capacity waiting consume that same budget.
 The default retains the earlier demo budget. It does not establish a suitable deadline for 100 switches.
+
 A creation failure requests cleanup and returns a nonzero exit code with the lab identity and cleanup outcome.
 Creation and deletion retain their Kubernetes records without startup credentials.
 The ownership record includes the admitted switch names and link count for status expectations.
@@ -393,8 +401,8 @@ Earlier ownership records lack some required fields, including the topology expe
 The revised lifecycle does not remove worker pools from earlier deployments.
 Deploy the rebuilt cleaner only after those labs are removed.
 
-The current lifetime defaults to 120 minutes and accepts one through 240 minutes through `--lifetime`.
-Task 7.3 changes these limits to the planned 30-minute default and 60-minute maximum.
+Lab lifetime defaults to 30 minutes and cannot exceed 60 minutes from acceptance.
+Expiry starts cleanup. It does not mean that all lab resources disappear at that instant.
 The cleaner retries expired or deleting labs every five minutes indefinitely and revisits deleted records for late resources.
 It records overdue cleanup after 30 minutes beyond expiry.
 Task 7.4 retains the remaining cleanup qualification, including interruption and late-resource tests.
@@ -406,6 +414,7 @@ Run `make lifecycle-test` with only `requirements.txt` installed.
 The tests exercise the CLI with controlled Kubernetes and eAPI responses.
 They cover creation, authenticated status, repeated deletion, failed allocation cleanup, and expiry without AVD or ANTA.
 Startup tests cover capacity arrival, exhaustion, expiry, late readiness, cancellation, cleanup failure, and preservation of another lab.
+Lifetime tests cover the default, both boundaries, invalid values before allocation, and retries through the original expiry.
 Inventory tests cover alternate switch names, all-switch authentication, missing links, duplicate Pods, credential rejection, and hostname mismatch.
 They also cover endpoint replacement, link loss, and deletion during authentication.
 Admission cases include different fabrics, custom mappings, unsafe inputs, and a synthetic 100-switch input with split startup data.

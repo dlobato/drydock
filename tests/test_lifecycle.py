@@ -516,12 +516,21 @@ class OwnershipTests(unittest.TestCase):
         self.env = FakeEnvironment()
 
     def test_validation_precedes_allocation(self):
-        for lifetime in (0, 241, True):
-            with self.assertRaises(ValueError):
+        for lifetime in (-1, 0, 61, 240, True, False, 1.5, "30", None):
+            with (
+                self.subTest(lifetime=lifetime),
+                self.assertRaisesRegex(UserError, "between 1 and 60 minutes"),
+            ):
                 cloud.create_lab(self.env, self.bundle, IDENTITY, lifetime)
         with self.assertRaises(ValueError):
             cloud.create_lab(self.env, self.bundle, {**IDENTITY, "attempt": ""})
         self.assertFalse(self.env.calls)
+
+    def test_default_lifetime_starts_at_acceptance(self):
+        with patch("drydock.lifecycle.now", return_value=1000):
+            record = cloud.create_lab(self.env, self.bundle, IDENTITY)
+        self.assertEqual(record["accepted_at"], 1000)
+        self.assertEqual(record["expires_at"], 2800)
 
     def test_distinct_attempts_and_private_switches(self):
         first = cloud.create_lab(self.env, self.bundle, IDENTITY)

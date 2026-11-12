@@ -186,10 +186,22 @@ class FlowTests(unittest.TestCase):
             patch("examples.demo.flow.create_lab") as create,
         ):
             bundle = make_bundle(directory)
-            with self.assertRaises(ValueError):
-                flow.test_flow(
-                    ENV, bundle, directory, IDENTITY, "secret", directory, lifetime=1
-                )
+            for parameters in (
+                {"lifetime": 0},
+                {"lifetime": 61},
+                {"lifetime": 1},
+                {"ready_timeout": 1200},
+            ):
+                with self.subTest(parameters=parameters), self.assertRaises(ValueError):
+                    flow.test_flow(
+                        ENV,
+                        bundle,
+                        directory,
+                        IDENTITY,
+                        "secret",
+                        directory,
+                        **parameters,
+                    )
             create.assert_not_called()
 
     def test_sigterm_uses_cancellation_path(self):

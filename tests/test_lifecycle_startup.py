@@ -54,6 +54,26 @@ class StartupTests(LifecycleCliCase):
         self.assertEqual(code, 0, record)
         return record
 
+    def test_lifetime_default_and_boundaries_through_cli(self):
+        for args, minutes in (
+            ((), 30),
+            (("--lifetime", "1"), 1),
+            (("--lifetime", "60"), 60),
+        ):
+            with self.subTest(minutes=minutes):
+                record = self.create(*args)
+                self.assertEqual(record["accepted_at"], 1000)
+                self.assertEqual(record["expires_at"], 1000 + minutes * 60)
+
+    def test_invalid_lifetime_fails_before_ownership(self):
+        for lifetime in ("0", "-1", "61", "240"):
+            with self.subTest(lifetime=lifetime):
+                code, result = self.invoke(*self.create_args, "--lifetime", lifetime)
+                self.assertEqual(code, 1)
+                self.assertIn("between 1 and 60 minutes", result["error"])
+        self.assertFalse(self.backend.calls)
+        self.assertFalse(self.backend.records)
+
     def test_deadline_is_accepted_once_and_clipped_to_expiry(self):
         for timeout, expected in ((20, 1020), (1200, 1060)):
             with self.subTest(timeout=timeout):
@@ -69,13 +89,14 @@ class StartupTests(LifecycleCliCase):
             code, result = self.invoke(*self.create_args, "--startup-timeout", timeout)
             self.assertEqual(code, 1)
             self.assertIn("positive", result["error"])
-        with self.assertRaises(ValueError):
-            lifecycle.validate_request(make_bundle(self.directory), IDENTITY, 120, True)
+        with self.assertRaisesRegex(ValueError, "Startup timeout"):
+            lifecycle.validate_request(make_bundle(self.directory), IDENTITY, 30, True)
         self.assertFalse(self.backend.calls)
         self.assertFalse(self.backend.records)
 
     def test_capacity_arrives_without_extending_deadlines(self):
         record = self.create("--startup-timeout", "20")
+        self.assertEqual(record["expires_at"], 2800)
         lab = record["id"]
         self.items = pending_items()
         code, waiting = self.invoke("lab", "status", lab)
@@ -100,6 +121,15 @@ class StartupTests(LifecycleCliCase):
             self.assertEqual(repeated["record"][key], record[key])
         self.assertEqual(repeated["record"]["ready_at"], 1010)
         self.assertNotIn("cleanup", repeated)
+
+        self.instant = record["expires_at"]
+        code, expired = self.invoke("lab", "wait", lab)
+        self.assertEqual(code, 1)
+        self.assertEqual(expired["phase"], "expired")
+        self.assertTrue(expired["cleanup"]["deleted"])
+        stored = lifecycle.lab_record(self.backend, lab)
+        for key in ("accepted_at", "startup_deadline", "expires_at"):
+            self.assertEqual(stored[key], record[key])
 
     def test_capacity_exhaustion_cleans_partial_lab_and_preserves_another(self):
         survivor = self.create()

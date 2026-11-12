@@ -58,14 +58,15 @@ Repeated creation requests receive separate lab identities. Live concurrent netw
 The cEOS image accepts any registry and must use a SHA-256 digest.
 The operator supplies image access through the cluster. The lifecycle CLI does not obtain registry tokens.
 Offline CLI tests cover other registries. A private, authenticated non-Google registry passed the six-switch [live acceptance](docs/live-gke-validation.md#november-12-registry-independent-images).
-Labs still default to 120 minutes with a 240-minute maximum.
+Labs default to 30 minutes with a 60-minute maximum from acceptance.
 Task 7.1 adds capacity waiting and a startup deadline that starts at acceptance and cannot exceed expiry.
 Creation accepts `--startup-timeout` in seconds, with a default of 1200 seconds.
 `lab wait` requests cleanup after timeout or cancellation and reports scheduling capacity separately from switch startup and management failure.
 Task 7.2 adds authenticated `lab inventory` output under every submitted switch name.
 Readiness re-reads Kubernetes state after authentication and rejects endpoints that change during that observation.
 The [runtime inventory instructions](docs/lifecycle.md#use-runtime-connections) describe private routing, returned fields, and use with an existing Ansible inventory.
-The planned 30-minute default, 60-minute maximum, and live scale qualification remain open.
+Task 7.3 applies these lifetime limits to both CLIs. Capacity waiting and retries do not renew expiry.
+Live scale qualification remains open.
 
 The November 11 demo passed 54 live ANTA results and both MLAG pairs on the recorded private runtime.
 [That historical evidence](docs/live-gke-validation.md) does not qualify this refactor, the published clabernetes release, scale, or concurrent isolation.
