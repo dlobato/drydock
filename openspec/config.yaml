@@ -1,50 +1,62 @@
 schema: spec-driven
 
 context: |
-  Drydock supplies temporary switch labs for tests before deployment.
-  Deliver the CLI demo first. GitHub Actions integration follows later for
-  trusted contributors in private repositories with runners outside GKE.
-  Use pyavd[ansible]==6.5.0 and arista.avd.anta_runner for catalog generation
-  and test execution from bundled AVD structured configurations.
-  Labs contain switches only: two spines and four leaves in two MLAG pairs.
-  CloudVision and host containers remain permanently excluded.
-  Use generic identities and runtime credentials. Preserve reference
-  network behavior and leave all reference repositories unchanged.
-  Use scripted gcloud deployment in an existing dedicated demo project.
-  Use GKE Standard and clabernetes with shared system workers and dedicated
-  temporary workers per lab. The operator deploys infrastructure on demand
-  and destroys it manually after demos. Preserve the existing project.
-  Switches boot with rendered startup configurations. CLI commands return
-  JSON. Kubernetes stores ownership and expiry. No HTTP service or database.
-  Management uses private Pod-IP HTTPS from the external runner.
-  Discover endpoints through authenticated Kubernetes access on each readiness
-  attempt. Preserve switch names and record Pod identities. No interactive access command.
-  The demo skips TLS certificate verification by user agreement. Keep password
-  authentication and compare EOS hostnames. Do not claim certificate-based identity.
-  Lab expiry defaults to two hours and cannot exceed four hours from request
-  acceptance. A cluster-side cleaner runs every five minutes, retries failed
+  Drydock orchestrates ephemeral switch labs through a CLI on an existing
+  Kubernetes cluster with clabernetes. Keep the lifecycle core independent
+  of cloud providers, AVD internals, and ANTA result handling.
+  The cluster operator owns worker pools, autoscaling, scheduling policy,
+  private routing, registry access, and provider authentication setup.
+  GKE is the current test platform. Kubernetes on AWS is a future portability
+  target that requires separate evidence. Keep GKE demo setup outside the core.
+  Accept arbitrary cEOS topologies with complete rendered startup files.
+  Derive switch names, counts, links, addresses, and supported auxiliary files
+  from the topology. Reject unsafe or unsupported features before allocation.
+  The first scale target is 100 switches per lab with several concurrent labs.
+  Record the qualified aggregate capacity instead of promising unlimited scale.
+  Each approved workflow attempt receives a distinct lab with isolated ownership,
+  even when switch names and management addresses match another active lab.
+  Kubernetes stores ownership before workload allocation and retains expiry
+  and cleanup outcomes. CLI output is JSON. No HTTP service or database is selected.
+  Wait for capacity within a finite startup deadline bounded by expiry.
+  Lab lifetime defaults to 30 minutes and cannot exceed 60 minutes from acceptance.
+  Capacity waiting, startup, and tests consume the same lifetime. Retries do not renew it.
+  The caller requests deletion after success, failure, timeout, or cancellation.
+  An independent cluster-side cleaner runs every five minutes, retries incomplete
   deletion every five minutes indefinitely, and flags overdue cleanup.
-  Target complete deletion thirty minutes after expiry while cloud and
-  Kubernetes APIs are available. Live timing evidence remains required.
-  A single test command creates the lab, waits for authenticated readiness,
-  runs bounded ANTA acceptance, saves reports, and deletes
-  the lab after success, failure, timeout, or cancellation. Independent expiry
-  covers operator or runner loss. Overall success requires complete cleanup.
-  Require routing, EVPN, VXLAN, switch-link, and both MLAG-pair coverage.
-  Missing, skipped, errored, or failed required results prevent acceptance.
-  The separate MLAG investigation passed all 54 live results and both pairs
-  on November 11 with the corrected private clabernetes source. It limits
-  OUTPUT connection-tracking zone assignment to management interfaces.
-  No experimental EOS firewall rule was installed. This evidence applies
-  only to the recorded private build, not the official published release.
-  The actual CLI subsequently passed all 54 results and complete lab deletion.
-  Standalone create, authenticated status, invalid-password rejection, and
-  repeated deletion passed on the retained cluster. Concurrent isolation and
-  the remaining failure-path qualification still require live evidence.
-  Implementation and PR publication are authorized. The user also authorized
-  cloud provisioning and live GKE tests after the initial CLI delivery.
-  Keep the change active. Do not archive based on offline tests.
-  No fixed budget cap is selected. Large-scale qualification is out of scope.
+  Target complete deletion 30 minutes after expiry while Kubernetes and backend APIs
+  are available. Complete lab deletion does not require cluster worker scale-down.
+  Return private connection inventory and authenticated management readiness.
+  Discover current Pod-IP HTTPS endpoints through Kubernetes, preserve switch names,
+  record Pod identities, and compare EOS hostnames. The external runner needs private routes.
+  The private demo retains its agreed switch TLS verification exception.
+  Keep password authentication and hostname comparison. Do not claim certificate-based
+  switch identity or disable verification for Kubernetes and cloud endpoints.
+  The pipeline owns standard AVD builds, startup/model consistency, ANTA catalog
+  generation, network acceptance, reports, and unconditional cleanup requests.
+  AVD structured configurations are pipeline inputs, not required lifecycle inputs.
+  Keep pyavd[ansible]==6.5.0 and arista.avd.anta_runner as the existing example baseline.
+  The six-switch example contains two spines and two MLAG pairs. It does not limit
+  the topology contract. Require routing, EVPN, VXLAN, switch-link, and both MLAG-pair
+  coverage for that example. Missing, skipped, errored, duplicate, or failed required
+  results prevent network acceptance. Other fabrics use their applicable pipeline policy.
+  GitHub workflows, including offline builds, require an owner-authorized manual launch
+  for an exact PR commit. Do not enable automatic push or pull-request execution.
+  Use a trusted workflow and pinned CLI from the protected default branch.
+  Use a dedicated self-hosted runner with private connectivity and temporary, limited
+  access. Isolate Ansible builds and tests from credentialed lifecycle execution.
+  Keep personal cloud credentials, service-account keys, and administrative kubeconfigs
+  out of GitHub. Enforce the lab boundary with Kubernetes permissions and admission policy.
+  Provider-specific identity exchange stays outside Drydock. Do not administer cloud IAM,
+  worker capacity, or RBAC from lifecycle commands. Fork execution remains excluded.
+  Labs contain switches only. CloudVision, host containers, and interactive switch access
+  remain excluded. Anonymize examples and leave reference repositories unchanged.
+  The November 11 private-runtime demo passed 54 live ANTA results, both MLAG pairs,
+  standalone lifecycle tests, and complete deletion without an experimental EOS firewall rule.
+  The exact private build limits that evidence. It does not qualify the official release,
+  arbitrary topologies, 100-switch scale, concurrency, or AWS compatibility.
+  The November 12 review authorizes this planning revision and publication in a new PR.
+  It does not implement the revised contract or authorize automatic workflows or cloud
+  provisioning. Keep the change active until implementation and live acceptance are complete.
 
 rules:
   proposal:
@@ -55,4 +67,4 @@ rules:
     - Cover cleanup independent of the operator and MLAG acceptance.
   tasks:
     - Include failure-path evidence and keep unperformed work unchecked.
-    - Keep CLI delivery, live acceptance, and later GitHub integration distinct.
+    - Keep lifecycle implementation, pipeline integration, and live acceptance distinct.
