@@ -8,7 +8,15 @@ from contextlib import contextmanager
 from ipaddress import IPv4Address
 from urllib.request import Request, urlopen
 
-from .core import ENV_LABEL, LAB_LABEL, UserError, now, readiness, wait_for
+from .core import (
+    ALLOCATION_LABEL,
+    ENV_LABEL,
+    LAB_LABEL,
+    UserError,
+    now,
+    readiness,
+    wait_for,
+)
 from .lifecycle import delete_lab, lab_record
 
 
@@ -40,7 +48,11 @@ def snapshot(env, lab):
     if (
         not owned
         or not owned["metadata"].get("labels", {}).items()
-        >= {ENV_LABEL: env.name, LAB_LABEL: lab}.items()
+        >= {
+            ENV_LABEL: env.name,
+            LAB_LABEL: lab,
+            ALLOCATION_LABEL: record["allocation_id"],
+        }.items()
     ):
         raise UserError("Lab namespace ownership does not match.")
     items = env.objects(
@@ -218,13 +230,15 @@ def diagnostics(env, lab):
     }
 
 
-def cleanup(env, lab, timeout=1800):
+def cleanup(env, lab, timeout=1800, *, allocation_id=None):
     last = {}
 
     def attempt():
         nonlocal last
         try:
-            last = delete_lab(env, lab)
+            last = delete_lab(env, lab, allocation_id=allocation_id)
+        except UserError as error:
+            return {"lab": lab, "deleted": False, "error": str(error)}
         except Exception as error:
             last = {"lab": lab, "deleted": False, "error": type(error).__name__}
         return last if last["deleted"] else None

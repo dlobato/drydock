@@ -51,6 +51,8 @@ Task 6.1 separates the lifecycle core from cloud setup and network acceptance.
 Task 6.2 preserves the admitted topology and delegates network semantics to clabernetes.
 The lifecycle core reads switch identities, the link count, and safe file references without interpreting EOS startup or interface mapping contents.
 Admission accepts supported cEOS topology shapes within the documented input limits and distributes startup data across bounded Kubernetes Secrets.
+Task 6.3 protects creation ownership, competing state updates, and namespace deletion with controlled race tests.
+Repeated creation requests receive separate lab identities. Live concurrent network isolation remains unqualified.
 The cEOS image still requires a digest in regional Google Artifact Registry.
 The operator supplies image access through the cluster. The lifecycle CLI does not obtain registry tokens.
 Labs still default to 120 minutes with a 240-minute maximum.

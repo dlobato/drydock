@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import yaml
 
-from .core import ENV_LABEL, LAB_LABEL, PAYLOAD_LIMIT, UserError, now
+from .core import ALLOCATION_LABEL, ENV_LABEL, LAB_LABEL, PAYLOAD_LIMIT, UserError, now
 
 
 def object_meta(env, name, namespace=None, lab=None):
@@ -163,14 +163,16 @@ def lab_manifests(env, bundle, lab):
     return manifests
 
 
-def create_lab(env, bundle, provenance, lifetime=120, lab=None):
+def create_lab(env, bundle, provenance, lifetime=120, lab=None, *, allocation_id=None):
     image, registry = validate_request(bundle, provenance, lifetime)
-    lab = lab or "lab-" + uuid4().hex[:12]
+    allocation_id = allocation_id or uuid4().hex
+    lab = lab or "lab-" + allocation_id[:12]
     check_lab(lab)
     manifests = lab_manifests(env, bundle, lab)
     accepted = now()
     record = {
         "id": lab,
+        "allocation_id": allocation_id,
         "environment": env.name,
         "accepted_at": accepted,
         "expires_at": accepted + lifetime * 60,
@@ -199,6 +201,7 @@ def create_lab(env, bundle, provenance, lifetime=120, lab=None):
                     "labels": {
                         ENV_LABEL: env.name,
                         LAB_LABEL: lab,
+                        ALLOCATION_LABEL: record["allocation_id"],
                         "pod-security.kubernetes.io/enforce": "privileged",
                     },
                 },
@@ -215,9 +218,13 @@ def create_lab(env, bundle, provenance, lifetime=120, lab=None):
     return record
 
 
-def delete_lab(env, lab):
+def delete_lab(env, lab, *, allocation_id=None):
     check_lab(lab)
     record = lab_record(env, lab)
+    if allocation_id is not None and (
+        not record or record["allocation_id"] != allocation_id
+    ):
+        raise UserError("Lab creation ownership is unconfirmed. Cleanup refused.")
     namespace = env.name + "-" + lab
     errors = []
     if record:
@@ -228,8 +235,13 @@ def delete_lab(env, lab):
     for item in namespaces:
         if item["metadata"]["name"] == namespace:
             if (
-                not item["metadata"].get("labels", {}).items()
-                >= {ENV_LABEL: env.name, LAB_LABEL: lab}.items()
+                not record
+                or not item["metadata"].get("labels", {}).items()
+                >= {
+                    ENV_LABEL: env.name,
+                    LAB_LABEL: lab,
+                    ALLOCATION_LABEL: record["allocation_id"],
+                }.items()
             ):
                 raise UserError(
                     "Refusing to delete a namespace with different ownership."
@@ -237,10 +249,19 @@ def delete_lab(env, lab):
             try:
                 env.kube(
                     "delete",
-                    "namespace",
-                    namespace,
-                    "--wait=false",
-                    "--ignore-not-found",
+                    "--raw=/api/v1/namespaces/" + namespace,
+                    "-f",
+                    "-",
+                    data=json.dumps(
+                        {
+                            "apiVersion": "v1",
+                            "kind": "DeleteOptions",
+                            "preconditions": {
+                                key: item["metadata"][key]
+                                for key in ("uid", "resourceVersion")
+                            },
+                        }
+                    ),
                 )
             except (RuntimeError, TimeoutError) as error:
                 errors.append(str(error))

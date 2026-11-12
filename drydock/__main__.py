@@ -55,16 +55,19 @@ def dispatch(args):
     # Standalone create uses the same cleanup guarantees on a failed allocation.
     from uuid import uuid4
 
-    lab = "lab-" + uuid4().hex[:12]
+    allocation_id = uuid4().hex
+    lab = "lab-" + allocation_id[:12]
     with cancellation():
         try:
-            result = create_lab(env, bundle, provenance, args.lifetime, lab)
+            result = create_lab(
+                env, bundle, provenance, args.lifetime, lab, allocation_id=allocation_id
+            )
             return result, True
         except (Exception, KeyboardInterrupt) as error:
             result = {
                 "lab": lab,
                 "error": type(error).__name__,
-                "cleanup": cleanup(env, lab),
+                "cleanup": cleanup(env, lab, allocation_id=allocation_id),
             }
             return result, False
 

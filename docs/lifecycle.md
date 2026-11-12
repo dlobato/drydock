@@ -217,6 +217,55 @@ It discovers current Pod addresses and authenticates to every switch with hostna
 Its connection inventory preserves switch names, Pod names, and Pod UIDs.
 Network tests and convergence remain the caller's responsibility.
 
+## Ownership and failure output
+
+Each creation request receives a new lab ID, even when its topology, commit, run, and attempt match an earlier request.
+Repeating the command creates another lab. It does not resume an existing lab or renew its expiry.
+Each lab uses a separate namespace with the submitted switch names and management addresses.
+Live network isolation remains unqualified until the concurrent acceptance tests pass.
+
+The ownership ConfigMap resides in `<name>-system` and uses the lab ID as its name.
+Its `data.record` field contains JSON with these values:
+
+- `id`, `environment`, and `allocation_id` identify the lab and its creation request.
+- `provenance` records the repository, commit, workflow run, and attempt. `bundle_digest` identifies the complete submitted archive.
+- `accepted_at` and `expires_at` record Unix timestamps in seconds. State updates preserve both values.
+- `runtime` and `registry` record the cEOS image and its registry. `switches` and `link_count` describe the expected infrastructure.
+- `state` records `creating`, `running`, `deleting`, or `deleted`. `cleanup` and `overdue` record deletion outcomes when deletion runs.
+
+The allocation ID identifies one creation request. It is not a credential or an authorization policy.
+The namespace label `drydock.io/allocation` must match the record before status or deletion can use that namespace.
+Automatic cleanup after failed creation also requires the allocation ID from that request.
+An ID collision cannot authorize cleanup of the earlier lab.
+
+If ownership remains unconfirmed, cleanup reports failure and preserves the existing resources.
+The independent cleaner handles an accepted ownership record that appears after the caller loses its response.
+
+Kubernetes assigns a resource version to each stored object.
+Ownership updates require the version that the caller read, so competing updates fail instead of overwriting newer deletion state.
+Creation reads the allocation state and expiry before each resource request and before its final state update.
+An already submitted request can finish after deletion starts. The cleaner revisits retained deletion records to remove those late resources.
+
+Namespace deletion requires the observed Kubernetes object ID and resource version. A replacement namespace or changed labels prevent that pending deletion.
+
+If creation fails after input admission, the CLI returns a nonzero exit code and one JSON object.
+The object includes `lab`, the exception type in `error`, and a separate `cleanup` outcome.
+For an ID collision, the cleanup outcome contains:
+
+```json
+{
+  "deleted": false,
+  "error": "Lab creation ownership is unconfirmed. Cleanup refused.",
+  "lab": "lab-123456789abc"
+}
+```
+
+Provider output and startup contents do not appear in this response.
+For ownership refusals, identify the request that owns the record before issuing another deletion command.
+For incomplete deletion of your own lab, retain its ID.
+Retry `lab delete` after resolving the Kubernetes access problem.
+Do not remove ownership records or force-remove finalizers to clear a failed result.
+
 ## Delete and expire
 
 Request deletion after every allocation attempt:
@@ -233,7 +282,7 @@ Worker retention and cloud cost remain the operator's responsibility.
 
 Before replacing an earlier deployment, delete its labs with the earlier tool.
 Keep the earlier cleaner active until cleanup completes.
-Earlier ownership records do not contain the topology-derived status expectations.
+Earlier ownership records do not contain the topology-derived status expectations or the allocation identity.
 The revised lifecycle does not remove worker pools from earlier deployments.
 Deploy the rebuilt cleaner only after those labs are removed.
 
