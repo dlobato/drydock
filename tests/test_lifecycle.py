@@ -847,6 +847,7 @@ class ReadinessTests(unittest.TestCase):
                 side_effect=[
                     (self.record, first, []),
                     (self.record, second, []),
+                    (self.record, second, []),
                 ],
             ),
             patch(

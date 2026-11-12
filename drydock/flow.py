@@ -206,6 +206,14 @@ def status(env, lab, password):
         try:
             inventory = connections(items, record["switches"])
             versions = probe(inventory, password, deadline=deadline)
+            record, current_items, current_errors = snapshot(env, lab)
+            errors.extend(current_errors)
+            infrastructure_ready = not current_errors
+            scheduling = scheduling_diagnostics(current_items)
+            if connections(current_items, record["switches"]) != inventory:
+                errors.append("switch endpoints changed during authentication")
+                inventory = []
+                versions = {}
         except Exception:
             errors.append(
                 "an authenticated management API is unavailable or has the wrong identity"

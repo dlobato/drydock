@@ -255,6 +255,9 @@ Status returns one JSON result and a nonzero exit code when the lab is not ready
 It requires current topology and node plans, accepted links, ready Pods, and private eAPI Services.
 It discovers current Pod addresses and authenticates to every switch with hostname comparison.
 Its connection inventory preserves switch names, Pod names, and Pod UIDs.
+The Pod UID identifies one Pod instance.
+Readiness re-reads Kubernetes state after authentication and requires unchanged endpoints, current infrastructure, and a running ownership record.
+If a Pod changes during authentication, the observation fails and the next attempt discovers its replacement.
 Network tests and convergence remain the caller's responsibility.
 
 The JSON `phase` distinguishes these conditions:
@@ -275,6 +278,50 @@ The operator inspects detailed scheduler messages in Kubernetes.
 `lab status` reports timeout without requesting deletion. Use `lab wait` or `lab delete` for immediate cleanup.
 Both status and wait return one final JSON object.
 The optional demo diagnostics also include the safe scheduling summary.
+
+## Use runtime connections
+
+Use the private runner and environment file from [Create and inspect](#create-and-inspect).
+Retain `DRYDOCK_LAB_ID` and `DRYDOCK_LAB_PASSWORD` from that procedure.
+Request a fresh authenticated connection inventory:
+
+```sh
+.venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab inventory "$DRYDOCK_LAB_ID" \
+  > artifacts/runtime-inventory.json
+```
+
+The command returns the same JSON structure and readiness requirements as `lab status`.
+It makes one observation without waiting or requesting deletion after failure.
+Use its inventory only when the command exits successfully and `ready` is `true`.
+A failed observation can retain discovered addresses without successful authentication.
+
+The `inventory` array contains one entry for every submitted switch, sorted by its original name:
+
+- `name` identifies the submitted switch. `tags` contains that name.
+- `host` and `port` identify the current private Pod address and HTTPS port 443.
+- `namespace`, `pod`, and `pod_uid` identify the observed Kubernetes workload.
+- `transport` records `private Pod-IP HTTPS`.
+
+The surrounding result retains the lab ID, ownership record, observation time, and EOS versions returned by authenticated switches.
+It excludes the management password.
+Missing switches or links, unaccepted links, stale plans, and missing or duplicate Pods prevent readiness.
+Unreachable APIs, rejected credentials, and hostname mismatches also prevent readiness.
+
+The runner needs private routes to every returned `host` on TCP port 443.
+Use these runtime addresses instead of the topology's management addresses or Service addresses.
+The private demo skips switch certificate verification and retains password authentication and hostname comparison.
+Kubernetes certificate verification remains enabled.
+
+For an existing Ansible inventory, match each entry by `name`.
+Set that host's `ansible_host` to `host` and `ansible_httpapi_port` to `port`.
+Preserve its existing groups and test variables.
+Supply the management account and password separately through the caller's existing credential handling.
+The lifecycle command does not rewrite Ansible inventory or select network tests.
+
+The returned inventory describes one observation and does not reserve a Pod or address.
+Refresh it before tests and after Pod replacement.
+If endpoints change during authentication, retry `lab inventory` or use `lab wait` within the original deadline.
+Neither command renews expiry.
 
 ## Ownership and failure output
 
@@ -359,5 +406,7 @@ Run `make lifecycle-test` with only `requirements.txt` installed.
 The tests exercise the CLI with controlled Kubernetes and eAPI responses.
 They cover creation, authenticated status, repeated deletion, failed allocation cleanup, and expiry without AVD or ANTA.
 Startup tests cover capacity arrival, exhaustion, expiry, late readiness, cancellation, cleanup failure, and preservation of another lab.
+Inventory tests cover alternate switch names, all-switch authentication, missing links, duplicate Pods, credential rejection, and hostname mismatch.
+They also cover endpoint replacement, link loss, and deletion during authentication.
 Admission cases include different fabrics, custom mappings, unsafe inputs, and a synthetic 100-switch input with split startup data.
 They do not establish live startup, provider compatibility, concurrent isolation, cleanup timing, or network acceptance.

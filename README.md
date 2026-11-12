@@ -22,6 +22,7 @@ Follow [the lifecycle instructions](docs/lifecycle.md) for cluster prerequisites
 .venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab create --help
 .venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab wait "$DRYDOCK_LAB_ID"
 .venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab status "$DRYDOCK_LAB_ID"
+.venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab inventory "$DRYDOCK_LAB_ID"
 .venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab delete "$DRYDOCK_LAB_ID"
 ```
 
@@ -61,6 +62,9 @@ Labs still default to 120 minutes with a 240-minute maximum.
 Task 7.1 adds capacity waiting and a startup deadline that starts at acceptance and cannot exceed expiry.
 Creation accepts `--startup-timeout` in seconds, with a default of 1200 seconds.
 `lab wait` requests cleanup after timeout or cancellation and reports scheduling capacity separately from switch startup and management failure.
+Task 7.2 adds authenticated `lab inventory` output under every submitted switch name.
+Readiness re-reads Kubernetes state after authentication and rejects endpoints that change during that observation.
+The [runtime inventory instructions](docs/lifecycle.md#use-runtime-connections) describe private routing, returned fields, and use with an existing Ansible inventory.
 The planned 30-minute default, 60-minute maximum, and live scale qualification remain open.
 
 The November 11 demo passed 54 live ANTA results and both MLAG pairs on the recorded private runtime.

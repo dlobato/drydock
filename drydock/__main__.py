@@ -17,7 +17,7 @@ def parser():
     commands = root.add_subparsers(dest="command", required=True)
     lab = commands.add_parser("lab").add_subparsers(dest="action", required=True)
     create = lab.add_parser("create")
-    for name in ("status", "wait", "delete"):
+    for name in ("status", "wait", "inventory", "delete"):
         lab.add_parser(name).add_argument("lab")
     create.add_argument("bundle", type=Path)
     create.add_argument("--lifetime", type=int, default=120, help="Minutes, 1 to 240")
@@ -45,7 +45,7 @@ def dispatch(args):
         with cancellation():
             result = cleanup(env, args.lab)
         return result, result["deleted"]
-    if args.command == "lab" and args.action in {"status", "wait"}:
+    if args.command == "lab" and args.action in {"status", "wait", "inventory"}:
         if not password:
             raise UserError(
                 "Set DRYDOCK_LAB_PASSWORD to probe authenticated eAPI readiness."
