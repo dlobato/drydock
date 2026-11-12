@@ -1,6 +1,9 @@
 ---
 root_dir: "{{ playbook_dir }}/../../artifacts/example/containerlab"
 avd_digital_twin_mode: true
+management_eapi:
+  enabled: true
+  enable_https: true
 digital_twin:
   environment: containerlab
   fabric: {}

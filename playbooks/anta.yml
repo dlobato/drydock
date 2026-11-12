@@ -1,0 +1,31 @@
+---
+- name: Test the temporary switch fabric
+  hosts: FABRIC
+  connection: local
+  gather_facts: false
+  vars:
+    anta_user: labadmin
+    anta_password: "{{ lookup('ansible.builtin.env', 'DRYDOCK_LAB_PASSWORD') }}"
+    anta_enable: true
+    avd_catalogs_enabled: true
+    user_catalogs_enabled: false
+    avd_catalogs_extra_fabric_validation: true
+    avd_catalogs_filters:
+      - run_tests:
+          - VerifyBGPPeerSession
+          - VerifyInterfacesStatus
+          - VerifyLLDPNeighbors
+          - VerifyPortChannels
+          - VerifyMlagStatus
+          - VerifyMlagConfigSanity
+          - VerifyVxlanConfigSanity
+          - VerifyReachability
+          - VerifyIPv4RoutePresencePerVRF
+    anta_runner_timeout: 10
+    anta_runner_batch_size: 6
+    anta_report_exclude_statuses: []
+  tasks:
+    - name: Generate catalogs and run ANTA through AVD
+      ansible.builtin.import_role:
+        name: arista.avd.anta_runner
+      no_log: true

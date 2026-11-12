@@ -4,7 +4,7 @@ export ANSIBLE_CONFIG := $(CURDIR)/ansible.cfg
 export ANSIBLE_COLLECTIONS_PATH := $(CURDIR)/.collections
 export ANSIBLE_LOCAL_TEMP := $(CURDIR)/.ansible/tmp
 
-.PHONY: spec-check spec-status example-deps example-build example-bundle example-bundle-test
+.PHONY: spec-check spec-status example-deps example-build example-bundle example-bundle-test test
 
 spec-check:
 	$(OPENSPEC) validate --all --strict --no-interactive
@@ -26,3 +26,6 @@ example-bundle:
 
 example-bundle-test: example-bundle
 	.venv/bin/python -m unittest discover -s examples/evpn-symmetric-irb -p 'test_*.py' -v
+
+test:
+	.venv/bin/python -m unittest discover -s tests -v

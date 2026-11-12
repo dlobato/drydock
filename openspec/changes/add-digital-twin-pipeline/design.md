@@ -2,168 +2,198 @@
 
 ## Context
 
-See [the proposal](proposal.md) for the milestone and [the reference notes](../../../docs/references.md) for observed source behavior.
-The first PR implements only the anonymized example and an offline build workflow.
-The broader milestone remains active.
-The reference deploys configurations through eAPI after ACT starts the lab.
-The earlier Drydock direction starts switches with the proposed configurations.
+The offline six-switch example and deterministic Containerlab bundle already exist.
+The user accepted a CLI-first demo with startup delivery, Kubernetes ownership records, finite lab expiry, and manual shared teardown.
+The user also selected `arista.avd.anta_runner` to own ANTA catalogs.
+The [operator instructions](../../../docs/demo-flow.md) describe the implemented commands and remaining validation boundary.
 
-This document proposes a minimal baseline for review.
-The choices below are proposals, not additional user agreements.
-No cloud resources are provisioned during bootstrap.
+The initial authorized GKE test reached six running switch pods, but authenticated management readiness failed through Kubernetes port forwarding.
+The separate November 11 experiment passed all 54 live ANTA results and both MLAG pairs with the corrected private runtime.
+The external runner used private Pod-IP access.
+The actual CLI subsequently passed all 54 results, retained reports, and complete lab deletion.
+Standalone create, authenticated status, invalid-password rejection, and repeated deletion also passed on the retained cluster.
+See [the live validation record](../../../docs/live-gke-validation.md) for evidence and limits.
 
 ## Goals / Non-Goals
 
-The design connects one six-switch example to an observable lab lifecycle.
-It keeps infrastructure readiness separate from network acceptance.
-It also supports deletion without a surviving GitHub runner.
-
-This milestone does not require an HTTP service, database, user interface, or runner controller.
-It does not establish capacity for large labs.
-It does not migrate the Vantage project or change the source fabric.
+Connect the six-switch example to temporary GKE workers, observable readiness, AVD-managed acceptance, retained reports, and independent cleanup.
+Keep the runner outside GKE and preserve original switch names.
+Do not add an HTTP service, database, interactive access command, host container, CloudVision, or automatic infrastructure expiry.
+Do not modify references or install the experimental MLAG firewall rule.
 
 ## Decisions
 
-### Build the example offline first
+### Keep the existing offline build
 
-The authorized first PR uses `pyavd[ansible]==6.5.0` and the matching `arista.avd` collection.
-It renders two spines and two MLAG leaf pairs without the reference repository or live credentials.
-Runtime lab credentials enter through environment variables. The build workflow supplies synthetic values.
-Generated files stay ignored and are not uploaded by this workflow.
-AVD validates its input models. Generated configurations require no separate assertion tests.
-The first PR records manual inspection of six configurations, both MLAG pairs, all spine links, and the routing and overlay configuration.
+Use `pyavd[ansible]==6.5.0` with the matching `arista.avd` collection.
+Keep the original example build separate from the Containerlab digital twin build.
+The digital twin removes unsupported BGP convergence commands and enables HTTPS eAPI in the management VRF.
+AVD digital twin metadata excludes unused endpoint interfaces from validation.
+Required spine and MLAG peer links remain included.
+Generated artifacts stay ignored and private.
+Use the reference VNIs 1001 and 1002 for VRF_A and VRF_B.
+AVD derives valid MLAG peer VLANs 4000 and 4001 without explicit overrides.
+Test generated VLAN numbers because AVD 6.5.0 accepts out-of-range values in structured configurations.
 
-GKE, lifecycle commands, cleanup, live ANTA, and runtime versions remain deferred.
-The separate MLAG investigation does not block offline generation.
-An offline build does not prove working MLAG or a functioning digital twin.
-See [the example instructions](../../../examples/evpn-symmetric-irb/README.md) for commands and output locations.
+### Bundle the complete AVD input
 
-### Build the offline Containerlab bundle
+Package the topology, interface mapping, six rendered startup configurations, and six matching AVD structured configurations.
+Normalize archive metadata and record its SHA-256 digest.
+Require a digest-pinned cEOS image in regional Artifact Registry at runtime.
+Reject unsafe members, extra files, missing devices, unsupported topology attributes, and invalid identities before allocation.
+Render each structured configuration with the pinned PyAVD version and compare it with the submitted startup configuration.
+This prevents testing a different AVD model from the configuration that boots.
+The archive contains authentication material and is never a retained public report.
 
-Task 2.4 reuses the Containerlab generator in the pinned AVD 6.5.0 dependency.
-A separate digital twin build preserves the existing offline build and keeps its output apart from the bundle.
-AVD derives the switch nodes, links, management addresses, and interface mapping from the same fabric input.
-This avoids a second topology template that can diverge from the configurations.
-The generated topology contains six `arista_ceos` switches, eight spine links, and four MLAG peer links.
-Endpoint definitions remain in the configurations but create no containers or lab links.
-An empty Containerlab prefix preserves the original device names.
+### Use the platform CLIs
 
-Use the startup configuration paths and interface mapping that AVD generates.
-Digital twin mode removes BGP `update wait-install` and the spine `update wait-for-convergence` commands from the EOS output.
-Offline comparison found no other EOS changes when both builds used the same credentials.
-This is a rendering choice only. Startup delivery still requires live acceptance under task 1.1.
-The lifecycle command interface remains a proposal.
+The Python CLI uses `gcloud`, `kubectl`, and Helm with explicit project and zone values.
+It does not change the active Google Cloud project or the default kubeconfig.
+A private local journal records infrastructure ownership before allocation.
+A deployment creates a network, subnet, system pool, service accounts, an IAM role, clabernetes, and the cluster-side cleaner.
+One invocation waits for deployment and configuration.
+A failed or interrupted deployment retains the journal for manual destruction.
+A completed teardown permits another demo session, including restoration of its owned soft-deleted IAM role.
 
-Require `DRYDOCK_CEOS_IMAGE` when packaging instead of retaining the generator's implicit `arista/ceos:latest` image.
-The offline workflow uses `ceos:offline-placeholder` and never pulls or runs that image.
-An explicit image value records the requested image. It does not establish runtime support.
-The AVD preview generator uses one fixed management network and subnet, so this bundle does not establish concurrent lab isolation.
-The lifecycle implementation must resolve that boundary before live use.
+Use an existing dedicated demo project, existing registry, and uploaded licensed images.
+Do not create or delete the project, registry, images, or enabled APIs.
+The operator supplies explicit GKE and chart versions and a digest-pinned cleaner image.
+Limit runtime evidence to the exact recorded private build until another combination passes live acceptance.
 
-Package only the topology, interface mapping, and six referenced EOS configurations in a portable tar archive.
-Keep all paths relative and normalize archive order, timestamps, ownership, and permissions.
-Record the SHA-256 digest beside the archive in a format that `sha256sum -c` accepts.
-Identical inputs produce identical archive bytes. Changed credentials or image values change the digest.
-The archive contains lab authentication material, so keep it ignored and do not upload it from the offline workflow.
-Tests compare the archived identities, management addresses, and links with AVD output and require both MLAG pairs.
-Tests also cover missing input files, digest changes, and reproducible packaging.
-These tests establish offline bundle consistency, not switch startup, routing, MLAG convergence, or cleanup.
+### Allocate a dedicated lab pool
 
-### Propose startup configuration delivery
+Create a unique lab ID and a durable Kubernetes ConfigMap before requesting workers.
+Record repository, commit, run, attempt, acceptance time, expiry, bundle digest, and requested runtime.
+Allocate two temporary `e2-standard-4` workers with lab labels and a scheduling taint.
+Create a separate namespace and private Secrets for startup files, the interface mapping, and registry authentication.
+Constrain every lab pod to its owned pool.
+Use a unique management network name while preserving synthetic switch addresses and names.
+Live concurrent-lab isolation remains an acceptance requirement.
 
-Supply each rendered configuration as the initial configuration for its switch.
-This follows the earlier Drydock direction and keeps AVD outside the lab lifecycle implementation.
-The input contains one complete Containerlab topology and the matching configuration files.
-Record a digest for the submitted bundle and preserve the original device names.
+Updates require Kubernetes resource versions.
+A stale allocation update cannot overwrite cleanup state.
+Check the allocation lease between resource requests.
+Retain records after deletion and revisit them to catch late asynchronous allocation.
 
-The alternative is an eAPI deployment step after startup, as the Vantage reference uses.
-That alternative requires bootstrap credentials and another configuration transition.
-Acceptance must prove that the selected runtime applies the supplied startup configuration.
-If runtime evidence requires a different delivery path, revise this design before implementation.
+### Keep access inside the test command
 
-### Propose a command interface for the first integration
+Require current topology generation, ready switch conditions, accepted links, and ready pods without restarts.
+Require private ClusterIP eAPI services.
 
-Start with create, status, and delete commands that return structured results for GitHub Actions.
-Use the existing GKE and clabernetes control surfaces behind those commands.
-Create validates the complete request before allocation.
-Status returns infrastructure conditions and the connection inventory.
-Delete removes only resources owned by the identified lab.
+Discover one current Pod for each original switch name through authenticated Kubernetes access.
+Reject missing or duplicate switch Pods and missing or invalid private IPv4 endpoints.
+Refresh endpoint discovery on every readiness attempt and record the Pod name and UID with its address.
+Use the same private Pod-IP HTTPS endpoints for readiness, status, ANTA, and diagnostics.
 
-The alternative is an HTTP service with persistent application storage.
-The first workflow does not require that additional service boundary.
-A framework and database remain unselected.
-The eventual service can preserve the same lifecycle behavior if it becomes necessary.
+Authenticate to eAPI and compare reported EOS hostnames with the bundle.
+The external runner requires private routes and TCP port 443 access to the Pods.
+Kubernetes Service DNS and ClusterIP routing from a VM are not prerequisites for this direct path.
+The private demo skips TLS certificate verification by explicit user agreement.
 
-### Propose explicit ownership and independent expiry
+Do not retrieve or pin switch certificates. Keep password authentication and EOS hostname comparison.
+The runner sends credentials before it reads the EOS hostname, without certificate-based proof of the switch identity.
 
-Use a shared GKE Standard control plane and system workers, with dedicated temporary workers for each lab.
-Assign the lab identity before allocation and attach ownership metadata to every temporary resource.
-Store enough durable lifecycle information outside the runner to discover partial allocations and retry deletion.
-Use existing Kubernetes storage for initial lifecycle records unless runtime evidence requires another store.
+Keep the existing AVD role for both catalog generation and execution.
+Return original switch names, private Pod addresses, and Pod identities from status.
+Keep Management1 and HTTPS eAPI in MGMT. Do not enable default-VRF eAPI to repair forwarding.
+Infrastructure readiness does not establish routing convergence.
 
-A scheduled cleanup job runs on shared infrastructure and reclaims expired labs independently of GitHub Actions.
-The caller supplies a finite expiry. No numeric default is selected by this proposal.
-Document the expiry interval, cleanup cadence, retry policy, and resulting deletion bound before live use.
-The cleaner must discover provider resources even when allocation stops before a lifecycle record update.
+### Let AVD manage ANTA catalogs
 
-A workflow step with `always()` provides immediate cleanup but cannot cover runner loss by itself.
-Do not use workflow cleanup as the only deletion mechanism.
+Run the pinned `arista.avd.anta_runner` role in dry-run mode before lab allocation.
+It reads the private bundled structured configurations and saves per-device catalogs.
+Select documented generated tests for BGP peer sessions, interface state, LLDP, port channels, MLAG, VXLAN consistency, reachability, and route presence.
+Enable extra fabric validation for underlay reachability and routes.
+Do not hand-build a second catalog or copy expected peer addresses and VNIs into Drydock.
 
-### Propose explicit shared infrastructure ownership
+Inspect the generated catalogs for mandatory test classes on every relevant device.
+Require every switch-link interface and each leaf Vxlan1 interface in the generated interface test.
+Run the same role with private Pod-IP addresses for bounded convergence attempts.
+Enable privileged mode through `anta_enable` for generated ping tests.
+A new role invocation creates fresh ANTA clients and command caches.
+Retain the expected multiplicity of generated device-test results.
+Missing, extra duplicate, skipped, errored, or failed required results prevent acceptance.
+A dry-run result never proves network acceptance.
 
-Treat the control plane, system workers, private runner access, and registry as operator-managed development prerequisites.
-Lab deletion removes lab workers and temporary lab resources.
-It does not remove shared development infrastructure.
-Document creation and teardown separately before any provisioning request.
+### Separate tests, reports, and cleanup
 
-Creating a fresh control plane per workflow is the alternative.
-It adds startup and teardown work beyond the chosen shared infrastructure direction.
-The shared development environment lifetime requires operator approval before provisioning.
+The test command validates input and generates catalogs before allocation.
+After any allocation attempt, it attempts deletion even if ANTA, diagnostics, report writing, or cancellation fails.
+It handles SIGINT and SIGTERM and ignores repeated interrupts during immediate cleanup.
+Independent expiry covers SIGKILL and operator or runner loss.
+A zero exit code requires passing acceptance, saved reports, and complete lab deletion.
+Preserve test and cleanup failures separately.
 
-### Keep test ownership in GitHub Actions
+Retain AVD catalogs and reports, JUnit conversion, safe protocol diagnostics, lifecycle events, provenance, and requested and observed versions.
+Do not retain startup files, Secrets, raw manifests, arbitrary container logs, or authentication material.
+Keep structured configurations in a private temporary directory outside the report tree.
+Report upload and retention policy belong to later GitHub integration.
 
-Build the anonymized example with AVD 6.5.0 as the offline baseline.
-Run ANTA through the returned private management inventory after infrastructure readiness.
-Keep convergence waits bounded and record runtime versions with the submitted bundle digest.
-Pin the supported runtime only after the separate MLAG investigation provides evidence.
+### Expire labs independently
 
-Retain JSON and JUnit results, the executed catalog, logs, and available diagnostics.
-Required switch links and MLAG tests cannot inherit the reference skip list without justification.
-Distinguish unused endpoint interfaces from required switch links.
-Record both network acceptance and cleanup outcomes without hiding the original failure.
+Default lifetime is 120 minutes, with a maximum of 240 minutes from acceptance.
+The cluster-side CronJob runs every five minutes on the shared system pool.
+Workload Identity supplies Google credentials without a key file.
+Refresh registry tokens for active labs because their lifetime exceeds a single token lifetime.
+Delete expired or deleting labs and retry every five minutes indefinitely.
+Deletion inspects owned namespaces, worker pools, and pending GKE operations.
+A missing namespace alone does not establish complete cleanup.
+
+Target complete deletion within thirty minutes after expiry while provider APIs are available.
+Flag overdue records and retain incomplete cleanup outcomes.
+Do not remove finalizers forcibly or delete resources with different ownership.
+The timing target requires live evidence and can be exceeded during outages.
+
+### Destroy shared infrastructure manually
+
+The operator deploys shared infrastructure for a session and destroys it afterward.
+No automatic infrastructure expiry service runs.
+Destroy the owned cluster before removing its network and service accounts.
+Keep prerequisites if cluster deletion fails.
+Remove only owned project IAM bindings and resources.
+Make destruction repeatable and preserve the existing project.
+Retain final inventory counts for infrastructure, dependent compute and network resources, and IAM bindings.
+Unknown inventory or remaining resources prevents a successful teardown result.
+Report unknown leftovers for operator action instead of deleting them blindly.
 
 ## Risks / Trade-offs
 
-The supported cEOS and clabernetes combination remains unproven for this example.
-Require a cold-start run with both MLAG pairs active and no experimental firewall rule before milestone acceptance.
-Record the separate investigation outcome and the exact supported image digests.
+The separate MLAG experiment passed a cold start without an EOS firewall exception.
+It scoped OUTPUT connection-tracking zone assignment to the existing management interfaces in the private clabernetes runtime.
+The tested combination used GKE `1.36.4-gke.2377000`, engineering EOS `4.36.1F-48405728.4361F`, and fork chart `0.0.0`.
+ANTA `1.10.0` executed the 54 AVD-generated results with exact expected multiplicity.
 
-A runner can disappear after resource allocation but before it records the result.
-Require ownership-based discovery and demonstrate independent expiry after partial allocation.
+Both MLAG pairs and all six authenticated endpoints passed, as did focused Make conformance with the race detector.
+Independent inventory found zero owned resources across fifteen infrastructure categories after teardown.
+The subsequent actual CLI run passed all 54 results with exact expected multiplicity and complete lab deletion.
+Standalone lifecycle tests and independent lab cleanup observations also passed.
+Both lifecycles retained the same cluster identity and creation time.
+The evidence does not qualify official clabernetes `0.11.0`.
 
-Shared infrastructure can outlive all labs and continue to cost money.
-Require an explicit development environment lifetime and a separate teardown procedure before provisioning.
+Live tests cover the cleaner image build, infrastructure deployment, cleaner authentication, and cancellation cleanup.
+Independent expiry deleted a lab after runner loss, with complete deletion observed 6 minutes 16 seconds after expiry.
+The earlier failed port-forward test remains historical evidence.
+Concurrent switch isolation and the remaining failure-path qualification remain unproven.
+Offline mocks do not establish those behaviors on Google Cloud.
 
-Switch-only tests do not prove application traffic between attached hosts.
-State the traffic coverage that the selected ANTA catalog actually provides.
-Do not describe control-plane tests as end-to-end tenant traffic evidence.
+The six-switch catalog tests switch and protocol state plus generated switch-to-switch reachability.
+It does not establish tenant application traffic through attached hosts.
+Endpoint containers remain excluded.
 
-Reports and generated configurations can contain authentication material.
-Use runtime lab credentials and exclude secrets from retained artifacts.
+Shared infrastructure continues to cost money until the operator destroys it.
+A lost local journal requires ownership investigation before shared teardown.
+The initial cleaner permissions assume a dedicated demo cluster and project.
 
 ## Migration Plan
 
-There is no existing Drydock deployment to migrate.
-Review the proposed baseline before implementation.
-Build the example locally before adding live infrastructure integration.
-Run one explicitly authorized development lab before enabling automatic pull request triggers.
-
-To roll back, disable workflow triggers and stop new lab requests.
-Keep the independent cleaner active until all temporary resources are deleted.
-Delete shared development infrastructure only through its separate teardown procedure.
+No production deployment exists to migrate.
+The bundle now includes six structured configurations. Rebuild old bundles before using the CLI.
+Deliver the CLI and offline gates first.
+Run an explicitly authorized demo and failure-path acceptance before adding automatic live GitHub triggers.
+Keep the cleaner active until every lab is deleted.
+Keep this OpenSpec change active until implementation, live evidence, and review are complete.
 
 ## Open Questions
 
-The cloud project, region, worker size, and supported image digests require environment-specific values before live execution.
-Artifact retention needs a repository policy value.
-Neither choice changes the lifecycle or test ownership described above.
+Qualify concurrent isolation and the remaining failure paths before archive or additional runtime combinations.
+Select artifact retention and runner policy when adding GitHub Actions orchestration.

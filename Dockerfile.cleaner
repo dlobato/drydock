@@ -1,0 +1,12 @@
+# Supply a Google Cloud CLI slim image pinned by SHA-256 digest.
+ARG GCLOUD_IMAGE
+FROM ${GCLOUD_IMAGE}
+RUN apt-get update && apt-get install -y --no-install-recommends kubectl python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY requirements-cleaner.txt .
+RUN python3 -m venv /opt/drydock \
+    && /opt/drydock/bin/pip install --no-cache-dir -r requirements-cleaner.txt
+COPY drydock/ drydock/
+ENV PYTHONUNBUFFERED=1
+ENTRYPOINT ["/opt/drydock/bin/python", "-m", "drydock"]

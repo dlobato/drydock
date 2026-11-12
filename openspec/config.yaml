@@ -2,40 +2,57 @@ schema: spec-driven
 
 context: |
   Drydock supplies temporary switch labs for tests before deployment.
-  The first milestone is a GitHub Actions workflow for trusted contributors
-  in private repositories: build with AVD, create a lab, run ANTA, retain
-  results, and delete all temporary lab resources.
-  Labs contain switches only, starting with cEOS. CloudVision and host
-  containers are permanently excluded from labs.
-  The example derives from the PS EVPN-symmetric-IRB reference with
-  pyavd[ansible]==6.5.0 as the authorized offline build baseline:
-  two spines and four leaves in two MLAG pairs. Anonymize names, addresses,
-  identifiers, and credentials. Preserve network behavior and do not modify
-  reference repositories.
-  GKE Standard with clabernetes is the infrastructure direction. Retain a
-  shared control plane and system workers, with dedicated temporary workers
-  per lab. GitHub Actions owns AVD, ANTA, and results. Drydock owns lifecycle,
-  readiness, private management access, and cleanup.
-  A complete Containerlab topology and rendered configurations form the
-  proposed input. Direct startup configuration versus eAPI delivery remains
-  a decision. Framework, database, service boundary, runner deployment, and
-  provisioning tools are not selected.
-  MLAG is an unresolved external investigation. No firewall workaround or
-  connection-tracking diagnosis is accepted. Require explicit MLAG coverage.
-  The first PR implements only the example and an offline build workflow.
-  Runtime compatibility and the MLAG investigation do not block rendering.
-  Cleanup must cover success, failure, cancellation, timeout, and runner loss.
-  No fixed budget cap or numeric lab timeout is agreed. The 1,000-device
-  target is outside the first milestone. Do not provision cloud resources
-  during bootstrap.
+  Deliver the CLI demo first. GitHub Actions integration follows later for
+  trusted contributors in private repositories with runners outside GKE.
+  Use pyavd[ansible]==6.5.0 and arista.avd.anta_runner for catalog generation
+  and test execution from bundled AVD structured configurations.
+  Labs contain switches only: two spines and four leaves in two MLAG pairs.
+  CloudVision and host containers remain permanently excluded.
+  Use generic identities and runtime credentials. Preserve reference
+  network behavior and leave all reference repositories unchanged.
+  Use scripted gcloud deployment in an existing dedicated demo project.
+  Use GKE Standard and clabernetes with shared system workers and dedicated
+  temporary workers per lab. The operator deploys infrastructure on demand
+  and destroys it manually after demos. Preserve the existing project.
+  Switches boot with rendered startup configurations. CLI commands return
+  JSON. Kubernetes stores ownership and expiry. No HTTP service or database.
+  Management uses private Pod-IP HTTPS from the external runner.
+  Discover endpoints through authenticated Kubernetes access on each readiness
+  attempt. Preserve switch names and record Pod identities. No interactive access command.
+  The demo skips TLS certificate verification by user agreement. Keep password
+  authentication and compare EOS hostnames. Do not claim certificate-based identity.
+  Lab expiry defaults to two hours and cannot exceed four hours from request
+  acceptance. A cluster-side cleaner runs every five minutes, retries failed
+  deletion every five minutes indefinitely, and flags overdue cleanup.
+  Target complete deletion thirty minutes after expiry while cloud and
+  Kubernetes APIs are available. Live timing evidence remains required.
+  A single test command creates the lab, waits for authenticated readiness,
+  runs bounded ANTA acceptance, saves reports, and deletes
+  the lab after success, failure, timeout, or cancellation. Independent expiry
+  covers operator or runner loss. Overall success requires complete cleanup.
+  Require routing, EVPN, VXLAN, switch-link, and both MLAG-pair coverage.
+  Missing, skipped, errored, or failed required results prevent acceptance.
+  The separate MLAG investigation passed all 54 live results and both pairs
+  on November 11 with the corrected private clabernetes source. It limits
+  OUTPUT connection-tracking zone assignment to management interfaces.
+  No experimental EOS firewall rule was installed. This evidence applies
+  only to the recorded private build, not the official published release.
+  The actual CLI subsequently passed all 54 results and complete lab deletion.
+  Standalone create, authenticated status, invalid-password rejection, and
+  repeated deletion passed on the retained cluster. Concurrent isolation and
+  the remaining failure-path qualification still require live evidence.
+  Implementation and PR publication are authorized. The user also authorized
+  cloud provisioning and live GKE tests after the initial CLI delivery.
+  Keep the change active. Do not archive based on offline tests.
+  No fixed budget cap is selected. Large-scale qualification is out of scope.
 
 rules:
   proposal:
-    - Distinguish agreed scope, proposed design, and unresolved decisions.
+    - Distinguish agreed scope, implemented code, and live acceptance evidence.
     - State exclusions and reference provenance without copying source data.
   design:
-    - Keep unselected technologies and runtime versions explicit.
-    - Cover cleanup independent of the GitHub runner and MLAG acceptance.
+    - Keep runtime support claims tied to live evidence.
+    - Cover cleanup independent of the operator and MLAG acceptance.
   tasks:
-    - Put material design decisions before implementation tasks.
     - Include failure-path evidence and keep unperformed work unchecked.
+    - Keep CLI delivery, live acceptance, and later GitHub integration distinct.

@@ -1,0 +1,7 @@
+# Copy this file to an ignored path. Supply explicit values before deployment.
+project: your-demo-project
+zone: europe-west1-b
+name: drydock-demo
+cluster_version: REPLACE_WITH_EXACT_GKE_VERSION
+clabernetes_version: REPLACE_WITH_EXACT_CHART_VERSION
+cleanup_image: REPLACE_WITH_REGISTRY_IMAGE_AND_SHA256_DIGEST
