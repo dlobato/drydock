@@ -12,6 +12,12 @@ Image access must work for switch workloads in newly created lab namespaces.
 The CLI does not create image pull credentials or select worker pools.
 The operator supplies scheduling policy through the cluster and clabernetes configuration.
 
+Private image access must cover both kubelet pulls and clabernetes controller metadata reads.
+A pull Secret stores registry credentials in Kubernetes.
+The tested private runtime uses global `imagePull.pullSecrets` references to operator-supplied Secrets in each lab namespace.
+The operator supplies and refreshes those credentials outside the lifecycle CLI.
+Worker identity alone does not supply credentials for the tested controller's metadata reads.
+
 The operator creates the `<name>-system` namespace for ownership records and installs an independent cleaner.
 The optional GKE demo setup supplies these resources through separate operator tooling.
 The cleaner uses a mounted Kubernetes service-account token and CA certificate.

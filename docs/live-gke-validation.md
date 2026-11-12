@@ -1,6 +1,44 @@
 # Live GKE validation
 
-## Current evidence
+## November 12 lifecycle separation
+
+The lifecycle core at commit `632d674c6a96acf856d9e91268361376b4bedbd4` passed standalone creation, authenticated status, and inventory retrieval on GKE.
+Deletion and repeated deletion also passed.
+All six switches authenticated with their expected hostnames and current Pod identities.
+An invalid password prevented readiness.
+The caller used a minimal Python image with PyYAML and kubectl, without AVD, ANTA, Ansible, or Google Cloud CLI.
+It used an explicit Kubernetes context and a temporary Kubernetes service-account token.
+
+The separate demo passed exactly 54 live ANTA results with the expected multiplicity, including both MLAG pairs.
+It retained JSON, JUnit, catalogs, connection inventory, lifecycle events, and diagnostics before complete lab deletion.
+The same cluster and shared switch workers served both cases.
+
+A third request created a two-minute lab and exited without requesting deletion.
+Independent observations recorded deletion starting 53 seconds after expiry and namespace removal within 105 seconds.
+Its next scheduled job confirmed complete deletion 355 seconds after expiry.
+The cleaner used the tested minimal image and its Kubernetes service-account token without cloud credentials.
+Independent reads found all three lab records deleted, the same cluster and worker pools, and the unrelated namespace and Secret preserved.
+
+The operator supplied worker capacity, scheduling policy, and registry access outside the lifecycle core.
+For the tested private runtime, this included global pull-Secret references and credentials in each new lab namespace.
+Both image pulls and controller metadata reads used that access.
+The caller could not list cloud clusters, create Kubernetes roles or arbitrary Pods, or read an unrelated Secret.
+These probes do not qualify the planned admission policy or GitHub identity controls.
+
+The runtime used GKE `1.36.4-gke.2377000`, engineering EOS `4.36.1F-48405728.4361F`, private fork chart `0.0.0`, AVD `6.5.0`, and ANTA `1.10.0`.
+It reused the recorded private runtime digest `sha256:d024ebf2e1a8322bb42fbf8a236985ba1f305de764db4c81fa005edebf329e12` without an experimental EOS firewall rule.
+All 42 offline regression tests also passed at the tested commit.
+Private evidence retains exact source hashes, input digests, image digests, Pod identities, and reports.
+No GitHub workflow ran for these tests.
+
+After testing, the operator deleted the shared cluster, workers, network, IAM grants, private runner, and registry.
+Independent cloud inventory found zero owned resources across 15 infrastructure categories.
+The existing project remained active, and baseline resources in ten inventory categories were preserved.
+
+These results cover the six-switch example and the recorded private runtime.
+They do not qualify the official clabernetes release, arbitrary topologies, 100-switch scale, concurrency, AWS, or the revised lifetime defaults.
+
+## November 11 demo
 
 The actual CLI passed its November 11, 2026 live acceptance run on GKE.
 It produced exactly 54 successful ANTA results with the expected multiplicity, including both MLAG pairs.

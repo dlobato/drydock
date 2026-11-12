@@ -2,7 +2,7 @@
 
 The November 12 planning revision records the lifecycle-only requirements without authorizing automatic workflow execution.
 Sections 1 through 5 retain completed work from the earlier GKE demo.
-Task 6.1 records the first revised implementation and its offline evidence.
+Task 6.1 records the first revised implementation and its offline and live evidence.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -98,7 +98,13 @@ Cases include creation, authenticated status, repeated deletion, failed allocati
 All 42 offline regression tests and six bundle tests pass.
 The actual AVD role generates all 54 expected dry-run results with both MLAG pairs covered.
 Both example builds, dependency consistency, and strict OpenSpec validation pass.
-These results do not establish live runtime acceptance of the refactor.
+The November 12 live follow-up also passed standalone creation, authenticated status, inventory retrieval, invalid-password rejection, deletion, and repeated deletion.
+The lifecycle image contained no AVD, ANTA, Ansible, or Google Cloud CLI.
+The separate demo passed all 54 required results with both MLAG pairs, retained reports, and complete lab deletion.
+Both cases reused one cluster and its shared switch workers.
+An abandoned two-minute lab also expired independently. A scheduled cleaner job confirmed complete deletion 355 seconds after expiry without cloud credentials.
+All three cases preserved the cluster identity, worker pools, and an unrelated namespace and Secret.
+The [live validation record](../../../docs/live-gke-validation.md) identifies the tested commit, private runtime, and authorization limits.
 
 Broader registry admission and image-access qualification remain task 6.4.
 The remaining cleanup qualification stays in task 7.4.
