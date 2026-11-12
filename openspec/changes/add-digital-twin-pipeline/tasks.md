@@ -7,6 +7,7 @@ Tasks 6.2 and 6.3 record topology admission, ownership isolation, and their offl
 Task 6.3 also records bounded live ownership and two-lab isolation evidence.
 Task 6.4 records registry admission, offline tests, and bounded live image-access acceptance.
 Task 7.1 records bounded startup waiting and controlled capacity and timeout evidence.
+Task 7.2 records authenticated runtime inventory and controlled endpoint replacement evidence.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -66,7 +67,7 @@ The former open demo tasks are replaced without claiming their completion:
 ## 7. Deliver bounded lifecycle operations
 
 - [x] 7.1 Add capacity waiting, scheduling diagnostics, and a startup deadline bounded by expiry. Test capacity arrival, exhaustion, late readiness, and partial cleanup. Document statuses without adding a separate queue.
-- [ ] 7.2 Derive authenticated readiness and connection inventory from all submitted switches and links. Test endpoint replacement, duplicate Pods, credential rejection, hostname mismatch, and different device names. Document private routing and runtime inventory use.
+- [x] 7.2 Derive authenticated readiness and connection inventory from all submitted switches and links. Test endpoint replacement, duplicate Pods, credential rejection, hostname mismatch, and different device names. Document private routing and runtime inventory use.
 - [ ] 7.3 Set the lifetime default to 30 minutes and the maximum to 60 minutes from acceptance. Test invalid values, capacity waiting, and retries that cannot renew expiry. Update CLI help and operator examples together.
 - [ ] 7.4 Make the independent cleaner and deletion path Kubernetes-only. Test five-minute retries, overdue cleanup, late resources, interruptions, and unrelated-resource preservation. Document complete lab deletion independently of worker scale-down and cloud cost.
 - [ ] 7.5 Exercise the documented standalone creation, readiness, inventory, status, and repeated deletion commands. Demonstrate JSON outcomes and complete removal of lab-owned resources. Keep the switch TLS exception explicit and preserve verification for Kubernetes endpoints.
@@ -214,6 +215,28 @@ The [lifecycle instructions](../../../docs/lifecycle.md#create-and-inspect) docu
 
 This evidence does not establish live capacity recovery, scheduling behavior, cleanup timing, or a suitable deadline for 100 switches.
 Tasks 7.5 and 9.1 through 9.3 retain live lifecycle, scale, concurrency, and failure qualification.
+
+## Authenticated inventory evidence (task 7.2)
+
+The standalone `lab inventory` command uses the same authenticated readiness gate as status and wait.
+It returns every submitted switch under its original name with its private address, namespace, Pod name, and Pod UID.
+The ownership record supplies switch identities and link counts without requiring AVD models.
+Readiness rejects missing resources, unaccepted links, stale plans, and missing or duplicate Pods.
+It also rejects unreachable management APIs, incorrect credentials, and unexpected hostnames without exposing response contents or passwords.
+
+After authentication, readiness re-reads Kubernetes state and requires unchanged endpoints and current infrastructure before success.
+If a Pod changes during authentication, the observation fails without recording readiness or returning the stale connection inventory.
+The next attempt discovers and authenticates to the replacement endpoint.
+Deletion that starts during authentication also prevents success after an earlier ready observation.
+
+All 83 offline regression tests and six bundle tests pass.
+The actual AVD role generates all 54 expected dry-run results with both MLAG pairs covered.
+Both example builds, pinned Ruff and mypy hooks, and strict OpenSpec validation pass.
+The [runtime inventory instructions](../../../docs/lifecycle.md#use-runtime-connections) document private routing, returned fields, and use with an existing Ansible inventory.
+
+These controlled tests do not establish live replacement behavior, scale, concurrency, or provider compatibility.
+Task 7.5 and section 9 retain live lifecycle and qualification work.
+The private switch TLS exception remains explicit. Kubernetes certificate verification remains enabled.
 
 ## Historical demo evidence
 

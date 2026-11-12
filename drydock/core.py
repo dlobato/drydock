@@ -328,8 +328,10 @@ def readiness(items, expected_nodes, expected_links):
         and item["metadata"].get("labels", {}).get("c9s.run/direct-workload")
         in expected_nodes
     ]
-    if len(pods) != len(expected_nodes):
-        errors.append("switch pods are missing")
+    if len(pods) != len(expected_nodes) or {
+        pod["metadata"]["labels"]["c9s.run/direct-workload"] for pod in pods
+    } != set(expected_nodes):
+        errors.append("exactly one switch pod is required for each device")
     for pod in pods:
         status = pod.get("status", {})
         if pod["metadata"].get("deletionTimestamp") or not any(
