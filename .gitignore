@@ -11,3 +11,4 @@ reports/
 *.tfstate
 *.tfstate.*
 .terraform/
+.idea
