@@ -68,8 +68,8 @@ def allocation_record(env, lab):
 
 
 def validate_request(bundle, provenance, lifetime, startup_timeout=1200):
-    if type(lifetime) is not int or not 1 <= lifetime <= 240:
-        raise UserError("Lab lifetime must be between 1 and 240 minutes.")
+    if type(lifetime) is not int or not 1 <= lifetime <= 60:
+        raise UserError("Lab lifetime must be between 1 and 60 minutes.")
     if type(startup_timeout) is not int or startup_timeout < 1:
         raise UserError("Startup timeout must be a positive number of seconds.")
     if not all(
@@ -171,7 +171,7 @@ def create_lab(
     env,
     bundle,
     provenance,
-    lifetime=120,
+    lifetime=30,
     lab=None,
     *,
     allocation_id=None,

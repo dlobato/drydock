@@ -20,7 +20,12 @@ def parser():
     for name in ("status", "wait", "inventory", "delete"):
         lab.add_parser(name).add_argument("lab")
     create.add_argument("bundle", type=Path)
-    create.add_argument("--lifetime", type=int, default=120, help="Minutes, 1 to 240")
+    create.add_argument(
+        "--lifetime",
+        type=int,
+        default=30,
+        help="Minutes from acceptance, 1 to 60 (default: 30)",
+    )
     create.add_argument(
         "--startup-timeout",
         type=int,

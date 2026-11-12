@@ -8,6 +8,7 @@ Task 6.3 also records bounded live ownership and two-lab isolation evidence.
 Task 6.4 records registry admission, offline tests, and bounded live image-access acceptance.
 Task 7.1 records bounded startup waiting and controlled capacity and timeout evidence.
 Task 7.2 records authenticated runtime inventory and controlled endpoint replacement evidence.
+Task 7.3 records the 30-minute default, 60-minute maximum, and controlled expiry evidence.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -68,7 +69,7 @@ The former open demo tasks are replaced without claiming their completion:
 
 - [x] 7.1 Add capacity waiting, scheduling diagnostics, and a startup deadline bounded by expiry. Test capacity arrival, exhaustion, late readiness, and partial cleanup. Document statuses without adding a separate queue.
 - [x] 7.2 Derive authenticated readiness and connection inventory from all submitted switches and links. Test endpoint replacement, duplicate Pods, credential rejection, hostname mismatch, and different device names. Document private routing and runtime inventory use.
-- [ ] 7.3 Set the lifetime default to 30 minutes and the maximum to 60 minutes from acceptance. Test invalid values, capacity waiting, and retries that cannot renew expiry. Update CLI help and operator examples together.
+- [x] 7.3 Set the lifetime default to 30 minutes and the maximum to 60 minutes from acceptance. Test invalid values, capacity waiting, and retries that cannot renew expiry. Update CLI help and operator examples together.
 - [ ] 7.4 Make the independent cleaner and deletion path Kubernetes-only. Test five-minute retries, overdue cleanup, late resources, interruptions, and unrelated-resource preservation. Document complete lab deletion independently of worker scale-down and cloud cost.
 - [ ] 7.5 Exercise the documented standalone creation, readiness, inventory, status, and repeated deletion commands. Demonstrate JSON outcomes and complete removal of lab-owned resources. Keep the switch TLS exception explicit and preserve verification for Kubernetes endpoints.
 
@@ -114,7 +115,7 @@ The [live validation record](../../../docs/live-gke-validation.md) identifies th
 Broader registry admission and image-access qualification remain task 6.4.
 The remaining cleanup qualification stays in task 7.4.
 Task 6.2 removes the six-switch admission limit.
-The earlier lifetime values remain until task 7.3.
+Task 7.3 replaces the earlier lifetime values with a 30-minute default and a 60-minute maximum.
 The [lifecycle instructions](../../../docs/lifecycle.md) document those limits and the transition from earlier demo deployments.
 
 ## Topology admission evidence (task 6.2)
@@ -237,6 +238,28 @@ The [runtime inventory instructions](../../../docs/lifecycle.md#use-runtime-conn
 These controlled tests do not establish live replacement behavior, scale, concurrency, or provider compatibility.
 Task 7.5 and section 9 retain live lifecycle and qualification work.
 The private switch TLS exception remains explicit. Kubernetes certificate verification remains enabled.
+
+## Lifetime evidence (task 7.3)
+
+Lifecycle creation and the optional demo default to 30 minutes and reject lifetimes above 60 minutes before allocation.
+The accepted record fixes expiry at acceptance plus the requested lifetime.
+Capacity waiting, startup, status observations, and retries preserve that expiry.
+The demo defaults to 900 seconds for readiness and 600 seconds for ANTA, with five minutes left before expiry.
+The CLI help and operator examples use the same limits.
+
+All 86 offline regression tests and six bundle tests pass.
+Controlled CLI cases cover the default, one-minute and 60-minute requests, and invalid lifetimes before ownership creation.
+Direct API cases also reject booleans, fractional values, strings, and `None`.
+Capacity arrival and repeated waits preserve acceptance and expiry, and another wait at expiry fails and requests deletion.
+The demo accepts its default budgets and rejects invalid lifetimes or combined deadlines that exhaust the lifetime before allocation.
+
+Both example builds, pinned Ruff and mypy hooks, and strict OpenSpec validation pass.
+The actual AVD role generates all 54 expected dry-run results with both MLAG pairs covered.
+The [lifecycle instructions](../../../docs/lifecycle.md#create-and-inspect) document lifetime selection and expiry.
+The [demo instructions](../../../docs/demo-flow.md#build-and-run-the-example) document its shorter readiness budget.
+
+These controlled tests do not establish live expiry timing, cleaner recovery, scale, or provider compatibility.
+Tasks 7.4, 7.5, and section 9 retain cleanup and live qualification work.
 
 ## Historical demo evidence
 

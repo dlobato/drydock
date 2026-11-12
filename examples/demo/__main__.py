@@ -24,13 +24,18 @@ def parser():
     test.add_argument(
         "--ready-timeout",
         type=int,
-        default=1200,
-        help="Seconds from lab acceptance, including authenticated eAPI readiness",
+        default=900,
+        help="Seconds from lab acceptance, including authenticated eAPI readiness (default: 900)",
     )
     test.add_argument(
         "--test-timeout", type=int, default=600, help="Seconds for ANTA convergence"
     )
-    test.add_argument("--lifetime", type=int, default=120, help="Minutes, 1 to 240")
+    test.add_argument(
+        "--lifetime",
+        type=int,
+        default=30,
+        help="Minutes from acceptance, 1 to 60 (default: 30)",
+    )
     for field in ("repository", "commit", "run", "attempt"):
         test.add_argument("--" + field, required=True)
     return root

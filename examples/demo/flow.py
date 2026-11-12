@@ -118,8 +118,8 @@ def test_flow(
     provenance,
     password,
     output,
-    lifetime=120,
-    ready_timeout=1200,
+    lifetime=30,
+    ready_timeout=900,
     test_timeout=600,
 ):
     validate_request(bundle, provenance, lifetime, ready_timeout)

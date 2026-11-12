@@ -147,11 +147,14 @@ It then creates a lab through the lifecycle API and waits for authenticated read
 It runs the standard ANTA playbook and requires routing, EVPN, VXLAN, switch-link, and both MLAG-pair coverage.
 Missing, skipped, errored, duplicate, or failed required results prevent network acceptance.
 
-The default readiness deadline is 1,200 seconds and the ANTA deadline is 600 seconds.
+The default readiness deadline is 900 seconds and the ANTA deadline is 600 seconds.
 The readiness budget starts at lab acceptance and includes allocation and capacity waiting.
 The recorded startup deadline cannot exceed lab expiry.
 The example requires both deadlines to fit inside the selected lab lifetime.
-The lifecycle implementation still defaults to 120 minutes with a 240-minute maximum pending task 7.3.
+
+Lab lifetime defaults to 30 minutes and accepts an integer from 1 through 60 minutes through `--lifetime`.
+The demo defaults leave five minutes between the combined deadlines and lab expiry.
+Capacity waiting, startup, and tests consume the same lifetime. Retries do not renew expiry.
 
 The command retains reports below `reports/<lab-id>/` and always requests deletion after allocation.
 Its JSON result separates test and cleanup outcomes.
