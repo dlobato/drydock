@@ -62,22 +62,127 @@ Relative kubeconfig paths resolve from the command's working directory.
 
 ## Supply the lab input
 
+The [example AVD build](../examples/evpn-symmetric-irb/README.md) generates the Containerlab topology, interface mapping, and startup files.
+Its packager sets the supplied cEOS image reference and archives those generated files.
+The lifecycle CLI consumes that output without generating switch configurations or topology links.
+
 Supply an uncompressed tar archive with these files:
 
-- `FABRIC-topology.clab.yml` contains the supported six-switch topology.
-- `interface_mapping.json` supplies the supported interface mapping.
-- `intended/configs/<name>.cfg` supplies each switch's complete startup configuration.
+- One root-level `*.clab.yml` or `*.clab.yaml` file contains the Containerlab topology.
+- Each referenced startup file contains the complete configuration for its switch.
+- Each referenced interface mapping file supplies a supported read-only mapping, if required.
 
 AVD structured configurations do not belong in the archive.
+The archive must contain exactly the topology and its referenced files.
 The archive digest identifies all submitted files together.
 Keep the archive private because startup configurations contain authentication material.
 
-The current input limits remain 10 MiB per archive and 1 MiB per member.
-Startup and mapping data together must fit within 512 KiB.
-Admission rejects duplicate members, unsafe paths, unsupported attributes, and missing files before allocation.
-The six device names, addresses, links, and mapping still follow the example.
+### Describe the topology
+
+Clabernetes interprets the topology and manages switch interfaces, management addresses, and links.
+Drydock reads switch identities, the link count, and file references for lifecycle operations.
+It transfers startup and mapping files without interpreting their contents. The producer supplies consistent configurations.
+The example interprets EOS interface mappings only for its ANTA coverage policy.
+The six-switch example is one supported input.
+Admission uses a field allowlist to exclude unsupported execution features.
+The admitted Containerlab fields are:
+
+- Top level: `name`, `topology`, optional empty `prefix`, and optional `mgmt`.
+- `mgmt`: optional `ipv4-subnet` and `network`.
+- `topology`: `nodes`, `kinds`, optional `defaults`, and optional `links`.
+- `defaults`: optional `kind: arista_ceos`.
+- `kinds`: one `arista_ceos` entry with `image`, optional `enforce-startup-config: true`, and optional `binds`.
+- Each node: `startup-config`, optional `mgmt-ipv4`, `kind: arista_ceos`, `binds`, and `labels`.
+- Each link: two `endpoints` that reference admitted switches, plus optional `mtu`. Clabernetes interprets interface names.
+
+Define at least one switch.
+Use lowercase DNS labels, up to 63 characters, for switch names.
+A DNS label uses letters, digits, and internal hyphens.
+The producer supplies valid management addresses or uses the backend defaults.
+Supply `kind` on each node or through `defaults`.
+Supply one shared digest-pinned cEOS image through `kinds.arista_ceos.image`.
 The cEOS image still requires a digest in regional Google Artifact Registry.
-Tasks 6.2 and 6.4 remove these remaining example and registry restrictions.
+Task 6.4 removes this registry restriction.
+
+The producer sets each switch hostname to its topology identity.
+Drydock compares the reported hostname during authenticated readiness without parsing startup configuration syntax.
+The producer supplies the `labadmin` account and HTTPS eAPI configuration for authenticated readiness.
+All file references are relative to the topology at the archive root.
+Paths can use letters, digits, underscores, dots, hyphens, and directory separators.
+Absolute paths, `.` or `..` components, repeated separators, URLs, and symbolic links are unsupported.
+
+This two-switch example uses the default interface mapping:
+
+```yaml
+name: small-lab
+mgmt:
+  ipv4-subnet: 10.80.0.0/24
+topology:
+  defaults:
+    kind: arista_ceos
+  kinds:
+    arista_ceos:
+      image: europe-west1-docker.pkg.dev/example-project/images/ceos@sha256:<64-hex-digits>
+  nodes:
+    edge-a:
+      mgmt-ipv4: 10.80.0.10
+      startup-config: configs/edge-a.cfg
+    edge-b:
+      mgmt-ipv4: 10.80.0.11
+      startup-config: configs/edge-b.cfg
+  links:
+    - endpoints: [edge-a:eth1, edge-b:eth1]
+```
+
+Replace the image placeholder with an accessible cEOS digest.
+Save the topology as `lab.clab.yml` beside the referenced `configs` directory.
+From that directory, package the files:
+
+```sh
+tar -cf bundle.tar -- lab.clab.yml configs/edge-a.cfg configs/edge-b.cfg
+```
+
+For a custom mapping, supply one bind through the kind or node:
+
+```yaml
+binds:
+  - mappings/edge-a.json:/mnt/flash/EosIntfMapping.json:ro
+```
+
+A node bind overrides the shared bind at the same destination. An empty node list retains the shared bind.
+Only this read-only mount destination is supported.
+For cEOS, a mapping file can contain:
+
+```json
+{
+  "ManagementIntf": {"eth0": "Management1"},
+  "EthernetIntf": {"eth1": "Ethernet1/1", "eth2": "Ethernet1/2"}
+}
+```
+
+Drydock delivers the mapping file unchanged and does not interpret its JSON keys or EOS interface names.
+The producer and backend remain responsible for mapping validity.
+Execution hooks, other device kinds, arbitrary host mounts, and all unlisted attributes are unsupported.
+
+Drydock copies the admitted topology and changes only these deployment fields:
+
+- Startup paths and bind sources point to files projected from Kubernetes Secrets.
+- Startup configuration enforcement remains enabled, and each node exposes private eAPI port 443.
+- The prefix remains empty, and the management network name becomes the unique lab identity.
+
+Topology names, defaults, admitted node attributes, addresses, and links remain intact.
+Clabernetes reports topology errors through its status. Successful admission alone does not establish backend validity or readiness.
+
+### Observe file limits
+
+The archive limit is 10 MiB, with at most 1 MiB per member.
+Each startup or mapping file must fit within 512 KiB of UTF-8 data.
+Combined startup and mapping data can exceed 512 KiB.
+Drydock distributes those files across Secrets with at most 512 KiB of decoded data each.
+Shared files appear once, and generated file keys prevent collisions between equal basenames.
+Each serialized Secret and topology manifest must fit within 1 MiB.
+Admission rejects missing files, duplicate members, unsafe paths, unsupported attributes, and oversized resources before Kubernetes allocation.
+These limits bound accepted input. They do not establish live switch capacity.
 
 ## Create and inspect
 
@@ -92,10 +197,11 @@ Create a lab from the startup-only bundle:
 ```
 
 The command records ownership before workload allocation.
-It creates a separate lab namespace, startup Secret, and clabernetes topology.
+It creates a separate lab namespace, startup Secrets, and clabernetes topology.
 It does not allocate cloud workers or wait for authenticated readiness.
 A creation failure requests cleanup and returns a nonzero exit code with the lab identity and cleanup outcome.
 Creation and deletion retain their Kubernetes records without startup credentials.
+The ownership record includes the admitted switch names and link count for status expectations.
 
 Set `DRYDOCK_LAB_ID` to the returned `id`.
 Supply the startup configuration's `labadmin` password through `DRYDOCK_LAB_PASSWORD`.
@@ -125,8 +231,9 @@ It waits up to 30 minutes for immediate cleanup.
 It deletes the lab namespace and its resources without deleting cluster workers or shared infrastructure.
 Worker retention and cloud cost remain the operator's responsibility.
 
-Before replacing an earlier demo deployment, delete its labs with the earlier tool.
+Before replacing an earlier deployment, delete its labs with the earlier tool.
 Keep the earlier cleaner active until cleanup completes.
+Earlier ownership records do not contain the topology-derived status expectations.
 The revised lifecycle does not remove worker pools from earlier deployments.
 Deploy the rebuilt cleaner only after those labs are removed.
 
@@ -142,4 +249,5 @@ Keep the cleaner and ownership records available until cleanup completes.
 Run `make lifecycle-test` with only `requirements.txt` installed.
 The tests exercise the CLI with controlled Kubernetes and eAPI responses.
 They cover creation, authenticated status, repeated deletion, failed allocation cleanup, and expiry without AVD or ANTA.
+Admission cases include different fabrics, custom mappings, unsafe inputs, and a synthetic 100-switch input with split startup data.
 They do not establish live startup, provider compatibility, concurrent isolation, cleanup timing, or network acceptance.

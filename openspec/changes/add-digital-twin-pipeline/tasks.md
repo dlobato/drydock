@@ -3,6 +3,7 @@
 The November 12 planning revision records the lifecycle-only requirements without authorizing automatic workflow execution.
 Sections 1 through 5 retain completed work from the earlier GKE demo.
 Task 6.1 records the first revised implementation and its offline and live evidence.
+Task 6.2 records topology-driven admission and its offline evidence.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -55,7 +56,7 @@ The former open demo tasks are replaced without claiming their completion:
 ## 6. Separate the lifecycle core
 
 - [x] 6.1 Move GKE setup and integrated ANTA orchestration outside the lifecycle core. Update callers, dependencies, and command documentation. Demonstrate lifecycle use without AVD, ANTA, or cloud administration access.
-- [ ] 6.2 Generalize admission to topology-derived names, links, addresses, mappings, and startup files. Update fixtures and input documentation. Test different fabrics, missing files, unsafe paths, unsupported features, and payloads split within Kubernetes limits.
+- [x] 6.2 Generalize admission without a second network model. Preserve admitted topology fields, inspect only lifecycle identities and safe file references, and delegate network semantics to clabernetes. Keep EOS interface interpretation in the example. Update documentation and test different fabrics, topology preservation, unsafe inputs, and payloads split within Kubernetes limits.
 - [ ] 6.3 Preserve unique attempt ownership and namespace isolation before allocation. Test competing updates, late creation, repeated input, and deletion that preserves another lab. Document the ownership record and failure output.
 - [ ] 6.4 Replace Google registry token handling with operator-supplied Kubernetes image access. Demonstrate a digest-pinned image outside Google Artifact Registry. Document the cluster prerequisites and keep authentication setup outside the core.
 
@@ -108,8 +109,30 @@ The [live validation record](../../../docs/live-gke-validation.md) identifies th
 
 Broader registry admission and image-access qualification remain task 6.4.
 The remaining cleanup qualification stays in task 7.4.
-The six-switch admission limit and earlier lifetime values remain until tasks 6.2 and 7.3.
+Task 6.2 removes the six-switch admission limit.
+The earlier lifetime values remain until task 7.3.
 The [lifecycle instructions](../../../docs/lifecycle.md) document those limits and the transition from earlier demo deployments.
+
+## Topology admission evidence (task 6.2)
+
+Admission reads expected switch names, link count, and safe file references from the submitted topology.
+It preserves admitted topology fields and delegates management address and interface semantics to clabernetes.
+Startup and mapping contents remain opaque to the lifecycle core. The example owns EOS interface interpretation for ANTA coverage.
+It retains the switch-only restriction and rejects unsupported execution features, unsafe paths, missing files, and oversized resources before allocation.
+Startup and mapping files use bounded Secrets with distinct generated file keys.
+Ownership records retain switch names and link counts for the existing status operation.
+
+Offline cases cover one, three, five, and 100 switches, including custom mappings and different management subnets.
+A synthetic 100-switch input spans multiple Secrets and preserves every startup and mapping file.
+Each Secret contains at most 512 KiB of decoded data, and each serialized workload manifest fits within 1 MiB.
+The CLI cases exercise creation, authenticated status, repeated deletion, safe input errors, and cleanup after interrupted Secret creation.
+
+The existing native Ansible playbook still generates the example through `arista.avd.eos_designs` and `arista.avd.eos_cli_config_gen`.
+The initial revision passed both example builds. The topology-preserving revision passes six bundle tests and all 53 offline regression tests.
+Pinned Ruff and mypy hooks and strict OpenSpec validation pass.
+The actual AVD role still generates all 54 expected dry-run results with both MLAG pairs covered.
+This evidence does not establish live startup of other fabrics, 100-switch capacity, concurrency, or another provider.
+Tasks 6.3, 6.4, 7.2, and section 9 retain their remaining ownership, image access, readiness, and live acceptance work.
 
 ## Historical demo evidence
 

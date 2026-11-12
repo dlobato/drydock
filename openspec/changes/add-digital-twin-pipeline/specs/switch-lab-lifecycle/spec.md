@@ -20,7 +20,7 @@ Lifecycle operations MUST NOT require AVD structured configurations, execute ANT
 
 ### Requirement: Arbitrary supported topology
 
-Drydock MUST derive switch names, counts, links, management addresses, and referenced startup files from the submitted Containerlab topology.
+Drydock MUST read expected switch identities, link count, and referenced files from the submitted Containerlab topology.
 It MUST accept arbitrary cEOS topology shapes within documented limits.
 It MUST reject unsupported devices, unsafe file references, and unsupported execution features before workload allocation.
 
@@ -35,6 +35,19 @@ It MUST reject unsupported devices, unsafe file references, and unsupported exec
 - WHEN a request omits a required file or includes a host container, execution hook, or unsupported host mount
 - THEN Drydock reports the input error before creating switch workloads
 - AND it does not copy files outside the admitted input
+
+### Requirement: Backend-owned topology semantics
+
+Drydock MUST preserve admitted topology fields except for documented deployment changes.
+It MUST delegate management address and interface semantics to clabernetes and treat startup and mapping contents as opaque payloads.
+Network test coverage MUST remain outside the lifecycle core.
+
+#### Scenario: Backend interprets the topology
+
+- WHEN a caller supplies admitted topology fields and referenced payloads
+- THEN Drydock preserves those fields and delivers the payloads without interpreting EOS configuration or interface mappings
+- AND clabernetes interprets management addresses and switch interfaces
+- AND the pipeline determines applicable network test coverage
 
 ### Requirement: Complete startup delivery
 

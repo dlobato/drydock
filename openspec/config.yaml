@@ -9,8 +9,10 @@ context: |
   GKE is the current test platform. Kubernetes on AWS is a future portability
   target that requires separate evidence. Keep GKE demo setup outside the core.
   Accept arbitrary cEOS topologies with complete rendered startup files.
-  Derive switch names, counts, links, addresses, and supported auxiliary files
-  from the topology. Reject unsafe or unsupported features before allocation.
+  Preserve admitted topology fields and delegate address, link, and interface
+  semantics to clabernetes. Inspect only identities, file references, and the
+  safety policy needed for delivery and lifecycle operations. Keep startup
+  and mapping contents opaque. Reject unsafe or unsupported features before allocation.
   The first scale target is 100 switches per lab with several concurrent labs.
   Record the qualified aggregate capacity instead of promising unlimited scale.
   Each approved workflow attempt receives a distinct lab with isolated ownership,

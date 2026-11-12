@@ -11,10 +11,11 @@ from pathlib import Path
 
 import yaml
 
-from drydock.core import NODES, UserError, save
+from drydock.core import UserError, save
 
 ROOT = Path(__file__).resolve().parents[2]
 PLAYBOOK = ROOT / "playbooks/anta.yml"
+NODES = {"spine1", "spine2", "leaf1", "leaf2", "leaf3", "leaf4"}
 
 
 def invoke(directory, hosts, structured_dir, dry_run, timeout):
@@ -89,7 +90,23 @@ def coverage(directory, bundle):
     from anta.catalog import AntaCatalog
 
     expected: Counter[tuple[str, str, str]] = Counter()
+    definition = bundle.topology["topology"]
     for name in sorted(NODES):
+        node = definition["nodes"][name]
+        binds = node.get("binds") or definition["kinds"]["arista_ceos"].get("binds", [])
+        mapping = (
+            json.loads(bundle.files[binds[0].split(":")[0]])["EthernetIntf"]
+            if binds
+            else None
+        )
+        linked = set()
+        for link in definition.get("links", []):
+            for endpoint in link["endpoints"]:
+                switch, port = endpoint.split(":")
+                if switch == name:
+                    linked.add(
+                        mapping[port] if mapping is not None else "Ethernet" + port[3:]
+                    )
         catalog = AntaCatalog.parse(
             Path(directory) / "anta/avd_catalogs" / f"{name}.json", file_format="json"
         )
@@ -114,9 +131,7 @@ def coverage(directory, bundle):
             "interfaces"
         ]
         active = {item["name"] for item in interfaces if item["status"] == "up"}
-        if not set(bundle.interfaces[name]) <= active or (
-            name.startswith("leaf") and "Vxlan1" not in active
-        ):
+        if not linked <= active or (name.startswith("leaf") and "Vxlan1" not in active):
             raise UserError(
                 f"AVD catalog excludes required switch interfaces for {name}."
             )

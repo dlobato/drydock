@@ -1,5 +1,6 @@
 """Offline contract tests. No provider calls or device images."""
 
+import base64
 import io
 import json
 import tarfile
@@ -12,7 +13,17 @@ import yaml
 
 from drydock import flow
 from drydock import lifecycle as cloud
-from drydock.core import ENV_LABEL, LAB_LABEL, NODES, Bundle, Environment, readiness
+from drydock.core import (
+    ENV_LABEL,
+    LAB_LABEL,
+    PAYLOAD_LIMIT,
+    Bundle,
+    Environment,
+    UserError,
+    readiness,
+)
+
+NODES = {"spine1", "spine2", "leaf1", "leaf2", "leaf3", "leaf4"}
 
 IMAGE = "europe-west1-docker.pkg.dev/demo-project/images/ceos@sha256:" + "a" * 64
 ENV = Environment("drydock-demo", "/tmp/test-kubeconfig", "test-context")
@@ -77,8 +88,9 @@ def bundle_files():
     }
 
 
-def make_bundle(directory, mutate=None):
-    files = bundle_files()
+def make_bundle(directory, mutate=None, *, files=None):
+    if files is None:
+        files = bundle_files()
     if mutate:
         mutate(files)
     path = Path(directory) / "bundle.tar"
@@ -88,6 +100,45 @@ def make_bundle(directory, mutate=None):
             entry.size = len(text.encode())
             archive.addfile(entry, io.BytesIO(text.encode()))
     return Bundle.load(path)
+
+
+def alternate_files(count=3, *, mapping=True, padding=""):
+    names = [f"switch-{index}" for index in range(1, count + 1)]
+    files = {}
+    nodes = {}
+    for index, name in enumerate(names):
+        startup = f"configs/{name}/startup.cfg"
+        nodes[name] = {
+            "kind": "arista_ceos",
+            "mgmt-ipv4": f"10.70.0.{index + 10}",
+            "startup-config": startup,
+        }
+        files[startup] = f"hostname {name}\n! {padding}\n"
+        if mapping:
+            path = f"mappings/{name}.json"
+            nodes[name]["binds"] = [f"{path}:/mnt/flash/EosIntfMapping.json:ro"]
+            files[path] = json.dumps(
+                {
+                    "EthernetIntf": {
+                        "eth9": f"Ethernet{index + 1}/1",
+                        "eth10": f"Ethernet{index + 1}/2",
+                    }
+                }
+            )
+    topology = {
+        "name": "alternate",
+        "mgmt": {"ipv4-subnet": "10.70.0.0/24"},
+        "topology": {
+            "kinds": {"arista_ceos": {"image": IMAGE}},
+            "nodes": nodes,
+            "links": [
+                {"endpoints": [f"{left}:eth10", f"{right}:eth9"]}
+                for left, right in zip(names, names[1:])
+            ],
+        },
+    }
+    files["lab.clab.yaml"] = yaml.safe_dump(topology)
+    return files
 
 
 class FakeEnvironment:
@@ -134,6 +185,8 @@ class FakeEnvironment:
                     raise RuntimeError(
                         "namespace creation interrupted after acceptance"
                     )
+            else:
+                self.applied.append(obj)
         elif args[0] == "delete":
             if self.fail_delete:
                 raise RuntimeError("namespace deletion failed")
@@ -150,7 +203,7 @@ class BundleTests(unittest.TestCase):
     def test_valid_bundle_preserves_identities(self):
         with tempfile.TemporaryDirectory() as directory:
             bundle = make_bundle(directory)
-        self.assertEqual(set(bundle.interfaces), NODES)
+        self.assertEqual(set(bundle.topology["topology"]["nodes"]), NODES)
 
     def test_reject_unsafe_missing_and_unsupported_inputs(self):
         changes = [
@@ -170,7 +223,6 @@ class BundleTests(unittest.TestCase):
                     )
                 }
             ),
-            lambda f: f.update({"intended/configs/leaf1.cfg": "hostname wrong\n"}),
         ]
         for change in changes:
             with (
@@ -195,6 +247,245 @@ class BundleTests(unittest.TestCase):
                     archive.addfile(member)
                 with self.assertRaises(ValueError):
                     Bundle.load(path)
+
+
+class TopologyAdmissionTests(unittest.TestCase):
+    def test_preserves_topology_fields_and_treats_payloads_as_opaque(self):
+        files = alternate_files(3, mapping=False)
+        original = yaml.safe_load(files["lab.clab.yaml"])
+        kind = original["topology"]["kinds"]["arista_ceos"]
+        kind["binds"] = ["shared.json:/mnt/flash/EosIntfMapping.json:ro"]
+        nodes = original["topology"]["nodes"]
+        nodes["switch-1"]["binds"] = ["custom.json:/mnt/flash/EosIntfMapping.json:ro"]
+        nodes["switch-2"]["binds"] = []
+        nodes["switch-1"]["labels"] = {"role": "edge"}
+        # Address and interface semantics belong to clabernetes.
+        original["mgmt"]["ipv4-subnet"] = "10.70.0.10/31"
+        nodes["switch-1"]["mgmt-ipv4"] = "10.70.0.10"
+        nodes["switch-2"].pop("mgmt-ipv4")
+        original["topology"]["links"][0] = {
+            "endpoints": ["switch-1:e1-1", "switch-2:e1-2"],
+            "mtu": 9000,
+        }
+        files["shared.json"] = "opaque shared mapping\n"
+        files["custom.json"] = "opaque custom mapping\n"
+        files["configs/switch-1/startup.cfg"] = "! opaque startup configuration\n"
+        files["lab.clab.yaml"] = yaml.safe_dump(original)
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = make_bundle(directory, files=files)
+        env = FakeEnvironment()
+        cloud.create_lab(env, bundle, IDENTITY, lab=LAB)
+        self.assertEqual(bundle.topology, original)
+        manifest = next(obj for obj in env.applied if obj["kind"] == "Topology")
+        submitted = yaml.safe_load(manifest["spec"]["definition"]["containerlab"])
+        self.assertEqual(submitted["name"], original["name"])
+        self.assertEqual(submitted["mgmt"]["ipv4-subnet"], "10.70.0.10/31")
+        self.assertEqual(submitted["mgmt"]["network"], LAB)
+        self.assertEqual(submitted["topology"]["links"], original["topology"]["links"])
+        secrets = {
+            obj["metadata"]["name"]: obj
+            for obj in env.applied
+            if obj["kind"] == "Secret"
+        }
+        for name, node in submitted["topology"]["nodes"].items():
+            self.assertEqual(node.get("mgmt-ipv4"), nodes[name].get("mgmt-ipv4"))
+            self.assertEqual(node.get("labels"), nodes[name].get("labels"))
+            references = manifest["spec"]["deployment"]["filesFromSecret"][name]
+            delivered = {
+                ref["filePath"]: base64.b64decode(
+                    secrets[ref["secretName"]]["data"][ref["secretPath"]]
+                ).decode()
+                for ref in references
+            }
+            self.assertEqual(
+                delivered[node["startup-config"]], files[nodes[name]["startup-config"]]
+            )
+            binds = (
+                node.get("binds")
+                or submitted["topology"]["kinds"]["arista_ceos"]["binds"]
+            )
+            if name == "switch-2":
+                self.assertEqual(node["binds"], [])
+            self.assertEqual(len(references), 2)
+            source = binds[0].split(":")[0]
+            self.assertEqual(
+                delivered[source],
+                files["custom.json" if name == "switch-1" else "shared.json"],
+            )
+
+    def test_backend_defaults_do_not_require_management_or_link_fields(self):
+        files = alternate_files(1, mapping=False)
+        original = yaml.safe_load(files["lab.clab.yaml"])
+        original.pop("mgmt")
+        original["topology"].pop("links")
+        original["topology"]["nodes"]["switch-1"].pop("mgmt-ipv4")
+        files["lab.clab.yaml"] = yaml.safe_dump(original)
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = make_bundle(directory, files=files)
+        env = FakeEnvironment()
+        record = cloud.create_lab(env, bundle, IDENTITY)
+        self.assertEqual(record["switches"], ["switch-1"])
+        self.assertEqual(record["link_count"], 0)
+        self.assertEqual(bundle.topology, original)
+
+    def test_different_fabrics_preserve_topology_and_mapping(self):
+        for count, mapping in ((1, False), (3, True), (5, False), (100, True)):
+            with (
+                self.subTest(count=count, mapping=mapping),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                files = alternate_files(count, mapping=mapping)
+                bundle = make_bundle(directory, files=files)
+                self.assertEqual(
+                    set(bundle.topology["topology"]["nodes"]),
+                    {f"switch-{index}" for index in range(1, count + 1)},
+                )
+                self.assertEqual(
+                    bundle.topology["topology"]["links"],
+                    yaml.safe_load(files["lab.clab.yaml"])["topology"]["links"],
+                )
+
+    def test_reject_invalid_topology_shapes_and_execution_features(self):
+        changes = [
+            (("exec",), ["touch /outside"]),
+            (("prefix",), "other"),
+            (("mgmt", "bridge"), "host"),
+            (("topology", "defaults"), {"exec": ["bad"]}),
+            (("topology", "nodes"), []),
+            (("topology", "nodes"), {}),
+            (
+                ("topology", "kinds", "arista_ceos", "binds"),
+                ["/outside:/mnt/flash/EosIntfMapping.json:ro"],
+            ),
+            (("topology", "nodes", "switch-1", "exec"), ["bad"]),
+            (("topology", "nodes", "switch-1", "kind"), "linux"),
+            (("topology", "nodes", "switch-1", "startup-config"), "../outside"),
+            (("topology", "nodes", "switch-1", "startup-config"), "/etc/passwd"),
+            (
+                ("topology", "nodes", "switch-1", "startup-config"),
+                "https://example.test/file",
+            ),
+            (
+                ("topology", "nodes", "switch-1", "startup-config"),
+                "configs//switch-1/startup.cfg",
+            ),
+            (
+                ("topology", "nodes", "switch-1", "binds"),
+                ["/etc/passwd:/mnt/flash/EosIntfMapping.json:ro"],
+            ),
+            (
+                ("topology", "nodes", "switch-1", "binds"),
+                ["mappings/switch-1.json:/tmp/other:ro"],
+            ),
+            (
+                ("topology", "nodes", "switch-1", "binds"),
+                ["mappings/switch-1.json:/mnt/flash/EosIntfMapping.json:rw"],
+            ),
+            (("topology", "nodes", "switch-1", "binds"), "mappings/switch-1.json"),
+            (("topology", "links"), [{"endpoints": ["switch-1:eth10", "absent:eth9"]}]),
+            (("topology", "links"), [{"endpoints": ["switch-1:eth10", "host:eth9"]}]),
+            (("topology", "links"), [{"type": "host", "endpoint": "switch-1:eth10"}]),
+            (("topology", "links"), [{"endpoints": "switch-1:eth10"}]),
+        ]
+        for path, value in changes:
+            with (
+                self.subTest(path=path, value=value),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                files = alternate_files()
+                topology = yaml.safe_load(files["lab.clab.yaml"])
+                target = topology
+                for key in path[:-1]:
+                    target = target[key]
+                target[path[-1]] = value
+                files["lab.clab.yaml"] = yaml.safe_dump(topology)
+                with self.assertRaises(UserError):
+                    make_bundle(directory, files=files)
+
+    def test_reject_missing_extra_malformed_and_oversized_files(self):
+        changes = [
+            lambda f: f.pop("configs/switch-1/startup.cfg"),
+            lambda f: f.pop("mappings/switch-1.json"),
+            lambda f: f.update({"unreferenced.txt": "x"}),
+            lambda f: f.update({"second.clab.yml": f["lab.clab.yaml"]}),
+            lambda f: f.update({"configs/./other": "x"}),
+            lambda f: f.update({"lab.clab.yaml": "[not a mapping]"}),
+            lambda f: f.update({"lab.clab.yaml": "[invalid YAML"}),
+            lambda f: f.update(
+                {
+                    "configs/switch-1/startup.cfg": "hostname switch-1\n"
+                    + "!" * PAYLOAD_LIMIT
+                }
+            ),
+        ]
+        for change in changes:
+            with (
+                self.subTest(change=change),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                with self.assertRaises(UserError):
+                    make_bundle(directory, change, files=alternate_files())
+
+    def test_oversized_manifest_fails_before_ownership_or_allocation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            files = alternate_files(100, mapping=False)
+            topology = yaml.safe_load(files["lab.clab.yaml"])
+            topology["topology"]["nodes"]["switch-1"]["labels"] = {
+                "padding": '"' * 600000
+            }
+            files["lab.clab.yaml"] = yaml.safe_dump(topology)
+            bundle = make_bundle(directory, files=files)
+        env = FakeEnvironment()
+        with self.assertRaisesRegex(UserError, "manifest limit"):
+            cloud.create_lab(env, bundle, IDENTITY)
+        self.assertFalse(env.calls)
+        self.assertFalse(env.applied)
+
+    def test_manifest_payloads_preserve_all_files_within_kubernetes_limits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            files = alternate_files(100, padding="\u00e9" * 4096)
+            bundle = make_bundle(directory, files=files)
+        env = FakeEnvironment()
+        record = cloud.create_lab(env, bundle, IDENTITY)
+        secrets = {
+            obj["metadata"]["name"]: obj
+            for obj in env.applied
+            if obj["kind"] == "Secret"
+        }
+        self.assertGreater(len(secrets), 1)
+        for secret in secrets.values():
+            self.assertLessEqual(
+                sum(len(base64.b64decode(value)) for value in secret["data"].values()),
+                PAYLOAD_LIMIT,
+            )
+            self.assertLessEqual(len(json.dumps(secret).encode()), 1024 * 1024)
+        topology = next(obj for obj in env.applied if obj["kind"] == "Topology")
+        definition = yaml.safe_load(topology["spec"]["definition"]["containerlab"])
+        self.assertEqual(
+            definition["topology"]["links"], bundle.topology["topology"]["links"]
+        )
+        references = topology["spec"]["deployment"]["filesFromSecret"]
+        for name, node in definition["topology"]["nodes"].items():
+            self.assertEqual(
+                node["mgmt-ipv4"],
+                bundle.topology["topology"]["nodes"][name]["mgmt-ipv4"],
+            )
+            delivered = {
+                ref["filePath"]: base64.b64decode(
+                    secrets[ref["secretName"]]["data"][ref["secretPath"]]
+                ).decode()
+                for ref in references[name]
+            }
+            self.assertEqual(
+                delivered[node["startup-config"]], files[f"configs/{name}/startup.cfg"]
+            )
+            self.assertEqual(
+                delivered[node["binds"][0].split(":")[0]],
+                files[f"mappings/{name}.json"],
+            )
+        self.assertEqual(len(record["switches"]), 100)
+        self.assertEqual(record["link_count"], 99)
+        self.assertNotIn("hostname", json.dumps(record))
 
 
 class OwnershipTests(unittest.TestCase):
@@ -227,7 +518,8 @@ class OwnershipTests(unittest.TestCase):
             self.assertEqual(set(definition["topology"]["nodes"]), NODES)
             self.assertTrue(
                 all(
-                    n["kind"] == "arista_ceos"
+                    n.get("kind", definition["topology"]["defaults"]["kind"])
+                    == "arista_ceos"
                     for n in definition["topology"]["nodes"].values()
                 )
             )
@@ -300,7 +592,7 @@ class ReadinessTests(unittest.TestCase):
             self.assertIsNone(flow.available_probe(ENV, LAB, "secret"))
 
     def test_empty_and_stale_readiness_fail(self):
-        self.assertTrue(readiness([]))
+        self.assertTrue(readiness([], NODES, 12))
         self.assertIn(
             "topology is not current and ready",
             readiness(
@@ -314,13 +606,18 @@ class ReadinessTests(unittest.TestCase):
                             "topologyState": "running",
                         },
                     }
-                ]
+                ],
+                NODES,
+                12,
             ),
         )
 
     def test_status_probes_api_and_preserves_switch_identities(self):
         with (
-            patch("drydock.flow.snapshot", return_value=({}, switch_pods(), [])),
+            patch(
+                "drydock.flow.snapshot",
+                return_value=({"switches": sorted(NODES)}, switch_pods(), []),
+            ),
             patch("drydock.flow.probe", side_effect=OSError),
         ):
             result = flow.status(ENV, LAB, "secret")
@@ -333,7 +630,10 @@ class ReadinessTests(unittest.TestCase):
             )
         )
         with (
-            patch("drydock.flow.snapshot", return_value=({}, switch_pods(), [])),
+            patch(
+                "drydock.flow.snapshot",
+                return_value=({"switches": sorted(NODES)}, switch_pods(), []),
+            ),
             patch(
                 "drydock.flow.eapi",
                 side_effect=lambda host, password, commands: [
@@ -370,7 +670,7 @@ class ReadinessTests(unittest.TestCase):
         variants.append(duplicate_ip)
         for items in variants:
             with self.subTest(items=items), self.assertRaises(ValueError):
-                flow.connections(items)
+                flow.connections(items, NODES)
 
     def test_readiness_discovers_replacement_pod_and_preserves_probe_gate(self):
         first, second = switch_pods(), switch_pods()
@@ -378,7 +678,11 @@ class ReadinessTests(unittest.TestCase):
         second[0]["status"]["podIP"] = "10.251.2.42"
         with (
             patch(
-                "drydock.flow.snapshot", side_effect=[({}, first, []), ({}, second, [])]
+                "drydock.flow.snapshot",
+                side_effect=[
+                    ({"switches": sorted(NODES)}, first, []),
+                    ({"switches": sorted(NODES)}, second, []),
+                ],
             ),
             patch(
                 "drydock.flow.probe", side_effect=[OSError, {n: "test" for n in NODES}]
@@ -409,7 +713,7 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(kwargs["context"].verify_mode, ssl.CERT_NONE)
 
 
-def switch_pods():
+def switch_pods(names=NODES):
     return [
         {
             "kind": "Pod",
@@ -420,5 +724,5 @@ def switch_pods():
             },
             "status": {"podIP": f"10.251.1.{index + 10}"},
         }
-        for index, name in enumerate(sorted(NODES))
+        for index, name in enumerate(sorted(names))
     ]

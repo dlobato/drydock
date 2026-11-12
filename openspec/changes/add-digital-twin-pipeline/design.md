@@ -41,6 +41,18 @@ Names, links, addresses, and device count come from the topology.
 Remove the fixed device set, management subnet, interface map, and exact link pattern from lifecycle admission.
 Keep the six-switch fabric as a regression example.
 
+Clabernetes interprets the topology. Drydock does not maintain a second network model.
+Admission reads switch identities, the link count, and file references for delivery and lifecycle expectations.
+It enforces a documented field allowlist and rejects link references outside the admitted switches.
+It does not parse management addresses, EOS startup syntax, or interface mapping contents.
+The producer supplies consistent startup files. The example interprets EOS interface mappings only for its ANTA coverage policy.
+
+Copy the admitted topology and change file references, enforced startup delivery, and private eAPI ports.
+Keep an empty prefix and set a unique management network name.
+Preserve the topology name, defaults, node attributes, address values, and link attributes.
+Project referenced files through clabernetes `filesFromSecret` attachments within Kubernetes object limits.
+Do not rebuild nodes from a Drydock-owned network model.
+
 The supported device kind is cEOS. Arbitrary topology shape does not permit arbitrary containers or unrestricted Containerlab execution features.
 Admission rejects missing files, unsafe paths, unsupported device kinds, execution hooks, arbitrary host mounts, and unsupported attributes before creating workloads.
 Support documented file and resource limits. Distribute startup data within Kubernetes object limits for the 100-switch case.

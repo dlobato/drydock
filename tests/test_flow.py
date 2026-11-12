@@ -103,11 +103,14 @@ class FlowTests(unittest.TestCase):
                     "examples.demo.flow.create_lab",
                     side_effect=RuntimeError if failure == "allocation" else None,
                 ),
-                patch("drydock.flow.snapshot", return_value=({}, switch_pods(), [])),
+                patch(
+                    "drydock.flow.snapshot",
+                    return_value=({"switches": sorted(NODES)}, switch_pods(), []),
+                ),
                 patch(
                     "drydock.flow.connections",
                     side_effect=ValueError if failure == "discovery" else None,
-                    return_value=connections(switch_pods()),
+                    return_value=connections(switch_pods(), NODES),
                 ),
                 patch(
                     "drydock.flow.probe",
