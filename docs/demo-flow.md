@@ -148,6 +148,8 @@ It runs the standard ANTA playbook and requires routing, EVPN, VXLAN, switch-lin
 Missing, skipped, errored, duplicate, or failed required results prevent network acceptance.
 
 The default readiness deadline is 1,200 seconds and the ANTA deadline is 600 seconds.
+The readiness budget starts at lab acceptance and includes allocation and capacity waiting.
+The recorded startup deadline cannot exceed lab expiry.
 The example requires both deadlines to fit inside the selected lab lifetime.
 The lifecycle implementation still defaults to 120 minutes with a 240-minute maximum pending task 7.3.
 

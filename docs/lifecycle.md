@@ -215,13 +215,37 @@ Create a lab from the startup-only bundle:
 The command records ownership before workload allocation.
 It creates a separate lab namespace, startup Secrets, and clabernetes topology.
 It does not allocate cloud workers or wait for authenticated readiness.
+Use `--startup-timeout` to set the startup budget in seconds, with a default of 1200 seconds.
+The recorded deadline starts at acceptance and cannot exceed lab expiry.
+Allocation time and capacity waiting consume that same budget.
+The default retains the earlier demo budget. It does not establish a suitable deadline for 100 switches.
 A creation failure requests cleanup and returns a nonzero exit code with the lab identity and cleanup outcome.
 Creation and deletion retain their Kubernetes records without startup credentials.
 The ownership record includes the admitted switch names and link count for status expectations.
 
 Set `DRYDOCK_LAB_ID` to the returned `id`.
 Supply the startup configuration's `labadmin` password through `DRYDOCK_LAB_PASSWORD`.
-Request authenticated status:
+Wait for capacity, switch startup, and authenticated readiness:
+
+```sh
+.venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab wait "$DRYDOCK_LAB_ID"
+```
+
+The command polls Kubernetes without creating a separate queue or allocating cloud capacity.
+Pending switch workloads wait for operator-managed capacity or autoscaling within the recorded deadline.
+Retries use the original deadline and expiry. Another wait command does not renew either value.
+The first successful readiness observation records `ready_at` before the startup deadline.
+Later status requests still require current infrastructure and authenticated management access before lab expiry.
+Readiness that completes at or after the deadline fails.
+An in-flight Kubernetes or management request can finish after the deadline, but its late response cannot establish readiness.
+
+If startup times out, `lab wait` returns a nonzero exit code and requests deletion of the partial lab.
+Cancellation and observation failures also request deletion.
+The result retains the startup failure and reports the separate `cleanup` outcome.
+If deletion remains incomplete, the independent cleaner retries the retained deleting record.
+If the caller disappears, the independent cleaner discovers expiry without extending the lifetime.
+
+Request one authenticated status observation:
 
 ```sh
 .venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab status "$DRYDOCK_LAB_ID"
@@ -232,6 +256,25 @@ It requires current topology and node plans, accepted links, ready Pods, and pri
 It discovers current Pod addresses and authenticates to every switch with hostname comparison.
 Its connection inventory preserves switch names, Pod names, and Pod UIDs.
 Network tests and convergence remain the caller's responsibility.
+
+The JSON `phase` distinguishes these conditions:
+
+| Phase | Meaning |
+|---|---|
+| `waiting_for_capacity` | A Pod reports `PodScheduled=False` with reason `Unschedulable`. |
+| `starting` | The topology, nodes, links, Pods, or private Services are not ready. |
+| `management_unavailable` | Infrastructure is ready, but management discovery, authentication, or hostname comparison fails. |
+| `ready` | Current infrastructure and authenticated management access meet readiness requirements. |
+| `startup_timeout` | Startup reaches its deadline without an earlier successful readiness observation. |
+| `expired` | The accepted lab expiry passes. |
+| `deleting` or `deleted` | An observed ownership record already prevents readiness. |
+
+The `scheduling` array names unschedulable Pods without copying raw scheduler messages.
+This condition can result from resource shortages or scheduling constraints. It does not prove that more workers will resolve it.
+The operator inspects detailed scheduler messages in Kubernetes.
+`lab status` reports timeout without requesting deletion. Use `lab wait` or `lab delete` for immediate cleanup.
+Both status and wait return one final JSON object.
+The optional demo diagnostics also include the safe scheduling summary.
 
 ## Ownership and failure output
 
@@ -246,6 +289,7 @@ Its `data.record` field contains JSON with these values:
 - `id`, `environment`, and `allocation_id` identify the lab and its creation request.
 - `provenance` records the repository, commit, workflow run, and attempt. `bundle_digest` identifies the complete submitted archive.
 - `accepted_at` and `expires_at` record Unix timestamps in seconds. State updates preserve both values.
+- `startup_deadline` records the effective startup cutoff. `ready_at` records the first successful readiness observation, when available.
 - `runtime` and `registry` record the cEOS image and its registry. `switches` and `link_count` describe the expected infrastructure.
 - `state` records `creating`, `running`, `deleting`, or `deleted`. `cleanup` and `overdue` record deletion outcomes when deletion runs.
 
@@ -298,7 +342,7 @@ Worker retention and cloud cost remain the operator's responsibility.
 
 Before replacing an earlier deployment, delete its labs with the earlier tool.
 Keep the earlier cleaner active until cleanup completes.
-Earlier ownership records do not contain the topology-derived status expectations or the allocation identity.
+Earlier ownership records lack some required fields, including the topology expectations, allocation identity, or startup deadline.
 The revised lifecycle does not remove worker pools from earlier deployments.
 Deploy the rebuilt cleaner only after those labs are removed.
 
@@ -314,5 +358,6 @@ Keep the cleaner and ownership records available until cleanup completes.
 Run `make lifecycle-test` with only `requirements.txt` installed.
 The tests exercise the CLI with controlled Kubernetes and eAPI responses.
 They cover creation, authenticated status, repeated deletion, failed allocation cleanup, and expiry without AVD or ANTA.
+Startup tests cover capacity arrival, exhaustion, expiry, late readiness, cancellation, cleanup failure, and preservation of another lab.
 Admission cases include different fabrics, custom mappings, unsafe inputs, and a synthetic 100-switch input with split startup data.
 They do not establish live startup, provider compatibility, concurrent isolation, cleanup timing, or network acceptance.

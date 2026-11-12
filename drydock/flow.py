@@ -4,6 +4,7 @@ import base64
 import json
 import signal
 import ssl
+import time
 from contextlib import contextmanager
 from ipaddress import IPv4Address
 from urllib.request import Request, urlopen
@@ -17,7 +18,7 @@ from .core import (
     readiness,
     wait_for,
 )
-from .lifecycle import delete_lab, lab_record
+from .lifecycle import delete_lab, lab_record, write_record
 
 
 class Canceled(Exception):
@@ -152,9 +153,11 @@ def eapi(host, password, commands):
     return result["result"]
 
 
-def probe(inventory, password):
+def probe(inventory, password, *, deadline=None):
     versions = {}
     for host in inventory:
+        if deadline is not None and now() >= deadline:
+            raise TimeoutError("Management readiness deadline elapsed.")
         result = eapi(host, password, ["show hostname", "show version"])
         if result[0].get("hostname") != host["name"]:
             raise UserError("Management API identity differs from the bundle.")
@@ -164,34 +167,76 @@ def probe(inventory, password):
 
 def available_probe(env, lab, password):
     try:
-        record, items, errors = snapshot(env, lab)
-        if errors:
-            return None
-        inventory = connections(items, record["switches"])
-        return inventory, probe(inventory, password)
+        result = status(env, lab, password)
+        if result["ready"]:
+            return result["inventory"], result["eos_versions"]
     except Exception:
         return None
 
 
+def scheduling_diagnostics(items):
+    return [
+        {"pod": item["metadata"]["name"], "reason": "Unschedulable"}
+        for item in items
+        if item["kind"] == "Pod"
+        and not item["metadata"].get("deletionTimestamp")
+        and any(
+            condition.get("type") == "PodScheduled"
+            and condition.get("status") == "False"
+            and condition.get("reason") == "Unschedulable"
+            for condition in item.get("status", {}).get("conditions", [])
+        )
+    ]
+
+
 def status(env, lab, password):
     record, items, errors = snapshot(env, lab)
+    scheduling = scheduling_diagnostics(items)
+    deadline = record["expires_at"]
+    if "ready_at" not in record:
+        deadline = min(deadline, record["startup_deadline"])
+    if now() >= deadline:
+        errors.append("readiness deadline elapsed")
+    if scheduling:
+        errors.append("switch workloads are waiting for scheduling capacity")
+    infrastructure_ready = not errors
     versions = {}
     inventory = []
     if not errors:
         try:
             inventory = connections(items, record["switches"])
-            versions = probe(inventory, password)
+            versions = probe(inventory, password, deadline=deadline)
         except Exception:
             errors.append(
                 "an authenticated management API is unavailable or has the wrong identity"
             )
+    observed = now()
+    if observed >= deadline:
+        errors.append("readiness deadline elapsed")
+    if record["expires_at"] <= observed:
+        phase = "expired"
+    elif record["state"] in {"deleting", "deleted"}:
+        phase = record["state"]
+    elif "ready_at" not in record and record["startup_deadline"] <= observed:
+        phase = "startup_timeout"
+    elif not errors:
+        phase = "ready"
+        if "ready_at" not in record:
+            record["ready_at"] = observed
+            write_record(env, record)
+    elif scheduling:
+        phase = "waiting_for_capacity"
+    else:
+        phase = "management_unavailable" if infrastructure_ready else "starting"
     return {
         "lab": lab,
+        "phase": phase,
         "ready": not errors,
-        "errors": errors,
+        "errors": list(dict.fromkeys(errors)),
+        "scheduling": scheduling,
         "record": record,
         "eos_versions": versions,
-        "observed_at": now(),
+        "observed_at": observed,
         "inventory": [
             {
                 **host,
@@ -203,12 +248,32 @@ def status(env, lab, password):
     }
 
 
+def wait_ready(env, lab, password):
+    try:
+        while True:
+            result = status(env, lab, password)
+            if result["ready"]:
+                return result
+            if result["phase"] in {"startup_timeout", "expired", "deleting", "deleted"}:
+                break
+            record = result["record"]
+            deadline = record["expires_at"]
+            if "ready_at" not in record:
+                deadline = min(deadline, record["startup_deadline"])
+            time.sleep(max(0, min(10, deadline - now())))
+    except (Exception, KeyboardInterrupt) as error:
+        result = {"lab": lab, "ready": False, "error": type(error).__name__}
+    result["cleanup"] = cleanup(env, lab)
+    return result
+
+
 def diagnostics(env, lab):
     # Never retain manifests, Secret data, startup configurations, or arbitrary container logs.
     record, items, errors = snapshot(env, lab)
     return {
         "lab": lab,
         "errors": errors,
+        "scheduling": scheduling_diagnostics(items),
         "resources": [
             {
                 "kind": item["kind"],

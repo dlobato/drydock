@@ -25,7 +25,7 @@ def parser():
         "--ready-timeout",
         type=int,
         default=1200,
-        help="Seconds, including authenticated eAPI readiness",
+        help="Seconds from lab acceptance, including authenticated eAPI readiness",
     )
     test.add_argument(
         "--test-timeout", type=int, default=600, help="Seconds for ANTA convergence"
