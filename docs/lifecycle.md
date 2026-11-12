@@ -13,6 +13,8 @@ The CLI does not create image pull credentials or select worker pools.
 The operator supplies scheduling policy through the cluster and clabernetes configuration.
 
 Private image access must cover both kubelet pulls and clabernetes controller metadata reads.
+For a registry with a private CA, the operator supplies certificate trust to the controller and every eligible worker runtime.
+Keep registry TLS verification enabled.
 A pull Secret stores registry credentials in Kubernetes.
 The tested private runtime uses global `imagePull.pullSecrets` references to operator-supplied Secrets in each lab namespace.
 The operator supplies and refreshes those credentials outside the lifecycle CLI.
@@ -115,7 +117,8 @@ Drydock preserves the image reference and records `docker.io` for an implicit Do
 Admission does not prove image availability, registry authorization, or that the image contains cEOS.
 The operator enforces the approved image policy through the cluster.
 Offline CLI tests cover creation, authenticated status, and repeated deletion with non-Google image references.
-Live image access outside Google Artifact Registry remains unqualified under task 6.4.
+The [live acceptance](live-gke-validation.md#november-12-registry-independent-images) passed with a private, authenticated non-Google registry and all six switches.
+That evidence covers the recorded private runtime. Other registries and runtime combinations still require operator qualification.
 
 The producer sets each switch hostname to its topology identity.
 Drydock compares the reported hostname during authenticated readiness without parsing startup configuration syntax.

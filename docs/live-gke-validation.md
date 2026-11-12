@@ -1,5 +1,48 @@
 # Live GKE validation
 
+## November 12 registry-independent images
+
+Executable source at commit `68f147b81627a2b0490d2e7f8646f4c626931c49` passed six-switch acceptance with a digest-pinned cEOS image outside Google Artifact Registry.
+The operator ran an authenticated TLS registry on a private VM outside the switch lab.
+The VM had no public IP. The temporary Artifact Registry repository and project contained no public access grants.
+Anonymous and wrong-password registry requests failed. Authenticated requests passed with TLS verification enabled.
+
+The cEOS manifest digest was `sha256:0a4da973f076a23aa83a598a57b08bd1a5a723f9f2e5cc5c0c44e92813f1e25b`.
+Independent Kubernetes reads found that digest in all six running switch image identities.
+The submitted topology and ownership record retained the private registry reference.
+The lifecycle CLI did not obtain registry tokens or create image credentials.
+
+The operator configured controller certificate trust, worker certificate trust, global pull-Secret references, and credentials in the new lab namespace.
+Clabernetes remained paused during CLI creation until the operator supplied the namespace Secret.
+The operator corrected worker CA trust during startup after initial certificate failures.
+Kubernetes retried image pulls within the original lifetime. Registry and Kubernetes TLS verification remained enabled.
+This procedure demonstrates operator-managed image access. It does not qualify automatic recovery after late registry credentials.
+
+Standalone CLI creation, authenticated status, six-device inventory, wrong-password rejection, deletion, and repeated deletion passed.
+The request used an explicit 30-minute lifetime without changing the current CLI defaults.
+The minimal lifecycle image contained no AVD, ANTA, Ansible, or Google Cloud CLI.
+A separate ANTA container received connection inventory and matching AVD models without Kubernetes credentials.
+It passed exactly 54 required results with the expected multiplicity, including both MLAG pairs.
+Private evidence retains JSON, JUnit, generated catalogs, image identities, input digests, and source hashes.
+
+Independent reads found the lab namespace absent and its ownership record deleted before shared teardown.
+The cluster identity, worker pools, and unrelated namespace and Secret survived lab deletion.
+
+The operator then removed the temporary cluster, workers, network, IAM grants, runner, and registries.
+A fresh independent inventory found zero owned resources across all 15 infrastructure categories.
+Baseline resources in ten categories and the existing project remained intact.
+Temporary access files and local registry tags were removed. The default kubeconfig remained unchanged.
+The original licensed image remained available locally.
+
+The runtime used GKE `1.36.4-gke.2377000`, engineering EOS `4.36.1F-48405728.4361F`, private fork chart `0.0.0`, AVD `6.5.0`, and ANTA `1.10.0`.
+The private runtime digest remained `sha256:d024ebf2e1a8322bb42fbf8a236985ba1f305de764db4c81fa005edebf329e12`.
+Two shared `e2-standard-8` workers served one six-switch lab. No experimental EOS firewall rule was installed.
+Switch probes retained the agreed certificate-verification exception, password authentication, and EOS hostname comparison.
+No GitHub workflow ran for this acceptance.
+
+This evidence completes task 6.4 for the tested private registry and runtime.
+It does not qualify other registry authentication methods, the official clabernetes release, 100-switch scale, larger concurrency, or AWS.
+
 ## November 12 ownership and isolation
 
 Executable source at commit `2fb4057a7fb9a04c24da3b0ca941bb8b7d58eac0` passed ownership tests against live Kubernetes APIs.

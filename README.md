@@ -55,7 +55,7 @@ Task 6.3 protects creation ownership, competing state updates, and namespace del
 Repeated creation requests receive separate lab identities. Live concurrent network isolation remains unqualified.
 The cEOS image accepts any registry and must use a SHA-256 digest.
 The operator supplies image access through the cluster. The lifecycle CLI does not obtain registry tokens.
-Offline CLI tests cover other registries. Live image access outside Google Artifact Registry remains unqualified.
+Offline CLI tests cover other registries. A private, authenticated non-Google registry passed the six-switch [live acceptance](docs/live-gke-validation.md#november-12-registry-independent-images).
 Labs still default to 120 minutes with a 240-minute maximum.
 The planned 30-minute default, 60-minute maximum, bounded capacity waiting, and live scale qualification remain open.
 

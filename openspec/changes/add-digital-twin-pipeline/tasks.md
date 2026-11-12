@@ -5,7 +5,7 @@ Sections 1 through 5 retain completed work from the earlier GKE demo.
 Task 6.1 records the first revised implementation and its offline and live evidence.
 Tasks 6.2 and 6.3 record topology admission, ownership isolation, and their offline evidence.
 Task 6.3 also records bounded live ownership and two-lab isolation evidence.
-Task 6.4 records implemented registry admission and offline evidence. Its live image-access qualification remains open.
+Task 6.4 records registry admission, offline tests, and bounded live image-access acceptance.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -60,7 +60,7 @@ The former open demo tasks are replaced without claiming their completion:
 - [x] 6.1 Move GKE setup and integrated ANTA orchestration outside the lifecycle core. Update callers, dependencies, and command documentation. Demonstrate lifecycle use without AVD, ANTA, or cloud administration access.
 - [x] 6.2 Generalize admission without a second network model. Preserve admitted topology fields, inspect only lifecycle identities and safe file references, and delegate network semantics to clabernetes. Keep EOS interface interpretation in the example. Update documentation and test different fabrics, topology preservation, unsafe inputs, and payloads split within Kubernetes limits.
 - [x] 6.3 Preserve unique attempt ownership and namespace isolation before allocation. Test competing updates, late creation, repeated input, and deletion that preserves another lab. Document the ownership record and failure output.
-- [ ] 6.4 Replace Google registry token handling with operator-supplied Kubernetes image access. Demonstrate a digest-pinned image outside Google Artifact Registry. Document the cluster prerequisites and keep authentication setup outside the core.
+- [x] 6.4 Replace Google registry token handling with operator-supplied Kubernetes image access. Demonstrate a digest-pinned image outside Google Artifact Registry. Document the cluster prerequisites and keep authentication setup outside the core.
 
 ## 7. Deliver bounded lifecycle operations
 
@@ -166,7 +166,7 @@ The [live validation record](../../../docs/live-gke-validation.md) states the te
 This evidence covers two simultaneous six-switch labs. It does not qualify larger concurrency, live scale, or another runtime or provider.
 Tasks 7.4, 9.2, and 9.3 retain their remaining cleanup, concurrency, and live failure qualification.
 
-## Registry admission evidence (task 6.4, live qualification pending)
+## Registry admission evidence (task 6.4)
 
 The lifecycle CLI accepts digest-pinned cEOS image references without a Google registry hostname restriction.
 It preserves the submitted image reference in the clabernetes topology and ownership record.
@@ -180,9 +180,17 @@ All 65 offline regression tests and six bundle tests pass.
 The actual AVD role still generates all 54 expected dry-run results with both MLAG pairs covered.
 Pinned Ruff and mypy hooks and strict OpenSpec validation pass.
 
-These cases do not prove live registry authorization, image pulls, switch startup, or recovery after late image credentials.
-Task 6.4 remains unchecked until a live lab uses a digest-pinned image outside Google Artifact Registry and completes deletion.
-The latest recorded live environment was fully removed after the ownership tests.
+The November 12 live follow-up used a private, authenticated TLS registry outside Google Artifact Registry.
+Anonymous and wrong-password requests failed. All six switches ran the submitted digest-pinned cEOS image.
+The minimal lifecycle image passed creation, authenticated status, wrong-password rejection, deletion, and repeated deletion.
+A separate ANTA container without Kubernetes credentials passed exactly 54 required results, including both MLAG pairs.
+The operator supplied namespace credentials before switch preparation and corrected worker certificate trust during startup.
+Registry and Kubernetes TLS verification remained enabled. The lab retained its original lifetime.
+Independent reads found the lab namespace absent and unrelated resources preserved before shared teardown.
+A fresh cloud inventory then found zero owned resources across 15 categories and preserved all baseline resources and the project.
+Temporary access files were removed, and the default kubeconfig remained unchanged.
+The [live validation record](../../../docs/live-gke-validation.md#november-12-registry-independent-images) identifies the tested source, private runtime, and operator prerequisites.
+This evidence does not qualify other registry authentication methods, automatic recovery after late credentials, scale, or another runtime or provider.
 The [lifecycle instructions](../../../docs/lifecycle.md#prepare-the-cluster) describe the required operator setup and late-credential limits.
 
 ## Historical demo evidence
