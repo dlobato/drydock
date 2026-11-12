@@ -8,7 +8,7 @@ from importlib.metadata import version
 from pathlib import Path
 from uuid import uuid4
 
-from drydock.core import UserError, save, wait_for
+from drydock.core import UserError, now, save, wait_for
 from drydock.flow import available_probe, cancellation, cleanup, diagnostics, eapi
 from drydock.lifecycle import create_lab, validate_request
 
@@ -122,7 +122,7 @@ def test_flow(
     ready_timeout=1200,
     test_timeout=600,
 ):
-    validate_request(bundle, provenance, lifetime)
+    validate_request(bundle, provenance, lifetime, ready_timeout)
     if not password:
         raise UserError("Set DRYDOCK_LAB_PASSWORD to the bundle labadmin password.")
     if (
@@ -156,11 +156,18 @@ def test_flow(
     with tempfile.TemporaryDirectory() as private, cancellation():
         structured, expected = prepare(bundle, structured_dir, private, directory)
         try:
-            create_lab(
-                env, bundle, provenance, lifetime, lab, allocation_id=allocation_id
+            record = create_lab(
+                env,
+                bundle,
+                provenance,
+                lifetime,
+                lab,
+                allocation_id=allocation_id,
+                startup_timeout=ready_timeout,
             )
             hosts, result["runtime"]["eos"] = wait_for(
-                lambda: available_probe(env, lab, password), ready_timeout
+                lambda: available_probe(env, lab, password),
+                max(0, record["startup_deadline"] - now()),
             )
             save(directory / "inventory.json", {"anta_inventory": {"hosts": hosts}})
             try:

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from .core import Bundle, Environment, UserError
-from .flow import cancellation, cleanup, status
+from .flow import cancellation, cleanup, status, wait_ready
 from .lifecycle import create_lab, reap, validate_request
 
 
@@ -17,10 +17,16 @@ def parser():
     commands = root.add_subparsers(dest="command", required=True)
     lab = commands.add_parser("lab").add_subparsers(dest="action", required=True)
     create = lab.add_parser("create")
-    for name in ("status", "delete"):
+    for name in ("status", "wait", "delete"):
         lab.add_parser(name).add_argument("lab")
     create.add_argument("bundle", type=Path)
     create.add_argument("--lifetime", type=int, default=120, help="Minutes, 1 to 240")
+    create.add_argument(
+        "--startup-timeout",
+        type=int,
+        default=1200,
+        help="Seconds from acceptance, bounded by expiry (default: 1200)",
+    )
     for field in ("repository", "commit", "run", "attempt"):
         create.add_argument("--" + field, required=True)
     commands.add_parser("reap")
@@ -39,19 +45,24 @@ def dispatch(args):
         with cancellation():
             result = cleanup(env, args.lab)
         return result, result["deleted"]
-    if args.command == "lab" and args.action == "status":
+    if args.command == "lab" and args.action in {"status", "wait"}:
         if not password:
             raise UserError(
                 "Set DRYDOCK_LAB_PASSWORD to probe authenticated eAPI readiness."
             )
-        result = status(env, args.lab, password)
+        with cancellation():
+            result = (
+                wait_ready(env, args.lab, password)
+                if args.action == "wait"
+                else status(env, args.lab, password)
+            )
         return result, result["ready"]
     bundle = Bundle.load(args.bundle)
     provenance = {
         field: getattr(args, field)
         for field in ("repository", "commit", "run", "attempt")
     }
-    validate_request(bundle, provenance, args.lifetime)
+    validate_request(bundle, provenance, args.lifetime, args.startup_timeout)
     # Standalone create uses the same cleanup guarantees on a failed allocation.
     from uuid import uuid4
 
@@ -60,7 +71,13 @@ def dispatch(args):
     with cancellation():
         try:
             result = create_lab(
-                env, bundle, provenance, args.lifetime, lab, allocation_id=allocation_id
+                env,
+                bundle,
+                provenance,
+                args.lifetime,
+                lab,
+                allocation_id=allocation_id,
+                startup_timeout=args.startup_timeout,
             )
             return result, True
         except (Exception, KeyboardInterrupt) as error:

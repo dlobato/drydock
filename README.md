@@ -1,7 +1,7 @@
 # Drydock
 
 Drydock creates temporary switch labs on an existing Kubernetes cluster with clabernetes.
-Its lifecycle CLI creates labs, reports authenticated readiness and private connections, and deletes lab resources.
+Its lifecycle CLI creates labs, waits for authenticated readiness, reports private connections, and deletes lab resources.
 The cluster operator supplies capacity, image access, permissions, and private routing.
 The pipeline supplies configurations, network tests, and reports.
 
@@ -20,6 +20,7 @@ Follow [the lifecycle instructions](docs/lifecycle.md) for cluster prerequisites
 
 ```sh
 .venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab create --help
+.venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab wait "$DRYDOCK_LAB_ID"
 .venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab status "$DRYDOCK_LAB_ID"
 .venv/bin/python -m drydock --environment artifacts/lifecycle.yml lab delete "$DRYDOCK_LAB_ID"
 ```
@@ -57,7 +58,10 @@ The cEOS image accepts any registry and must use a SHA-256 digest.
 The operator supplies image access through the cluster. The lifecycle CLI does not obtain registry tokens.
 Offline CLI tests cover other registries. A private, authenticated non-Google registry passed the six-switch [live acceptance](docs/live-gke-validation.md#november-12-registry-independent-images).
 Labs still default to 120 minutes with a 240-minute maximum.
-The planned 30-minute default, 60-minute maximum, bounded capacity waiting, and live scale qualification remain open.
+Task 7.1 adds capacity waiting and a startup deadline that starts at acceptance and cannot exceed expiry.
+Creation accepts `--startup-timeout` in seconds, with a default of 1200 seconds.
+`lab wait` requests cleanup after timeout or cancellation and reports scheduling capacity separately from switch startup and management failure.
+The planned 30-minute default, 60-minute maximum, and live scale qualification remain open.
 
 The November 11 demo passed 54 live ANTA results and both MLAG pairs on the recorded private runtime.
 [That historical evidence](docs/live-gke-validation.md) does not qualify this refactor, the published clabernetes release, scale, or concurrent isolation.

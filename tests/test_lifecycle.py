@@ -735,6 +735,15 @@ class OwnershipTests(unittest.TestCase):
 
 
 class ReadinessTests(unittest.TestCase):
+    def setUp(self):
+        self.record = {
+            "switches": sorted(NODES),
+            "state": "running",
+            "expires_at": 10**12,
+            "startup_deadline": 10**12,
+            "ready_at": 1,
+        }
+
     def test_probe_rejects_wrong_identity(self):
         with (
             patch(
@@ -772,7 +781,7 @@ class ReadinessTests(unittest.TestCase):
         with (
             patch(
                 "drydock.flow.snapshot",
-                return_value=({"switches": sorted(NODES)}, switch_pods(), []),
+                return_value=(self.record, switch_pods(), []),
             ),
             patch("drydock.flow.probe", side_effect=OSError),
         ):
@@ -788,7 +797,7 @@ class ReadinessTests(unittest.TestCase):
         with (
             patch(
                 "drydock.flow.snapshot",
-                return_value=({"switches": sorted(NODES)}, switch_pods(), []),
+                return_value=(self.record, switch_pods(), []),
             ),
             patch(
                 "drydock.flow.eapi",
@@ -836,8 +845,8 @@ class ReadinessTests(unittest.TestCase):
             patch(
                 "drydock.flow.snapshot",
                 side_effect=[
-                    ({"switches": sorted(NODES)}, first, []),
-                    ({"switches": sorted(NODES)}, second, []),
+                    (self.record, first, []),
+                    (self.record, second, []),
                 ],
             ),
             patch(
@@ -848,10 +857,14 @@ class ReadinessTests(unittest.TestCase):
             hosts, versions = flow.available_probe(ENV, LAB, "secret")
         self.assertEqual(hosts[0]["host"], "10.251.2.42")
         self.assertEqual(hosts[0]["pod_uid"], "new-uid")
-        self.assertEqual(probe.call_args.args[0], hosts)
+        self.assertEqual(probe.call_args.args[0][0]["host"], "10.251.2.42")
+        self.assertEqual(probe.call_args.args[0][0]["pod_uid"], "new-uid")
         self.assertEqual(set(versions), NODES)
         with (
-            patch("drydock.flow.snapshot", return_value=({}, first, ["not ready"])),
+            patch(
+                "drydock.flow.snapshot",
+                return_value=(self.record, first, ["not ready"]),
+            ),
             patch("drydock.flow.probe") as probe,
         ):
             self.assertIsNone(flow.available_probe(ENV, LAB, "secret"))

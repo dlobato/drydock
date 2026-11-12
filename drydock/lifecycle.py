@@ -62,12 +62,16 @@ def allocation_record(env, lab):
         raise UserError(
             "Allocation stopped because the lab expired or cleanup started."
         )
+    if record["startup_deadline"] <= now():
+        raise UserError("Allocation stopped because the startup deadline elapsed.")
     return record
 
 
-def validate_request(bundle, provenance, lifetime):
+def validate_request(bundle, provenance, lifetime, startup_timeout=1200):
     if type(lifetime) is not int or not 1 <= lifetime <= 240:
         raise UserError("Lab lifetime must be between 1 and 240 minutes.")
+    if type(startup_timeout) is not int or startup_timeout < 1:
+        raise UserError("Startup timeout must be a positive number of seconds.")
     if not all(
         isinstance(provenance.get(key), str) and provenance[key].strip()
         for key in ("repository", "commit", "run", "attempt")
@@ -163,8 +167,17 @@ def lab_manifests(env, bundle, lab):
     return manifests
 
 
-def create_lab(env, bundle, provenance, lifetime=120, lab=None, *, allocation_id=None):
-    image, registry = validate_request(bundle, provenance, lifetime)
+def create_lab(
+    env,
+    bundle,
+    provenance,
+    lifetime=120,
+    lab=None,
+    *,
+    allocation_id=None,
+    startup_timeout=1200,
+):
+    image, registry = validate_request(bundle, provenance, lifetime, startup_timeout)
     allocation_id = allocation_id or uuid4().hex
     lab = lab or "lab-" + allocation_id[:12]
     check_lab(lab)
@@ -176,6 +189,7 @@ def create_lab(env, bundle, provenance, lifetime=120, lab=None, *, allocation_id
         "environment": env.name,
         "accepted_at": accepted,
         "expires_at": accepted + lifetime * 60,
+        "startup_deadline": accepted + min(startup_timeout, lifetime * 60),
         "state": "creating",
         "bundle_digest": bundle.digest,
         "provenance": provenance,

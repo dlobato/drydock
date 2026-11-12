@@ -102,10 +102,22 @@ class FlowTests(unittest.TestCase):
                 patch(
                     "examples.demo.flow.create_lab",
                     side_effect=RuntimeError if failure == "allocation" else None,
+                    return_value={"startup_deadline": 1020},
                 ) as create,
+                patch("examples.demo.flow.now", return_value=1010),
                 patch(
                     "drydock.flow.snapshot",
-                    return_value=({"switches": sorted(NODES)}, switch_pods(), []),
+                    return_value=(
+                        {
+                            "switches": sorted(NODES),
+                            "state": "running",
+                            "expires_at": 10**12,
+                            "startup_deadline": 10**12,
+                            "ready_at": 1,
+                        },
+                        switch_pods(),
+                        [],
+                    ),
                 ),
                 patch(
                     "drydock.flow.connections",
@@ -117,7 +129,7 @@ class FlowTests(unittest.TestCase):
                     side_effect=OSError if failure == "probe" else None,
                     return_value={n: "test" for n in NODES},
                 ),
-                patch("examples.demo.flow.wait_for", side_effect=wait_for),
+                patch("examples.demo.flow.wait_for", side_effect=wait_for) as wait,
                 patch("examples.demo.flow.converge", side_effect=converge),
                 patch("examples.demo.flow.network_diagnostics", return_value={}),
                 patch("examples.demo.flow.diagnostics", return_value={}),
@@ -134,6 +146,8 @@ class FlowTests(unittest.TestCase):
                     ENV, bundle, directory, IDENTITY, "TOP-SECRET", directory
                 )
                 cleanup.assert_called_once()
+                if failure != "allocation":
+                    self.assertEqual(wait.call_args.args[1], 10)
                 self.assertEqual(
                     cleanup.call_args.kwargs["allocation_id"],
                     create.call_args.kwargs["allocation_id"],

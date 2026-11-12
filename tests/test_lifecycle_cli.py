@@ -80,12 +80,13 @@ def ready_items(names=NODES, link_count=12):
     return items
 
 
-class LifecycleCliTests(unittest.TestCase):
+class LifecycleCliCase(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.directory = Path(temporary.name)
         self.backend = FakeEnvironment()
+        self.items = None
         self.environment = self.directory / "environment.yml"
         self.environment.write_text(yaml.safe_dump(asdict(ENV)))
         make_bundle(self.directory)
@@ -112,6 +113,8 @@ class LifecycleCliTests(unittest.TestCase):
                 record = self.backend.records[lab]
                 record = json.loads(record["data"]["record"])
                 items = ready_items(record["switches"], record["link_count"])
+                if self.items is not None:
+                    items = self.items
             return json.dumps({"items": items})
         if args[0] == "apply":
             self.backend.apply(json.loads(data))
@@ -124,6 +127,8 @@ class LifecycleCliTests(unittest.TestCase):
             code = cli.main(["--environment", str(self.environment), *args])
         return code, json.loads(output.getvalue())
 
+
+class LifecycleCliTests(LifecycleCliCase):
     def test_create_authenticated_status_delete_and_repeat_without_demo_dependencies(
         self,
     ):

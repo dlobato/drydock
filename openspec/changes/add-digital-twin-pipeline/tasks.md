@@ -6,6 +6,7 @@ Task 6.1 records the first revised implementation and its offline and live evide
 Tasks 6.2 and 6.3 record topology admission, ownership isolation, and their offline evidence.
 Task 6.3 also records bounded live ownership and two-lab isolation evidence.
 Task 6.4 records registry admission, offline tests, and bounded live image-access acceptance.
+Task 7.1 records bounded startup waiting and controlled capacity and timeout evidence.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -64,7 +65,7 @@ The former open demo tasks are replaced without claiming their completion:
 
 ## 7. Deliver bounded lifecycle operations
 
-- [ ] 7.1 Add capacity waiting, scheduling diagnostics, and a startup deadline bounded by expiry. Test capacity arrival, exhaustion, late readiness, and partial cleanup. Document statuses without adding a separate queue.
+- [x] 7.1 Add capacity waiting, scheduling diagnostics, and a startup deadline bounded by expiry. Test capacity arrival, exhaustion, late readiness, and partial cleanup. Document statuses without adding a separate queue.
 - [ ] 7.2 Derive authenticated readiness and connection inventory from all submitted switches and links. Test endpoint replacement, duplicate Pods, credential rejection, hostname mismatch, and different device names. Document private routing and runtime inventory use.
 - [ ] 7.3 Set the lifetime default to 30 minutes and the maximum to 60 minutes from acceptance. Test invalid values, capacity waiting, and retries that cannot renew expiry. Update CLI help and operator examples together.
 - [ ] 7.4 Make the independent cleaner and deletion path Kubernetes-only. Test five-minute retries, overdue cleanup, late resources, interruptions, and unrelated-resource preservation. Document complete lab deletion independently of worker scale-down and cloud cost.
@@ -192,6 +193,27 @@ Temporary access files were removed, and the default kubeconfig remained unchang
 The [live validation record](../../../docs/live-gke-validation.md#november-12-registry-independent-images) identifies the tested source, private runtime, and operator prerequisites.
 This evidence does not qualify other registry authentication methods, automatic recovery after late credentials, scale, or another runtime or provider.
 The [lifecycle instructions](../../../docs/lifecycle.md#prepare-the-cluster) describe the required operator setup and late-credential limits.
+
+## Bounded startup evidence (task 7.1)
+
+Creation records a startup deadline at acceptance, bounded by the accepted expiry.
+Allocation and readiness use that deadline without renewal by retries.
+The standalone `lab wait` command distinguishes scheduling capacity, infrastructure startup, and management failure.
+Status and demo diagnostics name unschedulable Pods without retaining raw scheduler messages.
+The first successful authenticated observation records `ready_at` through a version-protected ownership update.
+Late readiness cannot establish success or overwrite a newer deletion state.
+Timeout, cancellation, and observation failures request cleanup and retain its separate outcome.
+The optional demo also deducts allocation time from its readiness budget.
+
+All 76 offline regression tests and six bundle tests pass.
+Controlled CLI cases cover capacity arrival, exhaustion, expiry, late authentication, interrupted allocation, cancellation, and incomplete deletion.
+They also cover cleaner retries, unchanged deadlines, and preservation of another lab during partial cleanup.
+Both example builds, pinned Ruff and mypy hooks, and strict OpenSpec validation pass.
+The actual AVD role generates all 54 expected dry-run results with both MLAG pairs covered.
+The [lifecycle instructions](../../../docs/lifecycle.md#create-and-inspect) document the commands, statuses, and deadline behavior.
+
+This evidence does not establish live capacity recovery, scheduling behavior, cleanup timing, or a suitable deadline for 100 switches.
+Tasks 7.5 and 9.1 through 9.3 retain live lifecycle, scale, concurrency, and failure qualification.
 
 ## Historical demo evidence
 
