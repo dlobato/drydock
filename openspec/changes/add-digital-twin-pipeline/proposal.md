@@ -14,6 +14,7 @@ The November 12 requirements review establishes the following target:
 - Create a separate ephemeral lab for each approved workflow attempt. Support concurrent labs with identical device names and management addresses.
 - Leave worker pools, autoscaling, networking, authentication setup, and registry access with the cluster operator.
 - Leave AVD builds, ANTA execution, test policy, and report retention with the pipeline and its standard Ansible playbooks.
+- Preserve admitted topology fields and delegate their network semantics to clabernetes. Limit lifecycle inspection to file delivery, safety policy, and readiness expectations.
 - Start GitHub workflows only through an owner-authorized manual launch against an identified PR commit.
 - Use a dedicated self-hosted runner with private connectivity and temporary, limited credentials. Keep personal cloud credentials out of GitHub.
 - Wait for capacity within a startup deadline. Default lab lifetime to 30 minutes and limit it to 60 minutes from acceptance.

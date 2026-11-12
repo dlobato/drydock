@@ -7,6 +7,7 @@ import tarfile
 import tempfile
 import unittest
 from collections import Counter
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -83,6 +84,18 @@ class AntaRoleTests(unittest.TestCase):
             path.write_text(json.dumps(catalog))
             with self.assertRaises(ValueError):
                 anta.coverage(directory, self.bundle)
+
+    def test_example_interprets_interface_mappings_for_coverage(self):
+        bundle = deepcopy(self.bundle)
+        mapping = json.loads(bundle.files["interface_mapping.json"])
+        mapping["EthernetIntf"]["eth6"] = "Ethernet99/1"
+        bundle.files["interface_mapping.json"] = json.dumps(mapping)
+        with self.assertRaisesRegex(ValueError, "excludes required switch interfaces"):
+            anta.coverage(self.directory / "preview", bundle)
+        bundle.topology["topology"]["kinds"]["arista_ceos"].pop("binds")
+        self.assertEqual(
+            anta.coverage(self.directory / "preview", bundle), self.expected
+        )
 
     def test_missing_or_mismatched_models_fail_before_allocation(self):
         from test_lifecycle import ENV, IDENTITY

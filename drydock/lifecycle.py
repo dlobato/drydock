@@ -1,12 +1,14 @@
 """Kubernetes ownership records, switch workloads, and independent lab expiry."""
 
+import base64
 import json
 import re
+from copy import deepcopy
 from uuid import uuid4
 
 import yaml
 
-from .core import ENV_LABEL, LAB_LABEL, UserError, now
+from .core import ENV_LABEL, LAB_LABEL, PAYLOAD_LIMIT, UserError, now
 
 
 def object_meta(env, name, namespace=None, lab=None):
@@ -80,10 +82,92 @@ def validate_request(bundle, provenance, lifetime):
     return image, registry
 
 
+def lab_manifests(env, bundle, lab):
+    namespace = env.name + "-" + lab
+    definition = bundle.topology["topology"]
+    kind = definition["kinds"]["arista_ceos"]
+    files = {node["startup-config"] for node in definition["nodes"].values()}
+    for node in (kind, *definition["nodes"].values()):
+        files.update(bind.split(":")[0] for bind in node.get("binds", []))
+    secrets: list[dict] = []
+    locations = {}
+    size = 0
+    for index, path in enumerate(sorted(files)):
+        content = bundle.files[path].encode()
+        if not secrets or size + len(content) > PAYLOAD_LIMIT:
+            secrets.append(
+                {
+                    "apiVersion": "v1",
+                    "kind": "Secret",
+                    "metadata": object_meta(
+                        env, f"startup-{len(secrets)}", namespace, lab
+                    ),
+                    "type": "Opaque",
+                    "data": {},
+                }
+            )
+            size = 0
+        key = f"file-{index}"
+        secrets[-1]["data"][key] = base64.b64encode(content).decode()
+        locations[path] = {
+            "filePath": "/drydock/" + key,
+            "secretName": secrets[-1]["metadata"]["name"],
+            "secretPath": key,
+        }
+        size += len(content)
+    topology = deepcopy(bundle.topology)
+    runtime = topology["topology"]
+    for settings in (runtime["kinds"]["arista_ceos"], *runtime["nodes"].values()):
+        if "binds" in settings:
+            settings["binds"] = [
+                locations[source]["filePath"] + ":" + destination
+                for source, destination in (
+                    bind.split(":", 1) for bind in settings["binds"]
+                )
+            ]
+    runtime["kinds"]["arista_ceos"]["enforce-startup-config"] = True
+    attachments = {}
+    for name, original in definition["nodes"].items():
+        startup = locations[original["startup-config"]]
+        attachments[name] = [startup]
+        for bind in original.get("binds") or kind.get("binds", []):
+            source = locations[bind.split(":")[0]]
+            attachments[name].append(source)
+        runtime["nodes"][name]["startup-config"] = startup["filePath"]
+        runtime["nodes"][name]["ports"] = ["443/tcp"]
+    topology["prefix"] = ""
+    topology["mgmt"] = {**topology.get("mgmt", {}), "network": lab}
+    manifests = [
+        *secrets,
+        {
+            "apiVersion": "c9s.run/v1alpha1",
+            "kind": "Topology",
+            "metadata": object_meta(env, "fabric", namespace, lab),
+            "spec": {
+                "expose": {"exposeType": "ClusterIP", "disableAutoExpose": True},
+                "deployment": {
+                    "filesFromSecret": attachments,
+                    "resources": {
+                        "default": {
+                            "requests": {"cpu": "1", "memory": "2Gi"},
+                            "limits": {"cpu": "2", "memory": "3Gi"},
+                        }
+                    },
+                },
+                "definition": {"containerlab": yaml.safe_dump(topology)},
+            },
+        },
+    ]
+    if any(len(json.dumps(obj).encode()) > 1024 * 1024 for obj in manifests):
+        raise UserError("A lab resource exceeds the 1 MiB manifest limit.")
+    return manifests
+
+
 def create_lab(env, bundle, provenance, lifetime=120, lab=None):
     image, registry = validate_request(bundle, provenance, lifetime)
     lab = lab or "lab-" + uuid4().hex[:12]
     check_lab(lab)
+    manifests = lab_manifests(env, bundle, lab)
     accepted = now()
     record = {
         "id": lab,
@@ -95,6 +179,8 @@ def create_lab(env, bundle, provenance, lifetime=120, lab=None):
         "provenance": provenance,
         "registry": registry,
         "runtime": {"ceos_image": image},
+        "switches": sorted(bundle.topology["topology"]["nodes"]),
+        "link_count": len(bundle.topology["topology"].get("links", [])),
     }
     # Commit ownership before allocating Kubernetes workloads.
     write_record(env, record, create=True)
@@ -119,77 +205,10 @@ def create_lab(env, bundle, provenance, lifetime=120, lab=None):
             }
         ),
     )
-    allocation_record(env, lab)
-    files = {
-        f"{name}.cfg": text
-        for name, text in (
-            (name, bundle.files[f"intended/configs/{name}.cfg"])
-            for name in bundle.interfaces
-        )
-    }
-    files["interface_mapping.json"] = bundle.files["interface_mapping.json"]
-    env.apply(
-        {
-            "apiVersion": "v1",
-            "kind": "Secret",
-            "metadata": object_meta(env, "startup", namespace, lab),
-            "type": "Opaque",
-            "stringData": files,
-        }
-    )
-    nodes = {}
-    attachments = {}
-    for name, original in bundle.topology["topology"]["nodes"].items():
-        nodes[name] = {
-            "kind": "arista_ceos",
-            "image": image,
-            "mgmt-ipv4": original["mgmt-ipv4"],
-            "enforce-startup-config": True,
-            "startup-config": f"/drydock/{name}.cfg",
-            "ports": ["443/tcp"],
-            "binds": [
-                "/drydock/interface_mapping.json:/mnt/flash/EosIntfMapping.json:ro"
-            ],
-        }
-        attachments[name] = [
-            {
-                "filePath": f"/drydock/{name}.cfg",
-                "secretName": "startup",
-                "secretPath": f"{name}.cfg",
-            },
-            {
-                "filePath": "/drydock/interface_mapping.json",
-                "secretName": "startup",
-                "secretPath": "interface_mapping.json",
-            },
-        ]
-    allocation_record(env, lab)
-    topology = {
-        "name": "fabric",
-        "prefix": "",
-        "mgmt": {**bundle.topology["mgmt"], "network": lab},
-        "topology": {"nodes": nodes, "links": bundle.topology["topology"]["links"]},
-    }
-    env.apply(
-        {
-            "apiVersion": "c9s.run/v1alpha1",
-            "kind": "Topology",
-            "metadata": object_meta(env, "fabric", namespace, lab),
-            "spec": {
-                "expose": {"exposeType": "ClusterIP", "disableAutoExpose": True},
-                "deployment": {
-                    "filesFromSecret": attachments,
-                    "resources": {
-                        "default": {
-                            "requests": {"cpu": "1", "memory": "2Gi"},
-                            "limits": {"cpu": "2", "memory": "3Gi"},
-                        }
-                    },
-                },
-                "definition": {"containerlab": yaml.safe_dump(topology)},
-            },
-        }
-    )
+    for manifest in manifests:
+        allocation_record(env, lab)
+        # Creation avoids a second credential-bearing copy in apply annotations.
+        env.kube("create", "-f", "-", data=json.dumps(manifest))
     record = allocation_record(env, lab)
     record["state"] = "running"
     write_record(env, record)

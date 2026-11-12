@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from ipaddress import IPv4Address
 from urllib.request import Request, urlopen
 
-from .core import ENV_LABEL, LAB_LABEL, NODES, UserError, now, readiness, wait_for
+from .core import ENV_LABEL, LAB_LABEL, UserError, now, readiness, wait_for
 from .lifecycle import delete_lab, lab_record
 
 
@@ -46,15 +46,16 @@ def snapshot(env, lab):
     items = env.objects(
         "topologies.c9s.run,nodes.c9s.run,links.c9s.run,pods,services", namespace
     )
-    errors = readiness(items)
+    names = set(record["switches"])
+    errors = readiness(items, names, record["link_count"])
     if record["state"] != "running" or record["expires_at"] <= now():
         errors.append("lab is expired or not running")
     services = {
         s["metadata"]["name"]: s
         for s in items
-        if s["kind"] == "Service" and s["metadata"]["name"] in NODES
+        if s["kind"] == "Service" and s["metadata"]["name"] in names
     }
-    if set(services) != NODES or any(
+    if set(services) != names or any(
         s["spec"].get("type") != "ClusterIP"
         or not any(
             p["port"] == 443 and p.get("protocol", "TCP") == "TCP"
@@ -66,17 +67,18 @@ def snapshot(env, lab):
     return record, items, errors
 
 
-def connections(items):
+def connections(items, names):
+    names = set(names)
     pods = [
         item
         for item in items
         if item["kind"] == "Pod"
-        and item["metadata"].get("labels", {}).get("c9s.run/direct-workload") in NODES
+        and item["metadata"].get("labels", {}).get("c9s.run/direct-workload") in names
     ]
     if (
-        len(pods) != len(NODES)
+        len(pods) != len(names)
         or {pod["metadata"]["labels"]["c9s.run/direct-workload"] for pod in pods}
-        != NODES
+        != names
     ):
         raise UserError("Exactly one switch Pod is required for each device.")
     inventory = []
@@ -106,7 +108,7 @@ def connections(items):
                 "pod_uid": metadata["uid"],
             }
         )
-    if len({host["host"] for host in inventory}) != len(NODES):
+    if len({host["host"] for host in inventory}) != len(names):
         raise UserError("Switch Pod addresses must be distinct.")
     return sorted(inventory, key=lambda host: host["name"])
 
@@ -153,7 +155,7 @@ def available_probe(env, lab, password):
         record, items, errors = snapshot(env, lab)
         if errors:
             return None
-        inventory = connections(items)
+        inventory = connections(items, record["switches"])
         return inventory, probe(inventory, password)
     except Exception:
         return None
@@ -165,7 +167,7 @@ def status(env, lab, password):
     inventory = []
     if not errors:
         try:
-            inventory = connections(items)
+            inventory = connections(items, record["switches"])
             versions = probe(inventory, password)
         except Exception:
             errors.append(

@@ -3,6 +3,7 @@
 import io
 import json
 import os
+import tarfile
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -11,13 +12,21 @@ from pathlib import Path
 from unittest.mock import patch
 
 import yaml
-from test_lifecycle import ENV, IDENTITY, FakeEnvironment, make_bundle, switch_pods
+from test_lifecycle import (
+    ENV,
+    IDENTITY,
+    NODES,
+    FakeEnvironment,
+    alternate_files,
+    make_bundle,
+    switch_pods,
+)
 
 from drydock import __main__ as cli
-from drydock.core import NODES, Environment
+from drydock.core import Environment
 
 
-def ready_items():
+def ready_items(names=NODES, link_count=12):
     items = [
         {
             "kind": "Topology",
@@ -29,7 +38,7 @@ def ready_items():
             },
         }
     ]
-    for name in sorted(NODES):
+    for name in sorted(names):
         items.append(
             {
                 "kind": "Node",
@@ -61,9 +70,9 @@ def ready_items():
             "kind": "Link",
             "status": {"conditions": [{"type": "Accepted", "status": "True"}]},
         }
-        for _ in range(12)
+        for _ in range(link_count)
     )
-    for pod in switch_pods():
+    for pod in switch_pods(names):
         pod["status"]["conditions"] = [{"type": "Ready", "status": "True"}]
         items.append(pod)
     return items
@@ -97,7 +106,10 @@ class LifecycleCliTests(unittest.TestCase):
             labels = args[args.index("-l") + 1] if "-l" in args else None
             items = self.backend.objects(args[1], namespace, labels)
             if args[1].startswith("topologies."):
-                items = ready_items()
+                lab = namespace.removeprefix(ENV.name + "-")
+                record = self.backend.records[lab]
+                record = json.loads(record["data"]["record"])
+                items = ready_items(record["switches"], record["link_count"])
             return json.dumps({"items": items})
         if args[0] == "apply":
             self.backend.apply(json.loads(data))
@@ -144,6 +156,69 @@ class LifecycleCliTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertTrue(result["cleanup"]["deleted"])
         self.assertFalse(self.backend.namespaces)
+
+    def test_alternate_fabrics_through_create_status_and_delete(self):
+        for count, mapping in ((1, False), (3, True), (100, False)):
+            with self.subTest(count=count, mapping=mapping):
+                bundle = make_bundle(
+                    self.directory, files=alternate_files(count, mapping=mapping)
+                )
+                code, record = self.invoke(*self.create_args)
+                self.assertEqual(code, 0)
+                self.assertEqual(record["bundle_digest"], bundle.digest)
+                lab = record["id"]
+                with (
+                    patch.dict(os.environ, {"DRYDOCK_LAB_PASSWORD": "test-only"}),
+                    patch(
+                        "drydock.flow.eapi",
+                        side_effect=lambda host, password, commands: [
+                            {"hostname": host["name"]},
+                            {"version": "test"},
+                        ],
+                    ),
+                ):
+                    code, result = self.invoke("lab", "status", lab)
+                self.assertEqual(code, 0)
+                self.assertEqual(
+                    {host["name"] for host in result["inventory"]},
+                    set(bundle.topology["topology"]["nodes"]),
+                )
+                for _ in range(2):
+                    code, result = self.invoke("lab", "delete", lab)
+                    self.assertEqual(code, 0)
+                    self.assertTrue(result["deleted"])
+
+    def test_invalid_input_returns_safe_error_before_kubernetes_calls(self):
+        files = alternate_files()
+        files["configs/switch-2/startup.cfg"] = "hostname switch-2\n! private-marker"
+        files.pop("configs/switch-1/startup.cfg")
+        with tarfile.open(self.directory / "bundle.tar", "w") as archive:
+            for name, text in files.items():
+                member = tarfile.TarInfo(name)
+                member.size = len(text.encode())
+                archive.addfile(member, io.BytesIO(text.encode()))
+        code, result = self.invoke(*self.create_args)
+        self.assertEqual(code, 1)
+        self.assertIn("referenced files", result["error"])
+        self.assertNotIn("private-marker", json.dumps(result))
+        self.assertFalse(self.backend.calls)
+        self.assertFalse(self.backend.applied)
+
+    def test_interrupted_secret_creation_cleans_up_before_topology_allocation(self):
+        original = self.backend.kube
+
+        def fail_secret(*args, data=None):
+            result = original(*args, data=data)
+            if data and json.loads(data)["kind"] == "Secret":
+                raise RuntimeError("interrupted after Secret creation")
+            return result
+
+        with patch.object(self.backend, "kube", side_effect=fail_secret):
+            code, result = self.invoke(*self.create_args)
+        self.assertEqual(code, 1)
+        self.assertTrue(result["cleanup"]["deleted"])
+        self.assertFalse(self.backend.namespaces)
+        self.assertFalse(any(obj["kind"] == "Topology" for obj in self.backend.applied))
 
     def test_expired_lab_is_removed_by_reap(self):
         code, record = self.invoke(*self.create_args)

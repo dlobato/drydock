@@ -1,6 +1,7 @@
 """Input boundaries and subprocesses shared by the CLI and cluster cleaner."""
 
 import hashlib
+import io
 import json
 import os
 import re
@@ -16,7 +17,7 @@ import yaml
 
 ENV_LABEL = "drydock.io/environment"
 LAB_LABEL = "drydock.io/lab"
-NODES = {"spine1", "spine2", "leaf1", "leaf2", "leaf3", "leaf4"}
+PAYLOAD_LIMIT = 512 * 1024
 
 
 class UserError(ValueError):
@@ -126,134 +127,162 @@ def require_digest(image):
         raise UserError("Supply an image reference pinned by SHA-256 digest.")
 
 
+def require_fields(value, allowed, required=()):
+    if (
+        not isinstance(value, dict)
+        or value.keys() - set(allowed)
+        or set(required) - value.keys()
+    ):
+        raise UserError("Unsupported or missing topology attributes.")
+
+
+def safe_path(value):
+    if (
+        not isinstance(value, str)
+        or not re.fullmatch(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*", value)
+        or any(part in {".", ".."} for part in value.split("/"))
+    ):
+        raise UserError("File references must be safe relative archive paths.")
+    return value
+
+
+def mapping_source(binds):
+    if not isinstance(binds, list) or len(binds) > 1:
+        raise UserError(
+            "Only one read-only interface mapping mount is supported per switch."
+        )
+    source = None
+    for bind in binds:
+        if (
+            not isinstance(bind, str)
+            or len(bind.split(":")) != 3
+            or not bind.endswith(":/mnt/flash/EosIntfMapping.json:ro")
+        ):
+            raise UserError("Only a read-only interface mapping mount is supported.")
+        source = safe_path(bind.split(":")[0])
+    return source
+
+
 @dataclass
 class Bundle:
     digest: str
     topology: dict
     files: dict
-    interfaces: dict
 
     @classmethod
     def load(cls, path):
-        if Path(path).stat().st_size > 10 * 1024 * 1024:
+        with Path(path).open("rb") as stream:
+            content = stream.read(10 * 1024 * 1024 + 1)
+        if len(content) > 10 * 1024 * 1024:
             raise UserError("Bundle exceeds the 10 MiB limit.")
-        content = Path(path).read_bytes()
         files = {}
-        with tarfile.open(path, mode="r:") as archive:
-            for member in archive:
-                if (
-                    not member.isfile()
-                    or member.name in files
-                    or member.size > 1024 * 1024
-                    or member.name.startswith("/")
-                    or ".." in Path(member.name).parts
-                ):
-                    raise UserError("Bundle contains an unsafe or duplicate member.")
-                stream = archive.extractfile(member)
-                assert stream is not None
-                files[member.name] = stream.read().decode()
-        expected = {"FABRIC-topology.clab.yml", "interface_mapping.json"} | {
-            f"intended/configs/{name}.cfg" for name in NODES
-        }
-        if set(files) != expected:
+        try:
+            with tarfile.open(fileobj=io.BytesIO(content), mode="r:") as archive:
+                for member in archive:
+                    safe_path(member.name)
+                    if (
+                        not member.isfile()
+                        or member.sparse is not None
+                        or member.name in files
+                        or not 0 <= member.size <= 1024 * 1024
+                    ):
+                        raise UserError(
+                            "Bundle contains an unsafe or duplicate member."
+                        )
+                    member_stream = archive.extractfile(member)
+                    assert member_stream is not None
+                    files[member.name] = member_stream.read().decode()
+        except (tarfile.TarError, UnicodeError):
             raise UserError(
-                "Bundle must contain the topology, mapping, and six startup configurations."
-            )
-        if (
-            sum(
-                len(text.encode())
-                for name, text in files.items()
-                if name.endswith((".cfg", ".json"))
-            )
-            > 512 * 1024
-        ):
+                "Supply an uncompressed tar archive of UTF-8 files."
+            ) from None
+        candidates = [
+            name for name in files if re.fullmatch(r"[^/]+\.clab\.ya?ml", name)
+        ]
+        if len(candidates) != 1:
             raise UserError(
-                "Startup files exceed the shared Secret payload limit of 512 KiB."
+                "Supply exactly one root-level .clab.yml or .clab.yaml file."
             )
-        topology = yaml.safe_load(files["FABRIC-topology.clab.yml"])
-        if (
-            set(topology) != {"name", "prefix", "mgmt", "topology"}
-            or topology["prefix"] != ""
-        ):
+        topology_path = candidates[0]
+        try:
+            topology = yaml.safe_load(files[topology_path])
+        except yaml.YAMLError:
+            raise UserError("The topology must contain valid YAML.") from None
+        require_fields(
+            topology,
+            {"name", "prefix", "mgmt", "topology"},
+            {"name", "topology"},
+        )
+        if not isinstance(topology["name"], str) or topology.get("prefix", "") != "":
             raise UserError("Unsupported topology attributes.")
-        if topology["mgmt"] != {
-            "network": "custom_mgmt",
-            "ipv4-subnet": "192.0.2.0/24",
-        }:
-            raise UserError("The demo requires the generated management network.")
+        require_fields(topology.get("mgmt", {}), {"network", "ipv4-subnet"})
         definition = topology["topology"]
-        if set(definition) != {"nodes", "links", "kinds", "defaults"} or definition[
-            "defaults"
-        ] != {"kind": "arista_ceos"}:
+        require_fields(
+            definition, {"nodes", "links", "kinds", "defaults"}, {"nodes", "kinds"}
+        )
+        defaults = definition.get("defaults", {})
+        require_fields(defaults, {"kind"})
+        if defaults.get("kind", "arista_ceos") != "arista_ceos":
             raise UserError("Unsupported topology defaults.")
-        if set(definition["nodes"]) != NODES:
-            raise UserError(
-                "The first demo requires spine1, spine2, and leaf1 through leaf4."
-            )
-        if set(definition.get("kinds", {})) != {"arista_ceos"}:
-            raise UserError("Only arista_ceos switches are supported.")
+        require_fields(definition["kinds"], {"arista_ceos"}, {"arista_ceos"})
         kind = definition["kinds"]["arista_ceos"]
-        if (
-            set(kind) != {"image", "binds", "enforce-startup-config"}
-            or kind["enforce-startup-config"] is not True
-        ):
-            raise UserError("The demo requires enforced startup configurations.")
+        require_fields(kind, {"image", "binds", "enforce-startup-config"}, {"image"})
+        if kind.get("enforce-startup-config", True) is not True:
+            raise UserError("Complete startup configurations must be enforced.")
         require_digest(kind["image"])
-        if kind.get("binds") != [
-            "interface_mapping.json:/mnt/flash/EosIntfMapping.json:ro"
-        ]:
-            raise UserError("Only the generated interface mapping mount is supported.")
-        mapping = json.loads(files["interface_mapping.json"])["EthernetIntf"]
-        if mapping != {f"eth{port}": f"Ethernet{port}" for port in (1, 2, 3, 4, 6, 7)}:
-            raise UserError("Unsupported switch interface mapping.")
-        interfaces: dict[str, list[str]] = {name: [] for name in NODES}
-        endpoints = set()
-        for link in definition["links"]:
-            if set(link) != {"endpoints"} or len(link["endpoints"]) != 2:
-                raise UserError("Each link must contain two switch endpoints.")
-            for endpoint in link["endpoints"]:
-                node, port = endpoint.split(":")
-                if node not in NODES or port not in mapping or endpoint in endpoints:
-                    raise UserError("Invalid or repeated switch link endpoint.")
-                interfaces[node].append(mapping[port])
-                endpoints.add(endpoint)
-        expected_links = {
-            frozenset((f"leaf{leaf}:eth{spine}", f"spine{spine}:eth{leaf}"))
-            for leaf in range(1, 5)
-            for spine in (1, 2)
-        } | {
-            frozenset((f"leaf{first}:eth{port}", f"leaf{first + 1}:eth{port}"))
-            for first in (1, 3)
-            for port in (6, 7)
-        }
-        if {
-            frozenset(link["endpoints"]) for link in definition["links"]
-        } != expected_links:
-            raise UserError(
-                "The demo requires all spine links and both MLAG peer links."
-            )
-        for name, node in definition["nodes"].items():
-            address = f"192.0.2.{20 + int(name[-1]) if name.startswith('leaf') else 10 + int(name[-1])}"
-            if node.get("mgmt-ipv4") != address:
-                raise UserError("Switch management identity differs from the example.")
-            if set(node) - {"kind", "startup-config", "mgmt-ipv4", "labels"}:
-                raise UserError("Unsupported switch attributes in the demo bundle.")
-            if (
-                node.get("kind", definition.get("defaults", {}).get("kind"))
-                != "arista_ceos"
-            ):
-                raise UserError("Only arista_ceos switches are supported.")
-            path = f"intended/configs/{name}.cfg"
-            if node["startup-config"] != path or not re.search(
-                rf"^hostname {name}$", files[path], re.MULTILINE
+        nodes = definition["nodes"]
+        if not isinstance(nodes, dict) or not nodes:
+            raise UserError("Supply at least one cEOS switch.")
+        expected = {topology_path}
+        source = mapping_source(kind.get("binds", []))
+        if source:
+            expected.add(source)
+        for name, node in nodes.items():
+            if not isinstance(name, str) or not re.fullmatch(
+                r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", name
             ):
                 raise UserError(
-                    "Switch identity and startup configuration do not match."
+                    "Switch names must be DNS labels of at most 63 characters."
                 )
-        return cls(hashlib.sha256(content).hexdigest(), topology, files, interfaces)
+            require_fields(
+                node,
+                {"kind", "startup-config", "mgmt-ipv4", "binds", "labels"},
+                {"startup-config"},
+            )
+            if node.get("kind", defaults.get("kind")) != "arista_ceos":
+                raise UserError("Only arista_ceos switches are supported.")
+            startup = safe_path(node["startup-config"])
+            expected.add(startup)
+            source = mapping_source(node.get("binds", []))
+            if source:
+                expected.add(source)
+        if set(files) != expected:
+            raise UserError(
+                "Bundle files must match the topology and its referenced files exactly."
+            )
+        if any(
+            len(files[name].encode()) > PAYLOAD_LIMIT
+            for name in expected - {topology_path}
+        ):
+            raise UserError("Each startup or mapping file must fit within 512 KiB.")
+        links = definition.get("links", [])
+        if not isinstance(links, list):
+            raise UserError("Topology links must be a list.")
+        for link in links:
+            require_fields(link, {"endpoints", "mtu"}, {"endpoints"})
+            if not isinstance(link["endpoints"], list) or len(link["endpoints"]) != 2:
+                raise UserError("Each link must contain two switch endpoints.")
+            for endpoint in link["endpoints"]:
+                if (
+                    not isinstance(endpoint, str)
+                    or len(endpoint.split(":")) != 2
+                    or endpoint.split(":")[0] not in nodes
+                ):
+                    raise UserError("Link endpoints must reference admitted switches.")
+        return cls(hashlib.sha256(content).hexdigest(), topology, files)
 
 
-def readiness(items, expected_links=12):
+def readiness(items, expected_nodes, expected_links):
     errors = []
     topology = [item for item in items if item["kind"] == "Topology"]
     if len(topology) != 1:
@@ -267,7 +296,7 @@ def readiness(items, expected_links=12):
         ):
             errors.append("topology is not current and ready")
     nodes = {item["metadata"]["name"]: item for item in items if item["kind"] == "Node"}
-    if set(nodes) != NODES:
+    if set(nodes) != set(expected_nodes):
         errors.append("switch identities differ from the bundle")
     for name, node in nodes.items():
         status = node.get("status", {})
@@ -295,9 +324,10 @@ def readiness(items, expected_links=12):
         item
         for item in items
         if item["kind"] == "Pod"
-        and item["metadata"].get("labels", {}).get("c9s.run/direct-workload") in NODES
+        and item["metadata"].get("labels", {}).get("c9s.run/direct-workload")
+        in expected_nodes
     ]
-    if len(pods) != len(NODES):
+    if len(pods) != len(expected_nodes):
         errors.append("switch pods are missing")
     for pod in pods:
         status = pod.get("status", {})

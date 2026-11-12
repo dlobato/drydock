@@ -48,10 +48,13 @@ Labs contain switches only. CloudVision and host containers remain excluded.
 ## Implementation limits
 
 Task 6.1 separates the lifecycle core from cloud setup and network acceptance.
-Admission still requires the six-switch example topology and a cEOS digest in regional Google Artifact Registry.
+Task 6.2 preserves the admitted topology and delegates network semantics to clabernetes.
+The lifecycle core reads switch identities, the link count, and safe file references without interpreting EOS startup or interface mapping contents.
+Admission accepts supported cEOS topology shapes within the documented input limits and distributes startup data across bounded Kubernetes Secrets.
+The cEOS image still requires a digest in regional Google Artifact Registry.
 The operator supplies image access through the cluster. The lifecycle CLI does not obtain registry tokens.
 Labs still default to 120 minutes with a 240-minute maximum.
-The planned 30-minute default, 60-minute maximum, arbitrary topologies, bounded capacity waiting, and scale qualification remain open.
+The planned 30-minute default, 60-minute maximum, bounded capacity waiting, and live scale qualification remain open.
 
 The November 11 demo passed 54 live ANTA results and both MLAG pairs on the recorded private runtime.
 [That historical evidence](docs/live-gke-validation.md) does not qualify this refactor, the published clabernetes release, scale, or concurrent isolation.
