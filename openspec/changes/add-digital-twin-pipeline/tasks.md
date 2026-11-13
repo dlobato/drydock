@@ -72,6 +72,9 @@ The former open demo tasks are replaced without claiming their completion:
 - [x] 7.3 Set the lifetime default to 30 minutes and the maximum to 60 minutes from acceptance. Test invalid values, capacity waiting, and retries that cannot renew expiry. Update CLI help and operator examples together.
 - [ ] 7.4 Make the independent cleaner and deletion path Kubernetes-only. Test five-minute retries, overdue cleanup, late resources, interruptions, and unrelated-resource preservation. Document complete lab deletion independently of worker scale-down and cloud cost.
 - [ ] 7.5 Exercise the documented standalone creation, readiness, inventory, status, and repeated deletion commands. Demonstrate JSON outcomes and complete removal of lab-owned resources. Keep the switch TLS exception explicit and preserve verification for Kubernetes endpoints.
+- [x] 7.6 Replace optional demo ANTA results after every completed invocation, including empty results. Test that acceptance uses the current attempt and preserves diagnostics if invocation raises.
+- [ ] 7.7 Skip completed cleanup records with absent namespaces using one namespace list per cleaner sweep. Test bounded API work, expired-lab cleanup, and late namespace discovery while preserving deletion ownership guards.
+- [ ] 7.8 Clear the overdue flag after successful deletion. Test repeated deletion after the cleanup deadline and retain overdue status for incomplete cleanup.
 
 ## 8. Integrate the owner-launched pipeline
 
@@ -292,6 +295,15 @@ All 38 offline CLI tests passed in the recorded demo validation.
 The cleaner image build and repeated deployment evidence, together with the standalone lifecycle, complete task 3.6.
 Earlier live evidence includes repeated infrastructure deployment, cancellation and timeout cleanup, and runner-loss expiry cleanup in 376 seconds.
 Those observations remain partial historical evidence. Tasks 9.2 and 9.3 require fresh concurrency and failure-path qualification.
+
+## Audit follow-up evidence (tasks 7.6 through 7.8)
+
+Task 7.6 passes all seven offline ANTA tests, including actual AVD catalog generation.
+The controlled invocation sequence rejects empty current results after an earlier attempt returned successful rows with a failed process status.
+An invocation timeout still preserves the last available diagnostics.
+The pinned AVD role already rejects zero-test runs, so this fix adds defensive handling rather than proving a live pipeline false pass.
+These follow-up tests do not add live runtime qualification.
+Tasks 7.4 and 7.5 remain open for their broader cleanup and command acceptance requirements.
 
 ## Workflow follow-up
 
