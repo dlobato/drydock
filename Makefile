@@ -4,7 +4,7 @@ export ANSIBLE_CONFIG := $(CURDIR)/ansible.cfg
 export ANSIBLE_COLLECTIONS_PATH := $(CURDIR)/.collections
 export ANSIBLE_LOCAL_TEMP := $(CURDIR)/.ansible/tmp
 
-.PHONY: spec-check spec-status lifecycle-deps lifecycle-test example-deps example-build example-bundle example-bundle-test test workflow-test
+.PHONY: spec-check spec-status lifecycle-deps lifecycle-test example-deps example-build example-bundle example-bundle-test test workflow-test dispatcher-test
 
 spec-check:
 	$(OPENSPEC) validate --all --strict --no-interactive
@@ -39,3 +39,8 @@ test:
 
 workflow-test:
 	node .github/scripts/select-pr.test.cjs
+
+dispatcher-test:
+	cd examples/github/runner-dispatcher && test -z "$$(gofmt -l .)"
+	cd examples/github/runner-dispatcher && go test -race ./...
+	cd examples/github/runner-dispatcher && go vet ./...

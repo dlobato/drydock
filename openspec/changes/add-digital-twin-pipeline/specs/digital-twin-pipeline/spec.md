@@ -131,6 +131,25 @@ Private lab jobs MUST NOT execute fork code.
 - THEN the Ansible processes and temporary state cannot access credentials issued to the separate lifecycle execution
 - AND ANTA receives only the required lab management credentials and connection inventory
 
+#### Scenario: Another workflow requests private runner labels
+
+- WHEN a PR-controlled or otherwise untrusted workflow requests the private runner's labels
+- THEN the operator-controlled dispatcher refuses runner registration and compute creation for that request
+- AND workflow labels and self-declared environment names do not authorize execution
+
+#### Scenario: Job changes during runner preparation
+
+- WHEN GitHub cancels or reassigns the approved job while private capacity starts
+- THEN a root-owned guard stops any different run, attempt, workflow, or source revision before workflow steps
+- AND an unexpected job cannot execute an unconditional step or receive a second execution opportunity
+
+#### Scenario: Disposable runner finishes or loses its operator
+
+- WHEN an approved job completes, fails, is canceled, or exceeds its fixed runner lifetime
+- THEN the operator removes its runner registration and compute resources
+- AND a cloud-enforced maximum runtime removes compute capacity if the dispatcher disappears
+- AND the runner receives neither dispatcher credentials nor a cloud service account
+
 ### Requirement: Temporary provider authentication
 
 The workflow MUST use temporary, limited Kubernetes access from operator-configured authentication.

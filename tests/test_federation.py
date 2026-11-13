@@ -55,6 +55,10 @@ class FederationTests(unittest.TestCase):
         revision = "a" * 40
         result, commands = self.configure(revision)
         self.assertEqual(result.returncode, 0, result.stderr)
+        services = next(
+            command for command in commands if command[:2] == ["services", "enable"]
+        )
+        self.assertIn("cloudresourcemanager.googleapis.com", services)
         provider = next(command for command in commands if "create-oidc" in command)
         self.assertIn("--disabled", provider)
         condition = next(
@@ -63,7 +67,7 @@ class FederationTests(unittest.TestCase):
         for restriction in (
             "assertion.repository_id == '1452964696'",
             "assertion.repository_owner_id == '1379455'",
-            "assertion.sub == 'repo:dlobato/drydock:environment:gke'",
+            "assertion.sub == 'repo:dlobato@1379455/drydock@1452964696:environment:gke'",
             "assertion.ref == 'refs/heads/main'",
             "assertion.workflow_ref == 'dlobato/drydock/.github/workflows/pre-deployment.yml@refs/heads/main'",
             f"assertion.workflow_sha == '{revision}'",
@@ -79,6 +83,10 @@ class FederationTests(unittest.TestCase):
         ]
         self.assertEqual(len(grants), 2)
         self.assertIn("--role=roles/iam.workloadIdentityUser", grants[0])
+        self.assertIn(
+            "--member=principal://iam.googleapis.com/projects/123456789/locations/global/workloadIdentityPools/drydock-github/subject/repo:dlobato@1379455/drydock@1452964696:environment:gke",
+            grants[0],
+        )
         self.assertIn(
             "--role=projects/test-project/roles/drydockClusterConnection", grants[1]
         )

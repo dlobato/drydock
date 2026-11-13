@@ -75,6 +75,11 @@ context: |
   Reuse lifecycle topology validation and existing dependencies. Do not add a general service framework.
   Keep federation disabled until the target cluster boundary, controlled private runner,
   and trusted workflow revision are ready. Local Kubernetes evidence is not live GitHub-to-GKE acceptance.
+  The user approved an operator-controlled disposable runner dispatcher on November 13.
+  Use the official GitHub scale-set SDK, one approved job per process, and no warm capacity.
+  Authorize queue identity and native review before runner registration or VM creation.
+  A root-owned guard must stop unexpected jobs before any workflow steps.
+  Keep operator credentials outside the runner and enforce compute deletion through GCE's maximum runtime.
   Read only PR metadata through pull_request_target. Never execute PR code in that trigger.
   Keep the change active until implementation and live acceptance are complete.
 

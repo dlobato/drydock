@@ -9,6 +9,7 @@ The federation setup script creates a disabled provider and a dedicated Google s
 A service account represents an automated caller.
 It grants only `container.clusters.get` for cluster discovery.
 The script does not grant worker allocation, IAM administration, or Kubernetes access.
+It enables the Cloud Resource Manager API for the permission probe without granting additional permissions.
 Keep the provider disabled until the Kubernetes boundary and trusted workflow pass their denial tests.
 
 ## Create the disabled provider
@@ -30,16 +31,25 @@ This is an initial setup script. It stops if a named resource already exists.
 It does not adopt existing resources or replace their permissions.
 After a partial failure, inspect the created resources before continuing the remaining commands.
 
+For an existing setup, enable the permission probe's API with the isolated operator profile:
+
+```sh
+gcloud services enable cloudresourcemanager.googleapis.com --project="$DRYDOCK_PROJECT"
+```
+
 The provider requires all these GitHub claims:
 
 - The numeric repository and owner IDs match this repository.
-- The subject is `repo:dlobato/drydock:environment:gke`.
+- The subject is `repo:dlobato@1379455/drydock@1452964696:environment:gke`.
 - The branch is `refs/heads/main`.
 - The workflow is `.github/workflows/pre-deployment.yml` on `main`.
 - The workflow commit matches the operator-approved SHA.
 - The event is `workflow_dispatch` or `pull_request_target`.
 
 The subject requires the protected environment. Omitting that environment changes the subject and prevents federation.
+This repository uses GitHub's [immutable subject format](https://docs.github.com/en/actions/reference/security/oidc#immutable-subject-claims), which includes numeric owner and repository IDs.
+Inspect `gh api repos/dlobato/drydock/actions/oidc/customization/sub` before setup.
+Its `sub_claim_prefix` must match `repo:dlobato@1379455/drydock@1452964696` and `use_immutable_subject` must be true.
 A PR workflow, fork, other branch, or changed workflow commit fails the same condition.
 Keep owner review and disabled administrator bypass on the `gke` environment.
 Restrict environment deployments to `main`, as described in [the workflow instructions](workflows.md#protect-the-environment).
@@ -170,8 +180,8 @@ It removes its temporary kubeconfig after success or failure.
 It tests the authenticated identity, ownership-record reads, eight Kubernetes denials, and cloud permission denials.
 It creates no lab and runs no network tests.
 The longer lifecycle workflow remains task 8.3 and requires credential renewal between isolated stages.
-The project currently has no GKE cluster or registered private GitHub runner.
-Supply a disposable private runner with Python 3 and kubectl before requesting the probe.
+The initial implementation required a new GKE access target and controlled private execution.
+Use [the operator dispatcher](runner-dispatcher.md) to supply one approved disposable runner with Python 3 and kubectl.
 Its labels must include `self-hosted`, `linux`, `x64`, and `drydock-gke`.
 Labels only route jobs. They do not authorize private execution.
 The platform operator must enforce trusted-workflow assignment outside PR-controlled YAML before registering private capacity.

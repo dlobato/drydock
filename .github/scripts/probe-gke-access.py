@@ -34,7 +34,8 @@ def probe(token, cluster, namespace, username):
         "container.clusters.get",
         "container.clusters.create",
         "container.clusters.delete",
-        "container.nodePools.create",
+        "container.clusters.update",
+        "compute.instances.create",
         "iam.serviceAccounts.create",
         "resourcemanager.projects.setIamPolicy",
     ]
