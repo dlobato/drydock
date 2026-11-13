@@ -72,6 +72,16 @@ class WorkflowTests(unittest.TestCase):
         checkout, authentication, step = access["steps"]
         self.assertEqual(checkout["with"]["ref"], "${{ github.workflow_sha }}")
         self.assertEqual(authentication["with"]["access_token_lifetime"], "900s")
+        self.assertEqual(
+            {
+                scope.strip()
+                for scope in authentication["with"]["access_token_scopes"].split(",")
+            },
+            {
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/userinfo.email",
+            },
+        )
         self.assertEqual(authentication["with"]["create_credentials_file"], "false")
         self.assertEqual(
             authentication["with"]["export_environment_variables"], "false"

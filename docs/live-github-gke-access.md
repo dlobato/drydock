@@ -2,10 +2,10 @@
 
 This record covers task 8.2 access acceptance. It does not establish network acceptance.
 
-The latest approved run passed identity exchange and failed in the access probe.
-A local reproduction identified a parser defect that rejects valid GKE permission denials.
-The correction passes all eight denials from an operator-controlled private VM before merge.
-Task 8.2 remains open until the corrected probe passes through the trusted GitHub workflow.
+The latest approved run passed token exchange but failed the Kubernetes identity comparison.
+GKE authenticated the token as a numeric account ID instead of the configured service account email.
+The workflow now requests the `userinfo.email` scope alongside `cloud-platform` to supply that email identity.
+Task 8.2 remains open until this correction passes through the trusted GitHub workflow after merge.
 Earlier sections preserve the prerequisites and incomplete results from their respective test stages.
 
 ## Trusted revision
@@ -263,3 +263,42 @@ Federation stayed disabled throughout. No lab or switch was allocated.
 
 This result establishes the corrected probe's live behavior through the private endpoint before merge.
 Task 8.2 retains the complete GitHub workflow test after the correction reaches the trusted default branch.
+
+## Final trusted workflow request
+
+PR #22 merged into protected `main` as `d3ab11a7cfd486302661e80c217e03e3ad12eee6`.
+That revision contains the denial parser that passed the standalone private endpoint test.
+This evidence PR supplies an exact input commit for a fresh request on the corrected trusted revision.
+The requested probe uses the existing access target and creates no switch lab.
+
+The operator pinned the disabled provider to that reviewed revision without changing its other trust restrictions.
+[Run 43480437310](https://github.com/dlobato/drydock/actions/runs/43480437310) selected PR #23 input `645e91e0ccd87dad59896f5cd3e384f0fcec08db`.
+Before approval, the private job had no assigned runner or executed steps.
+The user approved the complete no-lab test, and the operator recorded native `gke` approval.
+The dispatcher authorized the exact request. The root-owned guard accepted the trusted workflow and attempt.
+
+The official Google action issued the requested 900-second token with its default `cloud-platform` scope.
+The probe failed at `2026-11-13T18:16:20Z`.
+GKE's audit log recorded a successful `selfsubjectreviews.create` request with principal `104795665890363084336`.
+The configured Kubernetes username was `drydock-github@drydock-513410.iam.gserviceaccount.com`.
+The probe therefore rejected the identity before ownership reads or Kubernetes denial tests.
+Google's [GKE authentication documentation](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/api-server-authentication#authenticate_users) requires the `userinfo.email` scope for email identity.
+
+The workflow correction explicitly requests `cloud-platform` and `userinfo.email`.
+The regression test fails without the additional scope and passes with both scopes.
+The correction changes no IAM grants, Kubernetes bindings, token lifetime, or source trust restrictions.
+It must reach protected `main` before another trusted workflow test.
+Task 8.2 remains unchecked because this complete GitHub probe failed.
+
+The runner used private address `10.140.0.9`, no cloud service account, and a GCE-enforced 900-second deletion deadline.
+The dispatcher removed its VM, boot disk, SSH keys, registration, queue session, and scale set.
+Independent Google and GitHub API inspection found no disposable VM, disk, or registered runner.
+Provider readback confirmed disabled federation with the reviewed SHA and every other identity restriction retained.
+The existing shared access target remains available. No lab or switch was allocated.
+
+Local validation passed all 123 Python tests, 32 selector tests, dispatcher race tests, static analysis, and pre-commit before the workflow correction.
+[Hosted run 43480273627](https://github.com/dlobato/drydock/actions/runs/43480273627) passed both PR jobs, including both offline AVD builds and six bundle tests.
+The unmarked PR event skipped its private job. Only the separate manual request required approval.
+
+After the scope correction, all 123 Python tests and 32 selector tests pass again.
+Actionlint, pre-commit, strict OpenSpec validation, and whitespace validation also pass.
