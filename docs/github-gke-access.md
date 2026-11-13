@@ -9,6 +9,7 @@ The federation setup script creates a disabled provider and a dedicated Google s
 A service account represents an automated caller.
 It grants only `container.clusters.get` for cluster discovery.
 The script does not grant worker allocation, IAM administration, or Kubernetes access.
+It enables the Cloud Resource Manager API for the permission probe without granting additional permissions.
 Keep the provider disabled until the Kubernetes boundary and trusted workflow pass their denial tests.
 
 ## Create the disabled provider
@@ -170,8 +171,8 @@ It removes its temporary kubeconfig after success or failure.
 It tests the authenticated identity, ownership-record reads, eight Kubernetes denials, and cloud permission denials.
 It creates no lab and runs no network tests.
 The longer lifecycle workflow remains task 8.3 and requires credential renewal between isolated stages.
-The project currently has no GKE cluster or registered private GitHub runner.
-Supply a disposable private runner with Python 3 and kubectl before requesting the probe.
+The initial implementation required a new GKE access target and controlled private execution.
+Use [the operator dispatcher](runner-dispatcher.md) to supply one approved disposable runner with Python 3 and kubectl.
 Its labels must include `self-hosted`, `linux`, `x64`, and `drydock-gke`.
 Labels only route jobs. They do not authorize private execution.
 The platform operator must enforce trusted-workflow assignment outside PR-controlled YAML before registering private capacity.

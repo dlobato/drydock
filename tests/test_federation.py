@@ -55,6 +55,10 @@ class FederationTests(unittest.TestCase):
         revision = "a" * 40
         result, commands = self.configure(revision)
         self.assertEqual(result.returncode, 0, result.stderr)
+        services = next(
+            command for command in commands if command[:2] == ["services", "enable"]
+        )
+        self.assertIn("cloudresourcemanager.googleapis.com", services)
         provider = next(command for command in commands if "create-oidc" in command)
         self.assertIn("--disabled", provider)
         condition = next(

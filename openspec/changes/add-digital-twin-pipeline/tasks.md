@@ -85,7 +85,7 @@ The former open demo tasks are replaced without claiming their completion:
 ## 8. Integrate automatic PR checks and opt-in lab tests
 
 - [x] 8.1 Run hosted lint and unit tests automatically on every PR and update without custom author restrictions or cloud approval. Replace custom actor authorization with a separate opt-in PR test request and native `gke` environment protection. Document both paths. Use the user-authorized hosted placeholder to test approval without cloud access or lab allocation. Test fork eligibility, exact-commit selection, trusted workflow revisions, absence of GKE jobs on PR events, and the environment gate before placeholder execution. Leave live private-execution denial evidence in tasks 8.2 and 8.5.
-- [ ] 8.2 Document and configure temporary GKE authentication through GitHub OIDC federation bound to the approved `gke` environment and trusted workflow outside the lifecycle core. Deliver scoped RBAC and admission policy for the lab boundary. Demonstrate denial before approval and denial of unrelated Secret access, RBAC changes, cloud worker allocation, and unsafe workloads without personal keys.
+- [ ] 8.2 Document and configure temporary GKE authentication through GitHub OIDC federation bound to the approved `gke` environment and trusted workflow outside the lifecycle core. Deliver scoped RBAC and admission policy for the lab boundary. Deliver the approved operator-controlled dispatcher with queue authorization before runner registration and an independent execution guard and disposable private runners. Prove unauthorized-workflow denial and bounded runner disposal. Demonstrate denial before approval and denial of unrelated Secret access, RBAC changes, cloud worker allocation, and unsafe workloads without personal keys.
 - [ ] 8.3 Connect the standard AVD build and ANTA playbooks through the lifecycle CLI and runtime connection inventory. Isolate Ansible from Kubernetes credentials and use a pinned trusted CLI. Test model consistency, mandatory coverage, preserved inventory groups, and cleanup after each failure stage.
 - [ ] 8.4 Select a finite artifact retention duration and retain safe reports with exact input provenance. Test upload failure without blocking deletion. Inspect final artifacts for credentials, startup files, and sensitive structured data. Document report paths and cleanup outcomes.
 - [ ] 8.5 Exercise automatic PR lint and unit tests plus a separate opt-in pre-deployment request with native `gke` approval. Demonstrate temporary access, complete test reports, and lab deletion. Show that a new unmarked PR commit runs its checks without starting another GKE test, inheriting approval, or reusing a previous lab.
@@ -490,5 +490,34 @@ See [the live access record](../../../docs/live-github-gke-access.md) for the ex
 
 No GKE cluster, compute instance, or registered private runner existed at inspection.
 The personal repository cannot supply an organization runner group with workflow restrictions.
-The operator-controlled private execution design remains unresolved.
+The user approved the operator-controlled dispatcher. Its implementation and live tests continue below.
 Task 8.2 remains unchecked. GKE identity mapping, token exchange, and cloud denial evidence remain unperformed.
+
+## Controlled private execution and target boundary (task 8.2, acceptance incomplete)
+
+The user approved the operator-controlled disposable runner dispatcher.
+The implementation uses GitHub's official scale-set SDK, one approved job per process, and no warm capacity.
+It inspects queue identity and native review before registration or VM creation.
+A root-owned guard stops unexpected attempts and workflow revisions before any workflow steps, including unconditional steps.
+Runner VMs receive no cloud service account or operator credential.
+GCE enforces a 900-second deletion deadline. Operator recovery preserves unrelated resources.
+
+Live run `43450512721` proved matching-label workflow refusal before registration or VM creation.
+The first approved attempt of run `43450817485` passed the guard and disposed its VM, keys, registration, and scale set.
+Federation was disabled, so its authentication failure was expected.
+Concurrent untrusted run `43451266506` received no runner or steps.
+The operator-loss test continues separately from that completed disposal evidence.
+
+The isolated GKE `drydock-access` target passed 18 actual API boundary cases with real workflow and cleaner tokens.
+These cases include unsafe Topology requests, unrelated reads, privilege escalation, expiry protection, independent cleaner execution, and unavailable admission.
+The generated safe Topology was accepted. No controller or switch started.
+The dedicated identity received only `container.clusters.get` in the live Google permission test.
+Worker allocation, impersonation, and IAM administration were denied.
+The temporary operator impersonation grant and local token files were removed.
+
+Live testing found that the merged probe requests the invalid `container.nodePools.create` permission.
+This PR replaces it with `container.clusters.update` and adds a direct compute allocation denial.
+The setup also enables the Cloud Resource Manager API that the permission probe requires.
+The final successful GitHub probe must wait for this correction on protected `main`.
+Task 8.2 remains unchecked. No PR code runs in the credentialed job to bypass that requirement.
+See [the live record](../../../docs/live-github-gke-access.md) for the target, runs, and evidence limits.

@@ -30,7 +30,7 @@ class AccessProbeTests(unittest.TestCase):
                 {"permissions": ["container.clusters.get"]},
             ],
         )
-        self.api.start()
+        self.api_mock = self.api.start()
         self.addCleanup(self.api.stop)
         self.excess = False
         self.username = "workflow-user"
@@ -79,6 +79,13 @@ class AccessProbeTests(unittest.TestCase):
         self.assertTrue(self.paths)
         self.assertTrue(all(not path.parent.exists() for path in self.paths))
 
+    def test_worker_denials_use_permissions_accepted_by_google(self):
+        self.run_probe()
+        requested = self.api_mock.call_args_list[1].args[2]["permissions"]
+        self.assertIn("container.clusters.update", requested)
+        self.assertIn("compute.instances.create", requested)
+        self.assertNotIn("container.nodePools.create", requested)
+
     def test_excess_kubernetes_access_and_wrong_identity_fail_without_leaving_files(
         self,
     ):
@@ -111,7 +118,7 @@ class AccessProbeTests(unittest.TestCase):
                     {
                         "permissions": [
                             "container.clusters.get",
-                            "container.nodePools.create",
+                            "container.clusters.update",
                         ]
                     },
                 ],

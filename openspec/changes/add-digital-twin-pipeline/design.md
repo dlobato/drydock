@@ -213,6 +213,29 @@ Do not run unapproved PR code on the private runner.
 The platform operator owns runner deployment and private networking.
 Fork execution remains excluded from private lab jobs and their credentialed execution.
 
+The user approved an operator-controlled disposable runner dispatcher on November 13.
+Use GitHub's runner scale-set interface to inspect routed jobs before runner registration.
+The dispatcher accepts only this repository's trusted workflow on protected `main` after native `gke` approval.
+It checks the exact workflow run attempt and refuses missing identity or review evidence.
+Labels route jobs and never establish authorization.
+Untrusted workflows receive no runner when they request matching labels.
+GitHub can route a job to an empty scale set before the operator accepts it.
+Routing does not establish authorization or create private capacity.
+
+Keep this operator component outside the lifecycle core.
+Use the official scale-set client for GitHub's registration, queue, and acquisition protocol.
+Keep runner-management and cloud administration credentials in the operator process.
+Supply one disposable runner per approved job without an attached cloud service account or administrative kubeconfig.
+Remove its registration and compute resources after completion, cancellation, failure, or a fixed timeout.
+Use a cloud-enforced maximum runtime so operator-process loss cannot retain private capacity indefinitely.
+Missing or unavailable authorization evidence prevents allocation.
+A root-owned start guard compares the actual job identity with the approved run attempt and exact workflow SHA.
+On a mismatch, it kills the runner process group before workflow steps, including unconditional cleanup steps.
+This guard covers cancellation or reassignment while the VM starts.
+The runner receives no second job.
+The provider retains its independent exact workflow SHA restriction.
+Prove unauthorized-workflow denial and disposal before enabling federation.
+
 ### Exchange identity for limited credentials
 
 OIDC is an identity token protocol.

@@ -14,6 +14,7 @@ subject='repo:dlobato/drydock:environment:gke'
 condition="assertion.repository_id == '1452964696' && assertion.repository_owner_id == '1379455' && assertion.sub == '${subject}' && assertion.ref == 'refs/heads/main' && assertion.workflow_ref == 'dlobato/drydock/.github/workflows/pre-deployment.yml@refs/heads/main' && assertion.workflow_sha == '${DRYDOCK_WORKFLOW_SHA}' && assertion.event_name in ['workflow_dispatch', 'pull_request_target']"
 
 gcloud services enable iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
+  cloudresourcemanager.googleapis.com \
   --project="$DRYDOCK_PROJECT"
 gcloud iam workload-identity-pools create "$pool" --project="$DRYDOCK_PROJECT" \
   --location=global --display-name='Drydock approved GitHub jobs'
