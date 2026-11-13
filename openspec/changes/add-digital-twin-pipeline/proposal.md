@@ -33,7 +33,8 @@ The user approved the webhook to enforce switch-only policy on embedded topology
 The user also approved an operator-controlled disposable runner dispatcher on November 13.
 The dispatcher inspects GitHub queue identity and environment approval before registering a private runner.
 It accepts only the trusted workflow and removes each runner after its bounded job lifetime.
-Live GitHub-to-GKE integration and runtime acceptance remain incomplete.
+Scoped GitHub-to-GKE access acceptance passed through the approved trusted workflow.
+Lab orchestration and runtime acceptance remain incomplete.
 
 ## Capabilities
 
