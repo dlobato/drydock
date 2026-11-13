@@ -69,6 +69,50 @@ Every Kubernetes command passes the kubeconfig and context explicitly.
 The CLI does not change the global Kubernetes context or cloud account.
 Relative kubeconfig paths resolve from the command's working directory.
 
+## Install the independent cleaner
+
+The cluster operator installs the cleaner before accepting lab requests.
+Build the image with the [cleaner image procedure](demo-flow.md#prepare-the-cleaner-image).
+Set `DRYDOCK_CLEANUP_IMAGE` to its published digest reference.
+Use the Kubernetes environment file from the previous procedure.
+Render the manifests without contacting Kubernetes:
+
+```sh
+.venv/bin/python -m drydock.cleaner --environment artifacts/lifecycle.yml \
+  --image "$DRYDOCK_CLEANUP_IMAGE" > artifacts/cleaner.json
+```
+
+The output contains a service account, permissions, a mounted kubeconfig, and a CronJob.
+A CronJob starts a Kubernetes Job on a schedule.
+Its kubeconfig reads the mounted service-account token and CA certificate.
+The manifests contain no cloud identity, provider arguments, or worker selector.
+The operator supplies scheduling policy that keeps the cleaner available after lab workers stop.
+The GKE demo adds its system-node selector outside the reusable generator.
+
+Inspect the rendered permissions against the cluster's lab boundary before installation.
+The cleaner lists namespaces and deletes namespaces whose ownership matches the retained record.
+It reads and updates ownership ConfigMaps only in the system namespace.
+Kubernetes permissions and operator-installed admission policy must restrict access to authorized lab namespaces.
+The generated ClusterRole alone does not enforce that restriction. Task 8.2 retains that policy work.
+
+With operator-authorized access, create the ownership namespace and install the manifests.
+Set `DRYDOCK_KUBECONFIG` and `DRYDOCK_CONTEXT` from `artifacts/lifecycle.yml`.
+Set `DRYDOCK_SYSTEM_NAMESPACE` to the environment name plus `-system`.
+
+```sh
+kubectl --kubeconfig "$DRYDOCK_KUBECONFIG" --context "$DRYDOCK_CONTEXT" \
+  create namespace "$DRYDOCK_SYSTEM_NAMESPACE" --dry-run=client -o yaml > artifacts/system-namespace.yml
+kubectl --kubeconfig "$DRYDOCK_KUBECONFIG" --context "$DRYDOCK_CONTEXT" \
+  apply -f artifacts/system-namespace.yml -f artifacts/cleaner.json
+```
+
+The operator must supply private registry access for the cleaner image if required.
+The cleaner runs one sweep every five minutes without a limit on scheduled retries.
+Each Job runs for at most 240 seconds and does not retry inside that Job.
+The next scheduled Job resumes incomplete cleanup from Kubernetes records.
+Overlapping Jobs are forbidden. A missed start has a 240-second deadline.
+Kubernetes or backend unavailability can delay cleanup beyond the target.
+
 ## Supply the lab input
 
 The [example AVD build](../examples/evpn-symmetric-irb/README.md) generates the Containerlab topology, interface mapping, and startup files.
@@ -347,6 +391,7 @@ Its `data.record` field contains JSON with these values:
 - `startup_deadline` records the effective startup cutoff. `ready_at` records the first successful readiness observation, when available.
 - `runtime` and `registry` record the cEOS image and its registry. `switches` and `link_count` describe the expected infrastructure.
 - `state` records `creating`, `running`, `deleting`, or `deleted`. `cleanup` and `overdue` record deletion outcomes when deletion runs.
+- `cleanup_started_at` records the first deletion attempt. `cleanup.observed_at` records the latest deletion observation, in Unix seconds.
 
 The allocation ID identifies one creation request. It is not a credential or an authorization policy.
 The namespace label `drydock.io/allocation` must match the record before status or deletion can use that namespace.
@@ -405,8 +450,18 @@ Lab lifetime defaults to 30 minutes and cannot exceed 60 minutes from acceptance
 Expiry starts cleanup. It does not mean that all lab resources disappear at that instant.
 The cleaner retries expired or deleting labs every five minutes indefinitely and revisits deleted records for late resources.
 It records overdue cleanup after 30 minutes beyond expiry.
-Task 7.4 retains the remaining cleanup qualification, including interruption and late-resource tests.
+Deletion records the first attempt before it requests namespace removal.
+A successful result requires namespace disappearance and stops further allocation through the retained ownership state.
+A terminating namespace still reports incomplete cleanup, including when finalizers delay removal.
+The cleaner never force-removes finalizers.
+If a late namespace appears after successful deletion, a later sweep applies the same ownership guards and removes it.
+An overdue result remains visible until deletion succeeds.
+`cleanup.observed_at` records an observation, not the exact instant when Kubernetes removed the final resource.
+Worker scale-down and zero cloud cost are separate operator outcomes.
 Keep the cleaner and ownership records available until cleanup completes.
+
+The [focused live cleanup record](live-cleanup-validation.md) covers real scheduled retries and namespace recovery on local Kubernetes 1.36.4.
+It does not qualify clabernetes deletion or cloud worker behavior.
 
 ## Offline evidence
 
@@ -417,5 +472,7 @@ Startup tests cover capacity arrival, exhaustion, expiry, late readiness, cancel
 Lifetime tests cover the default, both boundaries, invalid values before allocation, and retries through the original expiry.
 Inventory tests cover alternate switch names, all-switch authentication, missing links, duplicate Pods, credential rejection, and hostname mismatch.
 They also cover endpoint replacement, link loss, and deletion during authentication.
+Cleaner tests cover five-minute retries beyond the overdue deadline, interrupted deletion, finalizers, late resources, and preservation of another lab.
+Manifest tests cover the mounted Kubernetes identity, finite Job duration, and provider-independent rendering.
 Admission cases include different fabrics, custom mappings, unsafe inputs, and a synthetic 100-switch input with split startup data.
 They do not establish live startup, provider compatibility, concurrent isolation, cleanup timing, or network acceptance.

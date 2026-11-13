@@ -243,6 +243,7 @@ def delete_lab(env, lab, *, allocation_id=None):
     errors = []
     if record:
         record["state"] = "deleting"
+        record.setdefault("cleanup_started_at", now())
         record["overdue"] = now() > record["expires_at"] + 1800
         write_record(env, record)
     namespaces = env.objects("namespaces")
@@ -288,6 +289,7 @@ def delete_lab(env, lab, *, allocation_id=None):
         "deleted": complete,
         "namespace_remaining": remaining_namespace,
         "errors": errors,
+        "observed_at": now(),
     }
     if record:
         record = lab_record(env, lab)

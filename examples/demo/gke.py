@@ -8,6 +8,7 @@ from pathlib import Path
 
 import yaml
 
+from drydock.cleaner import cleaner_objects
 from drydock.core import (
     Environment,
     UserError,
@@ -17,7 +18,6 @@ from drydock.core import (
     save,
     wait_for,
 )
-from drydock.lifecycle import object_meta
 
 
 @dataclass(frozen=True)
@@ -322,7 +322,11 @@ def configure_infrastructure(env):
         str((env.directory / "kubeconfig").resolve()),
         f"gke_{env.project}_{env.zone}_{env.name}",
     )
-    for obj in cleaner_objects(env):
+    for obj in cleaner_objects(lifecycle, env.cleanup_image):
+        if obj["kind"] == "CronJob":
+            obj["spec"]["jobTemplate"]["spec"]["template"]["spec"]["nodeSelector"] = {
+                "drydock-role": "system"
+            }
         lifecycle.apply(obj)
     save(env.directory / "lifecycle.yml", asdict(lifecycle))
     save(
@@ -334,161 +338,6 @@ def configure_infrastructure(env):
         },
     )
     return {"environment": env.name, "state": "ready"}
-
-
-def cleaner_objects(env):
-    role = env.name + "-cleaner"
-    yield {
-        "apiVersion": "v1",
-        "kind": "ServiceAccount",
-        "metadata": object_meta(env, "cleaner", env.namespace),
-    }
-    yield {
-        "apiVersion": "rbac.authorization.k8s.io/v1",
-        "kind": "ClusterRole",
-        "metadata": object_meta(env, role),
-        "rules": [
-            {
-                "apiGroups": [""],
-                "resources": ["namespaces"],
-                "verbs": ["get", "list", "delete"],
-            }
-        ],
-    }
-    yield {
-        "apiVersion": "rbac.authorization.k8s.io/v1",
-        "kind": "ClusterRoleBinding",
-        "metadata": object_meta(env, role),
-        "roleRef": {
-            "apiGroup": "rbac.authorization.k8s.io",
-            "kind": "ClusterRole",
-            "name": role,
-        },
-        "subjects": [
-            {"kind": "ServiceAccount", "name": "cleaner", "namespace": env.namespace}
-        ],
-    }
-    yield {
-        "apiVersion": "rbac.authorization.k8s.io/v1",
-        "kind": "Role",
-        "metadata": object_meta(env, role, env.namespace),
-        "rules": [
-            {
-                "apiGroups": [""],
-                "resources": ["configmaps"],
-                "verbs": ["get", "list", "create", "update"],
-            }
-        ],
-    }
-    yield {
-        "apiVersion": "rbac.authorization.k8s.io/v1",
-        "kind": "RoleBinding",
-        "metadata": object_meta(env, role, env.namespace),
-        "roleRef": {
-            "apiGroup": "rbac.authorization.k8s.io",
-            "kind": "Role",
-            "name": role,
-        },
-        "subjects": [
-            {"kind": "ServiceAccount", "name": "cleaner", "namespace": env.namespace}
-        ],
-    }
-    yield {
-        "apiVersion": "v1",
-        "kind": "ConfigMap",
-        "metadata": object_meta(env, "environment", env.namespace),
-        "data": {
-            "environment.yml": yaml.safe_dump(
-                asdict(Environment(env.name, "/environment/kubeconfig", "cleaner"))
-            ),
-            "kubeconfig": yaml.safe_dump(
-                {
-                    "apiVersion": "v1",
-                    "kind": "Config",
-                    "current-context": "cleaner",
-                    "clusters": [
-                        {
-                            "name": "cluster",
-                            "cluster": {
-                                "server": "https://kubernetes.default.svc",
-                                "certificate-authority": "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
-                            },
-                        }
-                    ],
-                    "users": [
-                        {
-                            "name": "cleaner",
-                            "user": {
-                                "tokenFile": "/var/run/secrets/kubernetes.io/serviceaccount/token"
-                            },
-                        }
-                    ],
-                    "contexts": [
-                        {
-                            "name": "cleaner",
-                            "context": {"cluster": "cluster", "user": "cleaner"},
-                        }
-                    ],
-                }
-            ),
-        },
-    }
-    yield {
-        "apiVersion": "batch/v1",
-        "kind": "CronJob",
-        "metadata": object_meta(env, "cleanup", env.namespace),
-        "spec": {
-            "schedule": "*/5 * * * *",
-            "concurrencyPolicy": "Forbid",
-            "startingDeadlineSeconds": 240,
-            "successfulJobsHistoryLimit": 1,
-            "failedJobsHistoryLimit": 3,
-            "jobTemplate": {
-                "spec": {
-                    "activeDeadlineSeconds": 240,
-                    "backoffLimit": 0,
-                    "template": {
-                        "spec": {
-                            "serviceAccountName": "cleaner",
-                            "restartPolicy": "Never",
-                            "nodeSelector": {"drydock-role": "system"},
-                            "containers": [
-                                {
-                                    "name": "cleanup",
-                                    "image": env.cleanup_image,
-                                    "command": [
-                                        "/opt/drydock/bin/python",
-                                        "-m",
-                                        "drydock",
-                                        "--environment",
-                                        "/environment/environment.yml",
-                                        "reap",
-                                    ],
-                                    "resources": {
-                                        "requests": {"cpu": "100m", "memory": "128Mi"},
-                                        "limits": {"cpu": "1", "memory": "512Mi"},
-                                    },
-                                    "volumeMounts": [
-                                        {
-                                            "name": "environment",
-                                            "mountPath": "/environment",
-                                            "readOnly": True,
-                                        }
-                                    ],
-                                }
-                            ],
-                            "volumes": [
-                                {
-                                    "name": "environment",
-                                    "configMap": {"name": "environment"},
-                                }
-                            ],
-                        }
-                    },
-                }
-            },
-        },
-    }
 
 
 def destroy_infrastructure(env):

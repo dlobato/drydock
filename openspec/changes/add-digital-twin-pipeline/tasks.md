@@ -9,6 +9,7 @@ Task 6.4 records registry admission, offline tests, and bounded live image-acces
 Task 7.1 records bounded startup waiting and controlled capacity and timeout evidence.
 Task 7.2 records authenticated runtime inventory and controlled endpoint replacement evidence.
 Task 7.3 records the 30-minute default, 60-minute maximum, and controlled expiry evidence.
+Task 7.4 records the Kubernetes-only cleaner, image build, and controlled cleanup recovery evidence.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -70,7 +71,7 @@ The former open demo tasks are replaced without claiming their completion:
 - [x] 7.1 Add capacity waiting, scheduling diagnostics, and a startup deadline bounded by expiry. Test capacity arrival, exhaustion, late readiness, and partial cleanup. Document statuses without adding a separate queue.
 - [x] 7.2 Derive authenticated readiness and connection inventory from all submitted switches and links. Test endpoint replacement, duplicate Pods, credential rejection, hostname mismatch, and different device names. Document private routing and runtime inventory use.
 - [x] 7.3 Set the lifetime default to 30 minutes and the maximum to 60 minutes from acceptance. Test invalid values, capacity waiting, and retries that cannot renew expiry. Update CLI help and operator examples together.
-- [ ] 7.4 Make the independent cleaner and deletion path Kubernetes-only. Test five-minute retries, overdue cleanup, late resources, interruptions, and unrelated-resource preservation. Document complete lab deletion independently of worker scale-down and cloud cost.
+- [x] 7.4 Make the independent cleaner and deletion path Kubernetes-only. Test five-minute retries, overdue cleanup, late resources, interruptions, and unrelated-resource preservation. Document complete lab deletion independently of worker scale-down and cloud cost.
 - [ ] 7.5 Exercise the documented standalone creation, readiness, inventory, status, and repeated deletion commands. Demonstrate JSON outcomes and complete removal of lab-owned resources. Keep the switch TLS exception explicit and preserve verification for Kubernetes endpoints.
 - [x] 7.6 Replace optional demo ANTA results after every completed invocation, including empty results. Test that acceptance uses the current attempt and preserves diagnostics if invocation raises.
 - [x] 7.7 Skip completed cleanup records with absent namespaces using one namespace list per cleaner sweep. Test bounded API work, expired-lab cleanup, and late namespace discovery while preserving deletion ownership guards.
@@ -170,7 +171,7 @@ Live API cases also passed collision protection, stale updates, lost ownership r
 Namespace race cases used empty test namespaces and controlled failure injection.
 The [live validation record](../../../docs/live-gke-validation.md) states the tested source, private runtime, capacity, and operator registry retries.
 This evidence covers two simultaneous six-switch labs. It does not qualify larger concurrency, live scale, or another runtime or provider.
-Tasks 7.4, 9.2, and 9.3 retain their remaining cleanup, concurrency, and live failure qualification.
+Task 7.4 records controlled cleanup evidence below. Tasks 9.2 and 9.3 retain concurrency and live failure qualification.
 
 ## Registry admission evidence (task 6.4)
 
@@ -262,7 +263,40 @@ The [lifecycle instructions](../../../docs/lifecycle.md#create-and-inspect) docu
 The [demo instructions](../../../docs/demo-flow.md#build-and-run-the-example) document its shorter readiness budget.
 
 These controlled tests do not establish live expiry timing, cleaner recovery, scale, or provider compatibility.
-Tasks 7.4, 7.5, and section 9 retain cleanup and live qualification work.
+Task 7.4 records controlled cleanup evidence below. Task 7.5 and section 9 retain live qualification work.
+
+## Kubernetes cleanup evidence (task 7.4)
+
+The reusable cleaner generator consumes the lifecycle environment and a digest-pinned image without GKE fields.
+The operator can render its Kubernetes manifests with `python -m drydock.cleaner` before installation.
+The optional GKE setup reuses those manifests and adds its system-node selector outside the core.
+The cleaner image uses Python 3.13 slim and upstream kubectl without Google Cloud CLI.
+Its mounted Kubernetes token and CA certificate remain the only runtime identity.
+Deletion records its first attempt and the latest outcome observation without deleting workers or measuring cloud cost.
+
+All 93 offline regression tests and six bundle tests pass.
+Controlled CLI sweeps retry at five-minute intervals beyond the overdue deadline, preserve another lab, and clear overdue status after success.
+Interrupted deletion recovers before expiry whether Kubernetes accepted the deletion request or not.
+A namespace with finalizers remains incomplete, and a failed ownership guard does not block cleanup of another lab.
+Existing tests retain coverage for late namespaces, competing allocation, replaced namespaces, and completed cleanup history.
+Both example builds, pinned Ruff and mypy hooks, and strict OpenSpec validation pass.
+
+The local image build uses Python digest `sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90`.
+Its kubectl v1.36.0 stage uses digest `sha256:63e5e76b746bb8b891a94968d380736c035e768dab0d56ddad1f50c750a4be39`.
+The built image passes all 70 lifecycle tests with networking disabled and only the tests mounted read-only.
+A separate container smoke test passes manifest generation, CLI help, and kubectl execution without cloud tools or credentials.
+The [cleaner installation procedure](../../../docs/lifecycle.md#install-the-independent-cleaner) documents permissions, scheduling, retries, and cleanup observations.
+
+The offline tests do not measure live CronJob scheduling, runner-loss recovery, or the 30-minute deletion target.
+Tasks 7.5, 8.2, and section 9 retain live command acceptance, enforced authorization policy, and runtime qualification.
+
+The November 13 [focused live cleanup test](../../../docs/live-cleanup-validation.md) adds evidence for Kubernetes 1.36.4 with the same executable source.
+Two native CronJob sweeps ran exactly 300 seconds apart.
+Live namespace fixtures passed interruption recovery, overdue retries, late-resource discovery, ownership preservation, repeated deletion, and cleanup timestamp assertions.
+The cleaner used its mounted Kubernetes identity with CA verification and no cloud tools.
+Independent observations found all fixture namespaces absent before the temporary local cluster and kubeconfig were removed.
+Default access configuration remained unchanged, and no cloud resources were provisioned.
+These results do not qualify clabernetes deletion, real switch workloads, GKE, or the broader live acceptance tasks.
 
 ## Historical demo evidence
 
@@ -311,7 +345,7 @@ Repeated deletion after the cleanup deadline keeps a completed record free of th
 Failed cleanup remains overdue until a later successful retry clears the flag.
 The final follow-up passes all 88 offline regression tests, six bundle tests, strict OpenSpec validation, and the pinned Ruff and mypy hooks.
 These follow-up tests do not add live runtime qualification.
-Tasks 7.4 and 7.5 remain open for their broader cleanup and command acceptance requirements.
+Task 7.4 records broader controlled cleanup evidence above. Task 7.5 retains live command acceptance.
 
 ## Workflow follow-up
 

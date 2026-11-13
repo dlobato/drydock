@@ -1,8 +1,9 @@
-# Supply a Google Cloud CLI slim image pinned by SHA-256 digest.
-ARG GCLOUD_IMAGE
-FROM ${GCLOUD_IMAGE}
-RUN apt-get update && apt-get install -y --no-install-recommends kubectl python3-venv \
-    && rm -rf /var/lib/apt/lists/*
+# Supply Python slim and kubectl images pinned by SHA-256 digest.
+ARG PYTHON_IMAGE
+ARG KUBECTL_IMAGE
+FROM ${KUBECTL_IMAGE} AS kubectl
+FROM ${PYTHON_IMAGE}
+COPY --from=kubectl /bin/kubectl /usr/local/bin/kubectl
 WORKDIR /app
 COPY requirements.txt .
 RUN python3 -m venv /opt/drydock \
