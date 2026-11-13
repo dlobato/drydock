@@ -302,3 +302,11 @@ The unmarked PR event skipped its private job. Only the separate manual request 
 
 After the scope correction, all 123 Python tests and 32 selector tests pass again.
 Actionlint, pre-commit, strict OpenSpec validation, and whitespace validation also pass.
+
+## Email scope acceptance request
+
+PR #23 merged into protected `main` as `5470d057700b8f12f7d92fec8f6e7444065167c5`.
+The trusted workflow now explicitly requests `cloud-platform` and `userinfo.email` for its 900-second token.
+This evidence PR supplies the exact input for a fresh approved no-lab probe.
+The earlier approval covers this corrected attempt and its disposable runner.
+Task 8.2 remains open until the complete probe and independent cleanup inspection pass.
