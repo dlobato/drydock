@@ -9,7 +9,8 @@ A separate trusted workflow accepts `[digital-twin-test]` in the latest PR commi
 It requests temporary GKE access after approval through the protected `gke` environment.
 It records approval for an exact PR commit without creating a lab or running network tests.
 A successful probe establishes only temporary access and permission denials.
-Live GKE integration remains in tasks 8.2 through 8.5.
+Task 8.2 passed [scoped GitHub-to-GKE access acceptance](live-github-gke-access.md#email-scope-acceptance-request).
+Lab orchestration, reports, and complete workflow acceptance remain in tasks 8.3 through 8.5.
 
 ## Automatic PR checks
 
@@ -119,7 +120,8 @@ The [federation setup](github-gke-access.md) binds authentication to numeric rep
 Restrict private runner assignment to trusted workflows and isolate Ansible from Kubernetes credentials.
 Credentialed jobs must use a pinned trusted lifecycle CLI and treat PR topology files as data.
 A workflow condition alone cannot protect credentials from a modified workflow that removes that condition.
-Tasks 8.2 through 8.5 retain temporary access, enforced permissions, private execution, reports, cleanup, and live acceptance.
+Task 8.2 records scoped access and disposable-runner acceptance.
+Tasks 8.3 through 8.5 retain lab orchestration, reports, cleanup, and complete workflow acceptance.
 
 ## Test locally
 

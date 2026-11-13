@@ -2,10 +2,10 @@
 
 This record covers task 8.2 access acceptance. It does not establish network acceptance.
 
-The latest approved run passed token exchange but failed the Kubernetes identity comparison.
-GKE authenticated the token as a numeric account ID instead of the configured service account email.
-The workflow now requests the `userinfo.email` scope alongside `cloud-platform` to supply that email identity.
-Task 8.2 remains open until this correction passes through the trusted GitHub workflow after merge.
+The latest approved run passed the complete trusted GitHub-to-GKE probe with the configured service account email identity.
+It passed ownership reads, all eight Kubernetes denials, and the Google permission boundary through the private endpoint.
+Independent inspection confirmed disposable runner removal and disabled federation afterward.
+Task 8.2 is complete. Lab execution and network acceptance remain separate tasks.
 Earlier sections preserve the prerequisites and incomplete results from their respective test stages.
 
 ## Trusted revision
@@ -302,3 +302,37 @@ The unmarked PR event skipped its private job. Only the separate manual request 
 
 After the scope correction, all 123 Python tests and 32 selector tests pass again.
 Actionlint, pre-commit, strict OpenSpec validation, and whitespace validation also pass.
+
+## Email scope acceptance request
+
+PR #23 merged into protected `main` as `5470d057700b8f12f7d92fec8f6e7444065167c5`.
+The trusted workflow now explicitly requests `cloud-platform` and `userinfo.email` for its 900-second token.
+This evidence PR supplies the exact input for a fresh approved no-lab probe.
+The earlier approval covers this corrected attempt and its disposable runner.
+
+[Run 43482680932](https://github.com/dlobato/drydock/actions/runs/43482680932) passed on its first attempt.
+It selected PR #24 input `21d8dfcbbd1ba44b9703ff560899fee80a4aa803` before native approval.
+The private job had no assigned runner or executed steps while approval was absent.
+The dispatcher authorized the exact approved attempt before runner registration or VM creation.
+The root-owned guard accepted the trusted workflow at `5470d057700b8f12f7d92fec8f6e7444065167c5`.
+No PR code executed in the private job.
+
+The official Google action issued the requested 900-second token with `cloud-platform` and `userinfo.email` scopes.
+The GKE audit log recorded `drydock-github@drydock-513410.iam.gserviceaccount.com` for the successful identity request.
+The probe passed identity comparison and ownership reads through the private endpoint with the cluster CA.
+It required explicit refusal of all eight unrelated Kubernetes operations.
+Google allowed only `container.clusters.get` among the requested permissions and denied worker allocation and IAM administration.
+The unchanged probe removed its temporary kubeconfig after completion.
+
+The runner used private address `10.140.0.10`, no cloud service account, and a GCE-enforced 900-second deletion deadline.
+The dispatcher removed its VM, boot disk, SSH keys, registration, queue session, and scale set.
+Independent Google and GitHub API inspection found no disposable VM, disk, or registered runner.
+Local inspection found no SSH keys. Provider readback confirmed disabled federation with all claim restrictions retained.
+The provider still pins the reviewed workflow SHA. The shared access target remains available.
+
+This result completes task 8.2 together with the earlier target-boundary, approval-denial, unauthorized-workflow, and operator-loss evidence.
+No lab or switch was allocated. Tasks 8.3 through 8.5 retain lab orchestration, reports, and workflow acceptance.
+Scale, network behavior, MLAG, broader concurrency, published clabernetes compatibility, and AWS remain unqualified by this access test.
+
+All 123 Python tests, 32 selector tests, dispatcher race tests, and static analysis pass on the merged revision.
+Pre-commit, actionlint, strict OpenSpec validation, and whitespace validation pass.

@@ -82,7 +82,8 @@ The separate trusted workflow also accepts manual dispatch.
 Its access probe requests temporary credentials after approval without allocating a lab or running network tests.
 The [workflow instructions](docs/workflows.md) describe both paths.
 The [GKE access instructions](docs/github-gke-access.md) cover disabled federation setup, scoped permissions, and the admission webhook.
-Live GitHub-to-GKE acceptance remains open. The configured provider stays disabled until the target boundary passes.
+The [approved GitHub-to-GKE access probe](docs/live-github-gke-access.md#email-scope-acceptance-request) passed identity, permissions, and disposable-runner cleanup.
+Federation is disabled again. Lab orchestration and network acceptance remain open.
 
 ## Develop
 

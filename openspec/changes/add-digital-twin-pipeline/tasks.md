@@ -13,8 +13,7 @@ Task 7.3 records the 30-minute default, 60-minute maximum, and controlled expiry
 Task 7.4 records the Kubernetes-only cleaner, image build, and controlled cleanup recovery evidence.
 Task 7.5 records standalone command acceptance and complete lab removal on a bounded local private runtime.
 Task 8.1 records automatic PR checks, an opt-in approval placeholder, and native environment protection.
-Task 8.2 now includes disabled federation setup, an access probe, and an approved admission component.
-Its live GitHub-to-GKE acceptance remains incomplete, so its checkbox stays open.
+Task 8.2 records scoped federation, admission, approved disposable runners, and complete live GitHub-to-GKE access acceptance.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -85,7 +84,7 @@ The former open demo tasks are replaced without claiming their completion:
 ## 8. Integrate automatic PR checks and opt-in lab tests
 
 - [x] 8.1 Run hosted lint and unit tests automatically on every PR and update without custom author restrictions or cloud approval. Replace custom actor authorization with a separate opt-in PR test request and native `gke` environment protection. Document both paths. Use the user-authorized hosted placeholder to test approval without cloud access or lab allocation. Test fork eligibility, exact-commit selection, trusted workflow revisions, absence of GKE jobs on PR events, and the environment gate before placeholder execution. Leave live private-execution denial evidence in tasks 8.2 and 8.5.
-- [ ] 8.2 Document and configure temporary GKE authentication through GitHub OIDC federation bound to the approved `gke` environment and trusted workflow outside the lifecycle core. Deliver scoped RBAC and admission policy for the lab boundary. Deliver the approved operator-controlled dispatcher with queue authorization before runner registration and an independent execution guard and disposable private runners. Prove unauthorized-workflow denial and bounded runner disposal. Demonstrate denial before approval and denial of unrelated Secret access, RBAC changes, cloud worker allocation, and unsafe workloads without personal keys.
+- [x] 8.2 Document and configure temporary GKE authentication through GitHub OIDC federation bound to the approved `gke` environment and trusted workflow outside the lifecycle core. Deliver scoped RBAC and admission policy for the lab boundary. Deliver the approved operator-controlled dispatcher with queue authorization before runner registration and an independent execution guard and disposable private runners. Prove unauthorized-workflow denial and bounded runner disposal. Demonstrate denial before approval and denial of unrelated Secret access, RBAC changes, cloud worker allocation, and unsafe workloads without personal keys.
 - [ ] 8.3 Connect the standard AVD build and ANTA playbooks through the lifecycle CLI and runtime connection inventory. Isolate Ansible from Kubernetes credentials and use a pinned trusted CLI. Test model consistency, mandatory coverage, preserved inventory groups, and cleanup after each failure stage.
 - [ ] 8.4 Select a finite artifact retention duration and retain safe reports with exact input provenance. Test upload failure without blocking deletion. Inspect final artifacts for credentials, startup files, and sensitive structured data. Document report paths and cleanup outcomes.
 - [ ] 8.5 Exercise automatic PR lint and unit tests plus a separate opt-in pre-deployment request with native `gke` approval. Demonstrate temporary access, complete test reports, and lab deletion. Show that a new unmarked PR commit runs its checks without starting another GKE test, inheriting approval, or reusing a previous lab.
@@ -596,3 +595,26 @@ Task 8.2 remains unchecked at 36/44 tasks complete.
 See [the live request record](../../../docs/live-github-gke-access.md#final-trusted-workflow-request) for the exact failure and cleanup evidence.
 All 123 Python tests and 32 selector tests pass after the correction.
 Actionlint, pre-commit, strict OpenSpec validation, and whitespace validation pass.
+
+## Complete scoped access acceptance (task 8.2)
+
+PR #23 merged as `5470d057700b8f12f7d92fec8f6e7444065167c5` with both required token scopes.
+Approved run `43482680932` passed the complete trusted workflow for PR #24 input `21d8dfcbbd1ba44b9703ff560899fee80a4aa803`.
+Native approval, queue authorization, the runner guard, and the official 900-second token exchange passed.
+GKE authenticated the dedicated service account by its configured email.
+The private-endpoint probe passed ownership reads, all eight Kubernetes denials, and the Google permission boundary.
+No PR code executed, and no lab or switch was allocated.
+
+The dispatcher removed its VM, disk, keys, registration, queue session, and scale set.
+Independent inspection found no disposable VM, boot disk, or GitHub runner. Local inspection found no SSH keys.
+Federation is disabled again with the reviewed SHA and all other claim restrictions retained.
+The shared access target remains provisioned.
+
+This completes task 8.2 with the earlier live unsafe-workload denials, unauthorized-runner refusal, native approval denial, and operator-loss disposal evidence.
+Overall progress is 37/44 tasks complete.
+Tasks 8.3 through 8.5 retain lab orchestration, report handling, and complete workflow acceptance.
+Section 9 retains scale, concurrency, failure, and provider qualification.
+See [the successful access record](../../../docs/live-github-gke-access.md#email-scope-acceptance-request) for exact provenance and evidence limits.
+
+All 123 Python tests, 32 selector tests, dispatcher race tests, and static analysis pass on the merged revision.
+Pre-commit, actionlint, strict OpenSpec validation, and whitespace validation pass.

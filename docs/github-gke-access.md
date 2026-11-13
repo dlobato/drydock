@@ -177,7 +177,12 @@ Restrict issued Google access tokens to 900 seconds and request fresh approval f
 Keep token issuance inside environment-approved jobs and outside Ansible execution.
 The independent cleaner must retain its separate Kubernetes identity if workflow access expires.
 
-## Acceptance still required
+## Scoped access acceptance
+
+The approved trusted workflow passed [the complete no-lab access probe](live-github-gke-access.md#email-scope-acceptance-request) on November 13, 2026.
+The result includes email identity, ownership reads, Kubernetes denials, and the Google permission boundary.
+Federation is disabled again, and independent inspection confirmed disposable runner removal.
+Repeat the following procedure for a new target or trusted workflow revision.
 
 The workflow replaces the hosted placeholder with a temporary-access probe.
 It uses only the reviewed workflow commit and never checks out PR code on the private runner.
