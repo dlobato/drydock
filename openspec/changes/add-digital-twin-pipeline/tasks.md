@@ -538,3 +538,39 @@ No active lab or switch remains.
 Local validation passed 121 Python tests, 32 selector tests, Go race tests and static analysis, actionlint, pre-commit, and strict OpenSpec validation.
 Task 8.2 remains unchecked at 36/44 overall because the complete corrected trusted probe requires the fix on protected `main`.
 Start a fresh request after merge with an open same-repository PR, rather than rerunning the old workflow revision.
+
+## Corrected post-merge probe attempt (task 8.2, acceptance incomplete)
+
+PR #21 merged as `f0e6061074b301f6aed1776710087cba18d6db07`.
+The operator pinned the disabled provider to that exact trusted revision and requested run `43471711854` with PR #22 as input.
+Before owner approval, the access job had no assigned runner or executed steps.
+After native approval, queue authorization, the runner guard, and the official 900-second Google token exchange passed.
+The access probe failed. A local reproduction showed that the parser rejects valid GKE denials with an explanatory reason after `no`.
+
+The parser now accepts that denial format while requiring exit code 1.
+Regression tests reject empty or unrecognized output and excess permissions.
+The corrected local probe passed all eight Kubernetes denials and the Google permission boundary with the dedicated workflow identity.
+It used the operator-authorized public control endpoint with the cluster CA, so it does not establish private-runner completion.
+
+The dispatcher removed its VM, disk, SSH keys, runner registration, queue session, and scale set.
+Independent API inspection found no disposable VM, disk, or registered runner.
+Federation is disabled again. The temporary local diagnostic grant and credential files were removed.
+No lab or switch was allocated by this request.
+Task 8.2 remains unchecked until the parser correction reaches protected `main` and a fresh approved trusted probe passes.
+See [the live access record](../../../docs/live-github-gke-access.md#approved-probe-and-denial-parsing) for the exact result and disposal evidence.
+Validation after the correction passed 123 Python tests, 32 selector tests, Ruff, mypy, strict OpenSpec validation, and whitespace validation.
+
+## Pre-merge private probe evidence (task 8.2, workflow acceptance incomplete)
+
+The unchanged access probe from PR #22 commit `5feb4c1bfe7eb25ff59aebcfc25ec6d2c599b710` passed on an operator-controlled private VM before merge.
+The recorded script SHA256 is `57847dbf75432ad75625a3a00697221c1988b1508301e96556a0f68a606e937b`.
+The probe used the private Kubernetes endpoint with the cluster CA and the dedicated workflow identity.
+Identity, ownership reads, all eight Kubernetes denials, and the Google permission boundary passed.
+The operator supplied a 900-second diagnostic token and removed its temporary impersonation grant before execution.
+
+The test registered no GitHub runner and left federation disabled throughout.
+The VM had no public address or cloud service account and used the existing 900-second deletion deadline.
+Independent API inspection found no VM or boot disk after deletion. Local credential and SSH files were removed.
+No lab or switch was allocated.
+Task 8.2 remains unchecked because this standalone test does not exercise the complete corrected GitHub workflow.
+See [the pre-merge result](../../../docs/live-github-gke-access.md#pre-merge-private-endpoint-test) for the exact execution and evidence limits.

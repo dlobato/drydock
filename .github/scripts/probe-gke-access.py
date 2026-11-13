@@ -116,7 +116,10 @@ def probe(token, cluster, namespace, username):
         ]
         for operation in denied:
             response = kubectl("auth", "can-i", *operation)
-            if response.returncode != 1 or response.stdout.strip() != "no":
+            if (
+                response.returncode != 1
+                or response.stdout.strip().partition(" - ")[0] != "no"
+            ):
                 raise ValueError("An unrelated operation was not explicitly denied.")
     return {
         "temporary_access": "passed",
