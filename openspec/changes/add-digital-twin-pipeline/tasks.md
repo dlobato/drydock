@@ -475,3 +475,20 @@ An auxiliary operator impersonation probe was denied. Its temporary token-creati
 Google permission denial remains a required live probe outcome, rather than a claim from the configured role alone.
 Task 8.2 remains unchecked until that approved target-cluster test and its denial scenarios pass.
 See [the operator instructions](../../../docs/github-gke-access.md) for installation and remaining acceptance steps.
+
+## Live approval denial evidence (task 8.2, acceptance incomplete)
+
+PR #20 merged into protected `main` as `44e6caa176108eb5be62252bf1363678086680e0`.
+The disabled federation provider now pins that revision and retains all other claim restrictions.
+Provider readback confirms that federation remains disabled.
+
+PR #21 requested the access probe through its marked head commit.
+The native `gke` gate held the access job without a runner or executed steps while approval was absent.
+The operator rejected that deployment. Final API inspection found no runner or executed credential steps after rejection.
+The expected failed run establishes rejection enforcement, not a successful access probe.
+See [the live access record](../../../docs/live-github-gke-access.md) for the exact run and selected input.
+
+No GKE cluster, compute instance, or registered private runner existed at inspection.
+The personal repository cannot supply an organization runner group with workflow restrictions.
+The operator-controlled private execution design remains unresolved.
+Task 8.2 remains unchecked. GKE identity mapping, token exchange, and cloud denial evidence remain unperformed.

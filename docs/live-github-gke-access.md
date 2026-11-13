@@ -14,8 +14,18 @@ These observations describe the inspected state, not a deployment guarantee.
 
 ## Approval boundary
 
-Live approval tests remain pending. They require no GKE cluster or private runner.
-The access job must receive neither a runner nor credentials while approval is absent or rejected.
+The marked head of PR #21 requested the merged trusted workflow for exact input `9af7cffc0e218e130da0bb377824ef5985b6f88d`.
+[Run 43429024041](https://github.com/dlobato/drydock/actions/runs/43429024041) reached the native `gke` approval gate.
+The hosted selector completed before the access job waited for approval.
+
+API inspection recorded the access job with no runner, no runner name, and no executed steps while approval was absent.
+The operator then rejected the deployment through GitHub's native review endpoint.
+The run and access job ended with the expected failure result.
+Final API inspection recorded no assigned runner and no executed steps after rejection.
+The authentication action never started. These observations required no private capacity or enabled federation.
+
+The run identifies the PR input separately from the trusted workflow revision on `main`.
+No PR code executed in the credentialed job.
 
 ## Remaining acceptance
 
