@@ -184,3 +184,11 @@ Task 8.2 remains unchecked until that result exists.
 Local validation passed 121 Python tests, 32 Node.js selector tests, Go race tests and static analysis, actionlint, pre-commit, and strict OpenSpec validation.
 The hosted PR checks also run both offline AVD builds and the six bundle tests.
 None of this evidence establishes switch startup, network behavior, MLAG, scale, concurrency qualification, or AWS support.
+
+## Post-merge acceptance request
+
+PR #21 merged into protected `main` as `f0e6061074b301f6aed1776710087cba18d6db07`.
+That revision contains the corrected permission probe, immutable subject, and runner guard.
+The final access request uses that trusted revision and an exact input commit from this evidence PR.
+The provider remains disabled while the operator prepares its SHA restriction and the native approval request.
+Task 8.2 remains unchecked until the complete probe succeeds and the disposable runner is removed.
