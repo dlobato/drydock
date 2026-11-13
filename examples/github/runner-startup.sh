@@ -53,6 +53,7 @@ result = subprocess.run(
     cwd="/opt/actions-runner",
     user="drydock-runner",
     group="drydock-runner",
+    extra_groups=[],
     env=environment,
     start_new_session=True,
     stdout=subprocess.DEVNULL,
