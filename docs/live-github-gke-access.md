@@ -34,6 +34,31 @@ An organization runner group with workflow restrictions is not available inside 
 Runner labels do not restrict which workflow can request private execution.
 The operator must supply an enforced execution boundary before registering private capacity.
 
+## Proposed runner boundary
+
+This proposal is not an accepted design or an installed component.
+Use an operator-controlled dispatcher with GitHub's runner scale-set interface.
+A scale set groups disposable runners and exposes queued job identities before acquisition.
+The [official SDK](https://github.com/actions/scaleset) exposes workflow references, events, run identifiers, and explicit job acquisition.
+
+The dispatcher must enforce these steps outside workflow YAML:
+
+1. Inspect GitHub's queued job identity and the corresponding environment review for the exact run attempt.
+2. Accept only the reviewed repository's trusted workflow on protected `main` after `gke` approval.
+3. Acquire only an accepted job, then create one disposable runner with private routes and no administrative credentials.
+4. Keep GitHub registration and cloud administration credentials in the operator process, outside the runner.
+5. Destroy the runner after completion, cancellation, provisioning failure, or a fixed timeout.
+
+The provider must retain its separate exact workflow SHA restriction.
+The dispatcher must deny PR-controlled workflows even when they request identical runner labels.
+Missing identity data, failed review lookup, or an unavailable GitHub API must prevent acquisition.
+Tests must demonstrate those denials before federation is enabled.
+
+This adds an operator component. Its implementation and dependency choice require an accepted design.
+No dispatcher, runner registration, or cloud capacity was created for this proposal.
+
+## Remaining target tests
+
 The remaining tests require a private GKE target, admission installation, and a controlled disposable runner.
 They must prove temporary identity exchange, GKE identity mapping, allowed lifecycle operations, and the specified Kubernetes and Google denials.
 Task 8.2 remains unchecked until these tests pass.
