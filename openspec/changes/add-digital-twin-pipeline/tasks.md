@@ -74,7 +74,7 @@ The former open demo tasks are replaced without claiming their completion:
 - [ ] 7.5 Exercise the documented standalone creation, readiness, inventory, status, and repeated deletion commands. Demonstrate JSON outcomes and complete removal of lab-owned resources. Keep the switch TLS exception explicit and preserve verification for Kubernetes endpoints.
 - [x] 7.6 Replace optional demo ANTA results after every completed invocation, including empty results. Test that acceptance uses the current attempt and preserves diagnostics if invocation raises.
 - [x] 7.7 Skip completed cleanup records with absent namespaces using one namespace list per cleaner sweep. Test bounded API work, expired-lab cleanup, and late namespace discovery while preserving deletion ownership guards.
-- [ ] 7.8 Clear the overdue flag after successful deletion. Test repeated deletion after the cleanup deadline and retain overdue status for incomplete cleanup.
+- [x] 7.8 Clear the overdue flag after successful deletion. Test repeated deletion after the cleanup deadline and retain overdue status for incomplete cleanup.
 
 ## 8. Integrate the owner-launched pipeline
 
@@ -306,6 +306,10 @@ Task 7.7 passes all 63 lifecycle tests.
 Three retained completed records add no individual API operations while an expired lab still completes deletion.
 A subsequent sweep makes two list calls, writes no records, and retains all cleanup history.
 Existing tests still cover late namespaces, competing allocation, replacement namespaces, ownership mismatches, and unrelated-lab preservation.
+Task 7.8 passes all 64 lifecycle tests.
+Repeated deletion after the cleanup deadline keeps a completed record free of the overdue flag.
+Failed cleanup remains overdue until a later successful retry clears the flag.
+The final follow-up passes all 88 offline regression tests, six bundle tests, strict OpenSpec validation, and the pinned Ruff and mypy hooks.
 These follow-up tests do not add live runtime qualification.
 Tasks 7.4 and 7.5 remain open for their broader cleanup and command acceptance requirements.
 

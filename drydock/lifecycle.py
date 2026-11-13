@@ -293,7 +293,7 @@ def delete_lab(env, lab, *, allocation_id=None):
         record = lab_record(env, lab)
         record["state"] = "deleted" if complete else "deleting"
         record["cleanup"] = result
-        record["overdue"] = now() > record["expires_at"] + 1800
+        record["overdue"] = not complete and now() > record["expires_at"] + 1800
         write_record(env, record)
     return result
 

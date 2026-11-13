@@ -576,6 +576,7 @@ class OwnershipTests(unittest.TestCase):
             self.assertTrue(cloud.lab_record(self.env, LAB)["overdue"])
             self.env.fail_delete = False
             self.assertTrue(cloud.reap(self.env)[0]["deleted"])
+            self.assertFalse(cloud.lab_record(self.env, LAB)["overdue"])
             # A late provider allocation is still removed after the record says deleted.
             self.env.namespaces.append(
                 {
@@ -595,6 +596,16 @@ class OwnershipTests(unittest.TestCase):
             )
             self.assertTrue(cloud.reap(self.env)[0]["deleted"])
         self.assertFalse(self.env.namespaces)
+
+    def test_completed_deletion_stays_not_overdue_after_the_cleanup_deadline(self):
+        with patch("drydock.lifecycle.now", return_value=1000):
+            record = cloud.create_lab(self.env, self.bundle, IDENTITY, lab=LAB)
+            self.assertTrue(cloud.delete_lab(self.env, LAB)["deleted"])
+        with patch("drydock.lifecycle.now", return_value=record["expires_at"] + 1801):
+            self.assertTrue(cloud.delete_lab(self.env, LAB)["deleted"])
+        completed = cloud.lab_record(self.env, LAB)
+        self.assertEqual(completed["state"], "deleted")
+        self.assertFalse(completed["overdue"])
 
     def test_completed_history_does_not_repeat_cleanup_or_delay_expired_labs(self):
         for index in range(3):
