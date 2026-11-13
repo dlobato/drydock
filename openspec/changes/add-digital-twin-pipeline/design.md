@@ -229,6 +229,34 @@ The workflow identity cannot administer IAM, allocate workers, change RBAC, or a
 Namespace creation and privileged cEOS workloads must remain inside the operator-enforced lab boundary.
 Prove these restrictions before enabling credentialed runs.
 
+Use an operator-installed TLS admission webhook for the lab mutation boundary.
+The user approved this component on November 13 because native admission expressions cannot parse the embedded Containerlab YAML.
+Reuse the lifecycle topology validator with Python's standard HTTP and TLS libraries and the existing PyYAML dependency.
+No general service framework or database is added.
+The webhook enforces approved image digests, projected startup files, private HTTPS exposure, ownership, immutable expiry, and cleanup state.
+It rejects execution hooks, unsupported devices, host mounts, arbitrary Secret references, and deployment overrides.
+It reads no startup Secrets and fails closed if unavailable.
+
+Grant the workflow namespace discovery, admitted creation, and ownership-record operations without Secret reads or permission changes.
+Give readiness reads through a RoleBinding in each owned namespace instead of cluster-wide workload reads.
+An operator-owned background loop creates those fixed reader bindings from durable ownership records.
+The first payload admission waits at most five seconds for its binding. Validation itself changes no cluster resources.
+The loop can bind only the generated reader role. Its identity remains a trusted cluster component.
+Protect the independent cleaner's namespace deletion with the same admission boundary.
+The operator owns the webhook certificate and availability. An outage also stops restricted cleanup mutations.
+
+Replace the hosted placeholder with a no-lab access probe after environment approval.
+Only that job can request an identity token. It executes the exact trusted workflow commit on a controlled private runner.
+Use the official Google action to issue a 900-second token without creating a reusable credential file.
+The probe authenticates to the private Kubernetes endpoint with its CA and removes its temporary kubeconfig on exit.
+It tests ownership reads, unrelated-operation denials, and Google permissions without allocating a lab.
+Longer lifecycle orchestration and credential renewal remain task 8.3.
+
+The initial Google provider remains disabled and pins numeric repository identities, the environment subject, branch, workflow, event, and exact workflow SHA.
+Its service account receives only `container.clusters.get` for Google API access.
+Do not grant worker allocation, broad container roles, personal keys, or permanent operator impersonation access.
+Keep task 8.2 open until the approved GitHub-to-GKE probe passes on the target cluster.
+
 The provider handles token exchange and renewal. Drydock consumes the supplied Kubernetes context without cloud-specific login code.
 Token validity must cover authorized work and immediate cleanup without extending the lab expiry.
 If workflow access expires, the independent cleaner still retains its own Kubernetes cleanup identity.
@@ -252,7 +280,8 @@ The corrected private clabernetes build does not qualify the official published 
 Task 8.1 replaces the manual-only offline workflow and custom actor authorization with automatic hosted PR checks.
 A separate opt-in workflow selects an exact PR commit and requests native `gke` approval.
 The user authorized a hosted placeholder to test this flow without cloud access or lab allocation.
-The placeholder reports approval completion only. It does not report network acceptance.
+That historical placeholder reports approval completion only. It does not report network acceptance.
+Task 8.2 replaces it with an approved temporary-access probe while keeping lab and ANTA orchestration outside that job.
 Tasks 8.2 through 8.5 retain live GKE integration and acceptance.
 Do not enable cloud access until its environment protection and federation rules are in place.
 Keep the earlier task 8.1 evidence as historical evidence of the superseded policy.

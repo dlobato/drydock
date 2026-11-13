@@ -13,6 +13,8 @@ Task 7.3 records the 30-minute default, 60-minute maximum, and controlled expiry
 Task 7.4 records the Kubernetes-only cleaner, image build, and controlled cleanup recovery evidence.
 Task 7.5 records standalone command acceptance and complete lab removal on a bounded local private runtime.
 Task 8.1 records automatic PR checks, an opt-in approval placeholder, and native environment protection.
+Task 8.2 now includes disabled federation setup, an access probe, and an approved admission component.
+Its live GitHub-to-GKE acceptance remains incomplete, so its checkbox stays open.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -442,3 +444,34 @@ No live marker-triggered approval, cloud allocation, or NRFU result is claimed b
 - Continue tasks 8.2 through 8.5 as separate authentication, integration, report, and live acceptance work.
 - Keep the change active until the revised implementation, scenario evidence, and review are complete.
 - Archive and inspect the archived specifications only after the project acceptance requirements are satisfied.
+
+## Scoped access implementation evidence (task 8.2, acceptance incomplete)
+
+The user authorized the required changes in the existing Google project and approved a small admission webhook.
+The operator setup creates a disabled federation provider and a dedicated service account with only `container.clusters.get`.
+The provider pins numeric repository identities, the protected environment subject, branch, workflow, event, and exact workflow commit.
+No personal key is stored in GitHub.
+The two nonsecret provider and service-account variables are configured on `gke`.
+
+The requested workflow now performs an environment-approved, no-lab access probe on a controlled private runner.
+Only that job can request a 900-second token. It executes no PR code and removes its temporary kubeconfig.
+Scoped RBAC denies Secret reads, permission changes, and direct workload creation.
+The operator-installed TLS webhook reuses topology validation and enforces namespace ownership, approved images, safe payloads, expiry, and cleanup state.
+A separate reconciliation loop gives readiness reads only in owned namespaces.
+
+Local Kubernetes 1.36.4 accepted generated topology with the real private-runtime CRD defaults.
+Actual API calls denied unrelated Secret and Pod reads, permission escalation, privileged Pods, and unrelated namespace creation.
+Admission denied host containers, execution hooks, host mounts, per-node images, external payloads, arbitrary Secret references, public exposure, and expiry extension.
+The independent cleaner removed the owned lab and preserved the unrelated namespace and Secret.
+Repeated caller deletion passed. Stopping admission made restricted API requests fail closed.
+The running source hashes matched the checkout.
+All 115 Python regression tests, 32 Node.js selection tests, and six bundle tests pass.
+Both offline AVD builds, actionlint, Ruff, mypy, strict OpenSpec validation, and whitespace validation pass.
+
+The project had no GKE cluster or registered private runner during this implementation.
+The trusted workflow must reach protected `main` before its token exchange can be exercised.
+Federation remains disabled. No live GitHub token exchange, private-runner authorization, GKE identity mapping, or network acceptance is claimed.
+An auxiliary operator impersonation probe was denied. Its temporary token-creation grant was removed and the final policy was inspected.
+Google permission denial remains a required live probe outcome, rather than a claim from the configured role alone.
+Task 8.2 remains unchecked until that approved target-cluster test and its denial scenarios pass.
+See [the operator instructions](../../../docs/github-gke-access.md) for installation and remaining acceptance steps.

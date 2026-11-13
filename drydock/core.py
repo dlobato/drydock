@@ -209,78 +209,79 @@ class Bundle:
             topology = yaml.safe_load(files[topology_path])
         except yaml.YAMLError:
             raise UserError("The topology must contain valid YAML.") from None
+        validate_topology(topology, files, topology_path)
+        return cls(hashlib.sha256(content).hexdigest(), topology, files)
+
+
+def validate_topology(topology, files, topology_path):
+    require_fields(
+        topology,
+        {"name", "prefix", "mgmt", "topology"},
+        {"name", "topology"},
+    )
+    if not isinstance(topology["name"], str) or topology.get("prefix", "") != "":
+        raise UserError("Unsupported topology attributes.")
+    require_fields(topology.get("mgmt", {}), {"network", "ipv4-subnet"})
+    definition = topology["topology"]
+    require_fields(
+        definition, {"nodes", "links", "kinds", "defaults"}, {"nodes", "kinds"}
+    )
+    defaults = definition.get("defaults", {})
+    require_fields(defaults, {"kind"})
+    if defaults.get("kind", "arista_ceos") != "arista_ceos":
+        raise UserError("Unsupported topology defaults.")
+    require_fields(definition["kinds"], {"arista_ceos"}, {"arista_ceos"})
+    kind = definition["kinds"]["arista_ceos"]
+    require_fields(kind, {"image", "binds", "enforce-startup-config"}, {"image"})
+    if kind.get("enforce-startup-config", True) is not True:
+        raise UserError("Complete startup configurations must be enforced.")
+    require_digest(kind["image"])
+    nodes = definition["nodes"]
+    if not isinstance(nodes, dict) or not nodes:
+        raise UserError("Supply at least one cEOS switch.")
+    expected = {topology_path}
+    source = mapping_source(kind.get("binds", []))
+    if source:
+        expected.add(source)
+    for name, node in nodes.items():
+        if not isinstance(name, str) or not re.fullmatch(
+            r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", name
+        ):
+            raise UserError("Switch names must be DNS labels of at most 63 characters.")
         require_fields(
-            topology,
-            {"name", "prefix", "mgmt", "topology"},
-            {"name", "topology"},
+            node,
+            {"kind", "startup-config", "mgmt-ipv4", "binds", "labels"},
+            {"startup-config"},
         )
-        if not isinstance(topology["name"], str) or topology.get("prefix", "") != "":
-            raise UserError("Unsupported topology attributes.")
-        require_fields(topology.get("mgmt", {}), {"network", "ipv4-subnet"})
-        definition = topology["topology"]
-        require_fields(
-            definition, {"nodes", "links", "kinds", "defaults"}, {"nodes", "kinds"}
-        )
-        defaults = definition.get("defaults", {})
-        require_fields(defaults, {"kind"})
-        if defaults.get("kind", "arista_ceos") != "arista_ceos":
-            raise UserError("Unsupported topology defaults.")
-        require_fields(definition["kinds"], {"arista_ceos"}, {"arista_ceos"})
-        kind = definition["kinds"]["arista_ceos"]
-        require_fields(kind, {"image", "binds", "enforce-startup-config"}, {"image"})
-        if kind.get("enforce-startup-config", True) is not True:
-            raise UserError("Complete startup configurations must be enforced.")
-        require_digest(kind["image"])
-        nodes = definition["nodes"]
-        if not isinstance(nodes, dict) or not nodes:
-            raise UserError("Supply at least one cEOS switch.")
-        expected = {topology_path}
-        source = mapping_source(kind.get("binds", []))
+        if node.get("kind", defaults.get("kind")) != "arista_ceos":
+            raise UserError("Only arista_ceos switches are supported.")
+        startup = safe_path(node["startup-config"])
+        expected.add(startup)
+        source = mapping_source(node.get("binds", []))
         if source:
             expected.add(source)
-        for name, node in nodes.items():
-            if not isinstance(name, str) or not re.fullmatch(
-                r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", name
+    if set(files) != expected:
+        raise UserError(
+            "Bundle files must match the topology and its referenced files exactly."
+        )
+    if any(
+        len(files[name].encode()) > PAYLOAD_LIMIT for name in expected - {topology_path}
+    ):
+        raise UserError("Each startup or mapping file must fit within 512 KiB.")
+    links = definition.get("links", [])
+    if not isinstance(links, list):
+        raise UserError("Topology links must be a list.")
+    for link in links:
+        require_fields(link, {"endpoints", "mtu"}, {"endpoints"})
+        if not isinstance(link["endpoints"], list) or len(link["endpoints"]) != 2:
+            raise UserError("Each link must contain two switch endpoints.")
+        for endpoint in link["endpoints"]:
+            if (
+                not isinstance(endpoint, str)
+                or len(endpoint.split(":")) != 2
+                or endpoint.split(":")[0] not in nodes
             ):
-                raise UserError(
-                    "Switch names must be DNS labels of at most 63 characters."
-                )
-            require_fields(
-                node,
-                {"kind", "startup-config", "mgmt-ipv4", "binds", "labels"},
-                {"startup-config"},
-            )
-            if node.get("kind", defaults.get("kind")) != "arista_ceos":
-                raise UserError("Only arista_ceos switches are supported.")
-            startup = safe_path(node["startup-config"])
-            expected.add(startup)
-            source = mapping_source(node.get("binds", []))
-            if source:
-                expected.add(source)
-        if set(files) != expected:
-            raise UserError(
-                "Bundle files must match the topology and its referenced files exactly."
-            )
-        if any(
-            len(files[name].encode()) > PAYLOAD_LIMIT
-            for name in expected - {topology_path}
-        ):
-            raise UserError("Each startup or mapping file must fit within 512 KiB.")
-        links = definition.get("links", [])
-        if not isinstance(links, list):
-            raise UserError("Topology links must be a list.")
-        for link in links:
-            require_fields(link, {"endpoints", "mtu"}, {"endpoints"})
-            if not isinstance(link["endpoints"], list) or len(link["endpoints"]) != 2:
-                raise UserError("Each link must contain two switch endpoints.")
-            for endpoint in link["endpoints"]:
-                if (
-                    not isinstance(endpoint, str)
-                    or len(endpoint.split(":")) != 2
-                    or endpoint.split(":")[0] not in nodes
-                ):
-                    raise UserError("Link endpoints must reference admitted switches.")
-        return cls(hashlib.sha256(content).hexdigest(), topology, files)
+                raise UserError("Link endpoints must reference admitted switches.")
 
 
 def readiness(items, expected_nodes, expected_links):

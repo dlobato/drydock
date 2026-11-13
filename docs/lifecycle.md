@@ -38,7 +38,8 @@ The caller needs permission to manage ownership ConfigMaps, owned lab namespaces
 Readiness also needs access to clabernetes nodes, links, Pods, and Services.
 The current CLI lists namespaces to inspect ownership.
 The operator must enforce the authorized lab boundary through Kubernetes permissions and admission policy.
-The pipeline permission policy remains task 8.2.
+The [GitHub access instructions](github-gke-access.md) supply scoped permissions and the operator-installed admission webhook.
+Its live GitHub-to-GKE acceptance remains task 8.2.
 
 The runner needs private routes to the Kubernetes API and switch Pod addresses on TCP port 443.
 The private demo skips switch TLS certificate verification by agreement.
@@ -93,7 +94,9 @@ Inspect the rendered permissions against the cluster's lab boundary before insta
 The cleaner lists namespaces and deletes namespaces whose ownership matches the retained record.
 It reads and updates ownership ConfigMaps only in the system namespace.
 Kubernetes permissions and operator-installed admission policy must restrict access to authorized lab namespaces.
-The generated ClusterRole alone does not enforce that restriction. Task 8.2 retains that policy work.
+The generated ClusterRole alone does not enforce that restriction.
+Install [the admission boundary](github-gke-access.md#install-admission) before enabling workflow credentials.
+That boundary also restricts the cleaner's namespace deletion requests.
 
 With operator-authorized access, create the ownership namespace and install the manifests.
 Set `DRYDOCK_KUBECONFIG` and `DRYDOCK_CONTEXT` from `artifacts/lifecycle.yml`.

@@ -6,9 +6,9 @@ These jobs need no custom author approval or `gke` approval.
 GitHub can still require approval for workflows from fork contributors.
 
 A separate trusted workflow accepts `[digital-twin-test]` in the latest PR commit or a manual request.
-It tests the opt-in approval path with a placeholder job.
+It requests temporary GKE access after approval through the protected `gke` environment.
 It records approval for an exact PR commit without creating a lab or running network tests.
-A successful placeholder result establishes only that the approval job completed.
+A successful probe establishes only temporary access and permission denials.
 Live GKE integration remains in tasks 8.2 through 8.5.
 
 ## Automatic PR checks
@@ -39,8 +39,10 @@ Keep `main` protected and review workflow changes before merge.
 The branch rule allows the trusted workflow to test proposed PR input before merge.
 It does not require the PR branch to deploy or execute its own workflow definition.
 
-The placeholder needs no environment secrets, cloud credentials, private runner, or GKE resources.
-Do not add those capabilities before tasks 8.2 and 8.3 establish their authorization and isolation controls.
+Complete [the GKE access setup](github-gke-access.md) before requesting the credentialed probe.
+The provider stays disabled until the target cluster's admission and private runner controls pass.
+Configure a disposable private runner with the required labels and enforced trusted-workflow assignment.
+The probe receives a 15-minute token. It needs no personal key or lab password.
 
 ## Request with a commit marker
 
@@ -61,7 +63,7 @@ Do not combine this marker with `[skip ci]`, because GitHub skips the ordinary P
 The trusted selector reads metadata through GitHub's API. It never checks out or executes PR code.
 It requires an open same-repository PR into `main` and an event SHA that matches the observed PR head.
 Fork PRs and stale events request no approval. The separate ordinary PR checks still accept eligible fork PRs.
-The selector records the exact commit before the placeholder waits for `gke` approval.
+The selector records the exact commit before the access job waits for `gke` approval.
 The marker requests approval. It grants no cloud access and cannot replace the required reviewer.
 
 ## Request manually
@@ -82,17 +84,17 @@ No custom launch or rerun actor allowlist applies.
 
 ## Test approval
 
-In Actions, open `Opt-in pre-deployment approval (placeholder)` and select your run.
+In Actions, open `Opt-in GKE access probe` and select your run.
 Read the selected commit in the `select` job summary.
 The workflow resolves the PR head before approval and records the workflow commit, run, and attempt.
 The approval job name and environment link identify that selected commit.
 Manual requests for forks, closed PRs, other base branches, and untrusted workflow references fail selection before approval.
 This restriction does not apply to automatic fork PR checks.
 
-Before approval, make sure that the placeholder job waits for review.
+Before approval, make sure that the access job waits for review.
 Reject the request to test denial, or approve `gke` through Review deployments to test completion.
-After approval, read the placeholder summary. It identifies the selected commit and states that no network tests ran.
-Rejection prevents the placeholder from running. Neither outcome allocates a lab.
+After approval, read the access summary. It identifies the selected commit and states that no network tests ran.
+Rejection prevents token issuance and probe execution. Neither outcome allocates a lab.
 
 To test commit selection, push an unmarked commit to the PR while approval waits.
 Make sure that automatic PR checks start without a second GKE request.
@@ -102,11 +104,15 @@ Reruns remain subject to GitHub's environment rules. Review the selected commit 
 ## Boundaries before live GKE testing
 
 The selector loads code from the exact workflow commit on protected `main`.
-The placeholder executes no PR code and has no repository token permissions.
+The access job checks out only the exact trusted workflow commit.
+Only that environment-approved job receives `id-token: write` and read-only repository access.
+The Google action exchanges its identity for a 900-second access token without creating a reusable credential file.
+The probe keeps the temporary kubeconfig in a restricted directory and removes it after success or failure.
+It receives no Ansible input or PR code.
 GitHub holds its environment job until the protection rules permit execution.
 Local tests establish the workflow structure and selection behavior. They do not establish live approval enforcement.
 
-Before enabling live jobs, bind provider authentication to the repository, approved `gke` environment, and trusted workflow revision.
+The [federation setup](github-gke-access.md) binds authentication to numeric repository identities, the approved environment, and the trusted workflow revision.
 Restrict private runner assignment to trusted workflows and isolate Ansible from Kubernetes credentials.
 Credentialed jobs must use a pinned trusted lifecycle CLI and treat PR topology files as data.
 A workflow condition alone cannot protect credentials from a modified workflow that removes that condition.
