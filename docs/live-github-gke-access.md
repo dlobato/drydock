@@ -2,6 +2,12 @@
 
 This record covers task 8.2 access acceptance. It does not establish network acceptance.
 
+The latest approved run passed identity exchange and failed in the access probe.
+A local reproduction identified a parser defect that rejects valid GKE permission denials.
+The correction passes all eight denials in a local test with the dedicated identity.
+Task 8.2 remains open until the corrected probe passes through the trusted GitHub workflow.
+Earlier sections preserve the prerequisites and incomplete results from their respective test stages.
+
 ## Trusted revision
 
 PR #20 merged into protected `main` as `44e6caa176108eb5be62252bf1363678086680e0` on November 13, 2026.
@@ -193,12 +199,45 @@ The final access request uses that trusted revision and an exact input commit fr
 The operator pinned the disabled provider to that revision without changing its other identity restrictions.
 
 [Run 43471711854](https://github.com/dlobato/drydock/actions/runs/43471711854) selected PR #22 input `977089c87025666ad946cc2745b802dfa09e746e` through manual dispatch on `main`.
-The selector passed. The access job waits for native `gke` approval with no assigned runner and no executed steps.
+The selector passed. Before approval, the access job waited with no assigned runner and no executed steps.
 The environment still requires owner review, restricts deployments to `main`, and disables administrator bypass.
 GitHub reported no registered private runner. The existing GKE access target remains available.
-The provider remains disabled until approval. No disposable VM or lab was created for this request.
-Task 8.2 remains unchecked until the complete probe succeeds and the disposable runner is removed.
+The provider stayed disabled until approval. No disposable VM or lab existed at that stage.
 
 Local validation passed 121 Python tests, 32 selector tests, Ruff, mypy, Go race tests, Go static analysis, and strict OpenSpec validation.
 [Hosted run 43471663989](https://github.com/dlobato/drydock/actions/runs/43471663989) passed both PR jobs, including both offline AVD builds and six bundle tests.
-The unmarked PR event skipped its access job. Only the separate manual request waits for approval.
+The unmarked PR event skipped its access job. Only the separate manual request required approval.
+
+## Approved probe and denial parsing
+
+The owner approved run `43471711854` through the native `gke` review.
+The dispatcher accepted the exact approved attempt before registering its runner or creating its VM.
+The root-owned guard accepted the trusted workflow at `f0e6061074b301f6aed1776710087cba18d6db07`.
+The official Google action issued the requested 900-second token.
+The access step then failed. The complete GitHub probe did not pass.
+
+A local reproduction used the dedicated workflow identity and the operator-authorized public control endpoint with the cluster CA.
+Google permissions, Kubernetes identity, and ownership reads passed.
+The first permission denial returned exit code 1 and `no - <GKE IAM/RBAC reason>`.
+The probe required exactly `no` and rejected that valid denial.
+
+The corrected parser accepts `no` with an optional ` - ` reason and still requires exit code 1.
+Regression tests reject empty output, unrecognized output, and excess permissions.
+The corrected local probe passed all eight Kubernetes denials and the Google permission boundary.
+That local result does not establish execution through the private runner.
+No lab was created and no network tests ran.
+
+## Disposal and next request
+
+The dispatcher removed its VM, boot disk, SSH keys, runner registration, queue session, and scale set after the failed run.
+Independent Google and GitHub API inspection found no remaining disposable VM, disk, or registered runner.
+The VM used a private address, no cloud service account, and a GCE-enforced 900-second deletion deadline.
+Provider readback showed federation disabled again with all identity restrictions retained.
+The temporary local diagnostic grant was removed. Its token and kubeconfig files were deleted.
+
+The shared GKE access target remains available. No lab or switch was allocated by this request.
+Merge the parser correction before selecting a new trusted workflow revision.
+Then pin that reviewed `main` SHA while federation is disabled and request a fresh approved probe.
+Task 8.2 remains unchecked until that complete trusted run succeeds.
+
+Validation after the correction passed 123 Python tests, 32 selector tests, Ruff, mypy, strict OpenSpec validation, and whitespace validation.

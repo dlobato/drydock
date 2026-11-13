@@ -33,6 +33,7 @@ class AccessProbeTests(unittest.TestCase):
         self.api_mock = self.api.start()
         self.addCleanup(self.api.stop)
         self.excess = False
+        self.denial = "no"
         self.username = "workflow-user"
 
     def kubectl(self, command, **kwargs):
@@ -59,7 +60,7 @@ class AccessProbeTests(unittest.TestCase):
         if "can-i" in command:
             return SimpleNamespace(
                 returncode=0 if self.excess else 1,
-                stdout="yes" if self.excess else "no",
+                stdout="yes" if self.excess else self.denial,
             )
         return SimpleNamespace(returncode=0, stdout="")
 
@@ -85,6 +86,30 @@ class AccessProbeTests(unittest.TestCase):
         self.assertIn("container.clusters.update", requested)
         self.assertIn("compute.instances.create", requested)
         self.assertNotIn("container.nodePools.create", requested)
+
+    def test_gke_denials_with_an_authorization_reason_pass(self):
+        self.denial = (
+            'no - requires one of ["container.secrets.get"] permission(s) in Cloud IAM '
+            'or a Kubernetes RBAC role with verb "get" for resource "secrets".'
+        )
+        result = self.run_probe()
+        self.assertEqual(result["kubernetes_denials"], 8)
+        self.assertTrue(all(not path.parent.exists() for path in self.paths))
+
+    def test_errors_and_unrecognized_denials_do_not_pass(self):
+        for output in ("", "nope", "no error", "Error from server (Forbidden)"):
+            with self.subTest(output=output):
+                self.api_mock.side_effect = [
+                    {
+                        "privateClusterConfig": {"privateEndpoint": "10.1.2.3"},
+                        "masterAuth": {"clusterCaCertificate": "test-ca"},
+                    },
+                    {"permissions": ["container.clusters.get"]},
+                ]
+                self.denial = output
+                with self.assertRaisesRegex(ValueError, "explicitly denied"):
+                    self.run_probe()
+                self.assertTrue(all(not path.parent.exists() for path in self.paths))
 
     def test_excess_kubernetes_access_and_wrong_identity_fail_without_leaving_files(
         self,
