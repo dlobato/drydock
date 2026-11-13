@@ -57,9 +57,11 @@ AVD performs its normal input validation during the build.
 Endpoint definitions describe four attached devices for AVD. They do not create host containers.
 CloudVision is permanently excluded from labs.
 
-The GitHub Actions workflow runs strict OpenSpec validation and the same build with synthetic credentials.
-It uses a hosted Linux runner and read-only repository permissions.
-It does not upload generated configurations or request a lab.
+The GitHub Actions PR checks run strict OpenSpec validation and the same build with synthetic credentials on every PR update.
+They use hosted Linux runners and read-only repository permissions without custom author approval.
+The [opt-in workflow](../../docs/workflows.md) accepts `[digital-twin-test]` in the latest PR commit or manual dispatch.
+Its placeholder tests native `gke` approval for that exact commit.
+Neither workflow uploads generated configurations or requests a lab.
 
 ## Reference behavior
 

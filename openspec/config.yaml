@@ -41,24 +41,36 @@ context: |
   the topology contract. Require routing, EVPN, VXLAN, switch-link, and both MLAG-pair
   coverage for that example. Missing, skipped, errored, duplicate, or failed required
   results prevent network acceptance. Other fabrics use their applicable pipeline policy.
-  GitHub workflows, including offline builds, require an owner-authorized manual launch
-  for an exact PR commit. Do not enable automatic push or pull-request execution.
-  Use a trusted workflow and pinned CLI from the protected default branch.
+  Run lint and unit tests automatically on every PR and PR update without custom
+  actor restrictions, cloud approval, private runners, or cloud credentials.
+  Include fork PRs under GitHub's native execution policies.
+  Pre-deployment GKE testing is opt-in for an identified PR commit before merge.
+  Request optional tests through [digital-twin-test] in the latest PR commit or manual dispatch.
+  Use a separate trusted workflow and the protected gke environment with
+  the repository owner as required reviewer. A PR event alone must not request
+  a lab or leave a GKE job waiting for approval without an explicit marker or dispatch.
+  Use GitHub's native approval controls
+  instead of custom owner or rerun actor authorization code.
+  Bind Google authentication to the approved environment and trusted workflow.
+  Use a pinned CLI from the protected default branch for credentialed lifecycle jobs.
   Use a dedicated self-hosted runner with private connectivity and temporary, limited
-  access. Isolate Ansible builds and tests from credentialed lifecycle execution.
+  access only for approved lab work. Isolate Ansible builds and tests from credentialed lifecycle execution.
   Keep personal cloud credentials, service-account keys, and administrative kubeconfigs
   out of GitHub. Enforce the lab boundary with Kubernetes permissions and admission policy.
   Provider-specific identity exchange stays outside Drydock. Do not administer cloud IAM,
-  worker capacity, or RBAC from lifecycle commands. Fork execution remains excluded.
+  worker capacity, or RBAC from lifecycle commands. Fork execution on private runners remains excluded.
   Labs contain switches only. CloudVision, host containers, and interactive switch access
   remain excluded. Anonymize examples and leave reference repositories unchanged.
   The November 11 private-runtime demo passed 54 live ANTA results, both MLAG pairs,
   standalone lifecycle tests, and complete deletion without an experimental EOS firewall rule.
   The exact private build limits that evidence. It does not qualify the official release,
   arbitrary topologies, 100-switch scale, concurrency, or AWS compatibility.
-  The November 12 review authorizes this planning revision and publication in a new PR.
-  It does not implement the revised contract or authorize automatic workflows or cloud
-  provisioning. Keep the change active until implementation and live acceptance are complete.
+  The November 13 workflow decision replaces the earlier manual-only policy with
+  automatic PR lint and unit tests plus opt-in, environment-approved GKE tests.
+  Task 8.1 implements automatic PR checks and an opt-in approval placeholder without cloud access.
+  The user authorized the placeholder and marker to test native approval. Live GKE integration remains open.
+  Read only PR metadata through pull_request_target. Never execute PR code in that trigger.
+  Keep the change active until implementation and live acceptance are complete.
 
 rules:
   proposal:

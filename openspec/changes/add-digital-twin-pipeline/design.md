@@ -8,6 +8,7 @@ The November 11 demo passed 54 live results and complete deletion on a corrected
 The [validation record](../../../docs/live-gke-validation.md) retains the exact runtime, MLAG evidence, and remaining limitations.
 
 The November 12 review selects a reusable CLI on an existing clabernetes cluster.
+The November 13 workflow decision adds automatic PR checks and keeps GKE tests opt-in behind GitHub environment approval.
 This planning revision does not change executable behavior or demonstrate the new requirements.
 
 ## Goals / Non-Goals
@@ -163,33 +164,61 @@ Test and cleanup failures remain separate. A report upload failure does not prev
 The pipeline retains safe JSON and JUnit reports, catalogs, diagnostics, and lifecycle provenance under a finite retention policy.
 It excludes startup files, credential-bearing structured data, Kubernetes credentials, Secret contents, and arbitrary container logs from uploaded artifacts.
 
-### Require a manual, trusted workflow
+### Run PR checks automatically and request GKE tests explicitly
 
-Use `workflow_dispatch` for all GitHub workflows, including offline builds.
-Disable automatic push and pull-request triggers during implementation.
-Only the repository owner authorizes a run. Manual dispatch permission alone does not prove owner authorization.
-Enforce the allowed actor identity before runner assignment or credential issuance through trusted workflow and identity controls.
+Run lint and unit tests on every PR opening, reopening, and update through `pull_request`.
+Use hosted runners without cloud credentials, private network access, or token issuance permissions.
+Do not add an author allowlist or require `gke` approval for these jobs.
+Include fork PRs under GitHub's native execution policies. Repository code cannot bypass GitHub's own fork approval requirements.
+PR events without an explicit marker must not request a lab or create a GKE job that waits for approval.
 
-Run the workflow definition from the protected default branch and identify the PR input by its exact commit SHA.
-Reject a mutable-only ref, an unauthorized actor, or an untrusted workflow revision.
-A new PR commit and each rerun require owner authorization for the identified commit.
-Rerun authorization uses the triggering actor as well as the original run identity.
+Use `[digital-twin-test]` in the latest PR head commit as an opt-in request.
+Handle opened, reopened, and synchronize events through `pull_request_target` on `main`.
+Load the selector from the exact trusted workflow commit. Read PR metadata without checking out or executing PR code.
+Read the full head commit message through GitHub's API using its immutable SHA.
+Match the literal, case-sensitive marker in its subject or body. Do not scan earlier commits.
+Ignore stale events, fork PRs, closed PRs, and events without the marker before requesting environment approval.
+The selector must require the event SHA to match the PR head observed through the API.
+Record that SHA before approval. Later updates cannot change the waiting job's selected input.
+The marker requests approval and cannot authorize execution or issue credentials.
+The trusted trigger must first reach `main`. A marker commit in the PR that installs it cannot exercise that new trigger.
+Retain `workflow_dispatch` as an alternative request for optional pre-deployment testing.
+The caller supplies a PR number. The trusted workflow resolves and records its exact head commit before approval.
+Run that workflow from protected `main` and test the selected PR input before merge.
+The caller does not need to copy a commit SHA or pass a custom actor authorization step.
+A new PR commit starts automatic checks. Only a new marker or manual dispatch requests another GKE test.
+Approval cannot transfer to a new commit.
+The requested run retains its selected commit if the PR changes while approval is pending.
+
+Reference the `gke` environment on every job that needs private lab access or Google authentication.
+Set the repository owner as its required reviewer and disable administrator bypass.
+Keep self-review available so the owner can approve a request that the owner starts.
+Restrict the environment to the trusted workflow branch, `main`, for both request paths.
+Testing PR input before merge does not require executing its workflow definition from a PR branch.
+GitHub holds the job before runner assignment and environment access until approval succeeds.
+Use GitHub's native dispatch permissions and environment protection instead of custom launch or rerun actor checks.
+Bind Google federation to the repository, approved environment, and trusted workflow so a job cannot obtain access by omitting the environment.
+Reruns remain subject to GitHub's environment protection rules before private work.
+
 Workflow inputs cannot select another privileged workflow or substitute PR code for the installed Drydock CLI.
 The trusted workflow uses a pinned lifecycle tool and treats the submitted topology as admitted data.
+Optional GKE tests remain separate from the automatic PR checks and their completion status.
+No requested GKE run means no live network result, rather than successful network acceptance.
 
-Use a dedicated self-hosted runner with private connectivity. Prefer a disposable runner for each job.
+Use a dedicated self-hosted runner with private connectivity for approved lab work. Prefer a disposable runner for each job.
 Separate uncredentialed PR build execution from credentialed lifecycle execution so build processes cannot inherit later credentials.
 Run Ansible without Kubernetes credentials. ANTA receives only the lab management credentials and connection inventory.
 Use separate disposable execution environments for build, lifecycle, tests, and deletion so background processes cannot cross credential boundaries.
 Do not run unapproved PR code on the private runner.
 The platform operator owns runner deployment and private networking.
-Fork execution remains excluded from the initial trusted workflow.
+Fork execution remains excluded from private lab jobs and their credentialed execution.
 
 ### Exchange identity for limited credentials
 
 OIDC is an identity token protocol.
 For GKE, operator-configured Workload Identity Federation exchanges the trusted GitHub identity for temporary access.
-Constrain that trust to the repository, owner actor, and trusted workflow revision.
+Constrain that trust to the repository, approved `gke` environment, and trusted workflow revision.
+The environment reviewer approves access. The requesting actor does not need a separate owner allowlist.
 Use stable numeric identity claims where the provider supports them.
 Grant GitHub's `id-token: write` permission only to the credentialed lifecycle jobs.
 Do not upload personal Google credentials, service-account keys, or a reusable administrative kubeconfig to GitHub.
@@ -220,10 +249,14 @@ The corrected private clabernetes build does not qualify the official published 
 
 ## Migration Plan
 
-This PR updates the plan and project context only. It leaves runtime code, GitHub triggers, and historical evidence unchanged.
-Use a skip-CI commit marker when publishing this revision so the current automatic PR workflow does not run without manual launch.
-Keep this change active and preserve completed demo tasks as historical evidence.
-Replace unfinished demo tasks with explicit tasks for the revised contract.
+Task 8.1 replaces the manual-only offline workflow and custom actor authorization with automatic hosted PR checks.
+A separate opt-in workflow selects an exact PR commit and requests native `gke` approval.
+The user authorized a hosted placeholder to test this flow without cloud access or lab allocation.
+The placeholder reports approval completion only. It does not report network acceptance.
+Tasks 8.2 through 8.5 retain live GKE integration and acceptance.
+Do not enable cloud access until its environment protection and federation rules are in place.
+Keep the earlier task 8.1 evidence as historical evidence of the superseded policy.
+Keep this change active until implementation and live acceptance are complete.
 
 Later implementation separates GKE setup and ANTA orchestration, updates callers and tests, and replaces the input and lifetime contracts together.
 Do not add legacy aliases or fallback paths for the unreleased demo interface.

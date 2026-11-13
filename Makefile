@@ -4,7 +4,7 @@ export ANSIBLE_CONFIG := $(CURDIR)/ansible.cfg
 export ANSIBLE_COLLECTIONS_PATH := $(CURDIR)/.collections
 export ANSIBLE_LOCAL_TEMP := $(CURDIR)/.ansible/tmp
 
-.PHONY: spec-check spec-status lifecycle-deps lifecycle-test example-deps example-build example-bundle example-bundle-test test
+.PHONY: spec-check spec-status lifecycle-deps lifecycle-test example-deps example-build example-bundle example-bundle-test test workflow-test
 
 spec-check:
 	$(OPENSPEC) validate --all --strict --no-interactive
@@ -36,3 +36,6 @@ example-bundle-test: example-bundle
 
 test:
 	.venv/bin/python -m unittest discover -s tests -v
+
+workflow-test:
+	node .github/scripts/select-pr.test.cjs
