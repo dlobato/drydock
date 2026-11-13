@@ -76,6 +76,9 @@ jobs:
           service_account: ${{ vars.GKE_SERVICE_ACCOUNT }}
           token_format: access_token
           access_token_lifetime: 900s
+          access_token_scopes: >-
+            https://www.googleapis.com/auth/cloud-platform,
+            https://www.googleapis.com/auth/userinfo.email
           create_credentials_file: false
           export_environment_variables: false
       - name: Prove the scoped access without creating a lab

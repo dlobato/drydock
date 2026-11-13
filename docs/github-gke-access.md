@@ -108,6 +108,13 @@ The same minimal image supplies the admission command.
 Do not assume that a service account email and numeric ID are interchangeable Kubernetes usernames.
 Compare `kubectl auth whoami -o json` with the installed subject before enabling execution.
 
+An OAuth scope selects the identity information or APIs available to a token.
+Request both `cloud-platform` and `userinfo.email` scopes for the temporary workflow token.
+GKE needs `userinfo.email` to identify the account by its email address.
+The default Google action scope supplied a numeric account ID during the live probe.
+That identity did not match the configured email or its Kubernetes permissions.
+See [Google's GKE authentication requirements](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/api-server-authentication#authenticate_users).
+
 The following certificate is private to this webhook.
 A certificate authority (CA) signs certificates that identify services.
 Kubernetes trusts its public certificate through the webhook's `caBundle` field.

@@ -574,3 +574,25 @@ Independent API inspection found no VM or boot disk after deletion. Local creden
 No lab or switch was allocated.
 Task 8.2 remains unchecked because this standalone test does not exercise the complete corrected GitHub workflow.
 See [the pre-merge result](../../../docs/live-github-gke-access.md#pre-merge-private-endpoint-test) for the exact execution and evidence limits.
+
+## Workflow token identity correction (task 8.2, acceptance incomplete)
+
+PR #22 merged as `d3ab11a7cfd486302661e80c217e03e3ad12eee6`.
+The user approved the complete no-lab test for PR #23.
+The operator pinned disabled federation to that revision and requested run `43480437310` for input `645e91e0ccd87dad59896f5cd3e384f0fcec08db`.
+Native approval, queue authorization, the runner guard, and the official 900-second token exchange passed.
+The probe then failed the Kubernetes identity comparison.
+GKE's audit record identified the caller by its numeric account ID instead of the configured email.
+
+The Google action's default scope omitted `userinfo.email`, which GKE requires for email identity.
+The workflow now requests that scope alongside `cloud-platform` without changing IAM grants or Kubernetes permissions.
+The regression test fails without the scope and passes with it.
+The corrected workflow must reach protected `main` before the next approved GitHub probe.
+
+The dispatcher removed all disposable runner resources.
+Independent API inspection found no runner VM, boot disk, or GitHub registration.
+Federation is disabled again with every trust restriction retained. No lab or switch was allocated.
+Task 8.2 remains unchecked at 36/44 tasks complete.
+See [the live request record](../../../docs/live-github-gke-access.md#final-trusted-workflow-request) for the exact failure and cleanup evidence.
+All 123 Python tests and 32 selector tests pass after the correction.
+Actionlint, pre-commit, strict OpenSpec validation, and whitespace validation pass.
