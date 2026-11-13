@@ -4,7 +4,7 @@ This record covers task 8.2 access acceptance. It does not establish network acc
 
 The latest approved run passed identity exchange and failed in the access probe.
 A local reproduction identified a parser defect that rejects valid GKE permission denials.
-The correction passes all eight denials in a local test with the dedicated identity.
+The correction passes all eight denials from an operator-controlled private VM before merge.
 Task 8.2 remains open until the corrected probe passes through the trusted GitHub workflow.
 Earlier sections preserve the prerequisites and incomplete results from their respective test stages.
 
@@ -241,3 +241,25 @@ Then pin that reviewed `main` SHA while federation is disabled and request a fre
 Task 8.2 remains unchecked until that complete trusted run succeeds.
 
 Validation after the correction passed 123 Python tests, 32 selector tests, Ruff, mypy, strict OpenSpec validation, and whitespace validation.
+
+## Pre-merge private endpoint test
+
+The operator tested PR #22 commit `5feb4c1bfe7eb25ff59aebcfc25ec6d2c599b710` before merge.
+The unchanged probe had SHA256 `57847dbf75432ad75625a3a00697221c1988b1508301e96556a0f68a606e937b`.
+It ran as an unprivileged user on disposable VM `drydock-probe-pr22-8ff443c3300f` in the existing private subnet.
+The VM used the same pinned Ubuntu image and preparation script as the approved runner.
+No GitHub runner was registered or started.
+
+The probe used the private Kubernetes endpoint and the cluster CA without an endpoint override.
+Kubernetes identity, ownership reads, all eight permission denials, and the Google permission boundary passed.
+The dedicated workflow account supplied a 900-second diagnostic token through local operator impersonation.
+The temporary impersonation grant was removed before execution. The token reached the VM through SSH standard input.
+This standalone test did not exercise GitHub OIDC or environment approval.
+
+The VM had no public address or cloud service account and retained a GCE-enforced 900-second deletion deadline.
+The operator deleted the VM and its boot disk after the successful test.
+Independent API inspection found neither resource. Local token, kubeconfig, and SSH files were removed.
+Federation stayed disabled throughout. No lab or switch was allocated.
+
+This result establishes the corrected probe's live behavior through the private endpoint before merge.
+Task 8.2 retains the complete GitHub workflow test after the correction reaches the trusted default branch.
