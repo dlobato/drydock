@@ -190,5 +190,15 @@ None of this evidence establishes switch startup, network behavior, MLAG, scale,
 PR #21 merged into protected `main` as `f0e6061074b301f6aed1776710087cba18d6db07`.
 That revision contains the corrected permission probe, immutable subject, and runner guard.
 The final access request uses that trusted revision and an exact input commit from this evidence PR.
-The provider remains disabled while the operator prepares its SHA restriction and the native approval request.
+The operator pinned the disabled provider to that revision without changing its other identity restrictions.
+
+[Run 43471711854](https://github.com/dlobato/drydock/actions/runs/43471711854) selected PR #22 input `977089c87025666ad946cc2745b802dfa09e746e` through manual dispatch on `main`.
+The selector passed. The access job waits for native `gke` approval with no assigned runner and no executed steps.
+The environment still requires owner review, restricts deployments to `main`, and disables administrator bypass.
+GitHub reported no registered private runner. The existing GKE access target remains available.
+The provider remains disabled until approval. No disposable VM or lab was created for this request.
 Task 8.2 remains unchecked until the complete probe succeeds and the disposable runner is removed.
+
+Local validation passed 121 Python tests, 32 selector tests, Ruff, mypy, Go race tests, Go static analysis, and strict OpenSpec validation.
+[Hosted run 43471663989](https://github.com/dlobato/drydock/actions/runs/43471663989) passed both PR jobs, including both offline AVD builds and six bundle tests.
+The unmarked PR event skipped its access job. Only the separate manual request waits for approval.
