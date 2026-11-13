@@ -127,7 +127,7 @@ class AntaRoleTests(unittest.TestCase):
                     )
                 create.assert_not_called()
 
-    def test_convergence_keeps_failures_and_requires_role_success(self):
+    def test_convergence_requires_success_and_rows_from_the_same_attempt(self):
         rows = [
             {"name": n, "test": t, "description": description, "result": "success"}
             for (n, t, description), count in self.expected.items()
@@ -136,7 +136,8 @@ class AntaRoleTests(unittest.TestCase):
         results = []
         with (
             patch(
-                "examples.demo.anta.invoke", side_effect=[(2, rows), (0, rows)]
+                "examples.demo.anta.invoke",
+                side_effect=[(2, rows), (0, []), (0, rows)],
             ) as invoke,
             patch("examples.demo.anta.time.sleep"),
         ):
@@ -145,7 +146,7 @@ class AntaRoleTests(unittest.TestCase):
                     [], self.structured, self.directory, self.expected, 10, results
                 )["passed"]
             )
-            self.assertEqual(invoke.call_count, 2)
+            self.assertEqual(invoke.call_count, 3)
         with (
             patch("examples.demo.anta.invoke", side_effect=TimeoutError),
             self.assertRaises(TimeoutError),

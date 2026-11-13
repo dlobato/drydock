@@ -293,7 +293,7 @@ def delete_lab(env, lab, *, allocation_id=None):
         record = lab_record(env, lab)
         record["state"] = "deleted" if complete else "deleting"
         record["cleanup"] = result
-        record["overdue"] = now() > record["expires_at"] + 1800
+        record["overdue"] = not complete and now() > record["expires_at"] + 1800
         write_record(env, record)
     return result
 
@@ -303,8 +303,14 @@ def reap(env):
     records = env.objects(
         "configmaps", env.namespace, f"{ENV_LABEL}={env.name},{LAB_LABEL}"
     )
+    namespaces = {item["metadata"]["name"] for item in env.objects("namespaces")}
     for item in records:
         record = json.loads(item["data"]["record"])
+        if (
+            record["state"] == "deleted"
+            and env.name + "-" + record["id"] not in namespaces
+        ):
+            continue
         # Revisit deleted records too: an accepted asynchronous allocation can appear late.
         if record["expires_at"] <= now() or record["state"] in {"deleting", "deleted"}:
             try:

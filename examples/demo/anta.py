@@ -188,8 +188,7 @@ def converge(hosts, structured, directory, expected, timeout, results):
         if remaining <= 0:
             raise TimeoutError("ANTA convergence timed out.")
         code, rows = invoke(directory, hosts, structured, False, remaining)
-        if rows:
-            results[:] = rows
+        results[:] = rows
         outcome = acceptance(results, expected)
         if not code and outcome["passed"]:
             return outcome
