@@ -303,8 +303,14 @@ def reap(env):
     records = env.objects(
         "configmaps", env.namespace, f"{ENV_LABEL}={env.name},{LAB_LABEL}"
     )
+    namespaces = {item["metadata"]["name"] for item in env.objects("namespaces")}
     for item in records:
         record = json.loads(item["data"]["record"])
+        if (
+            record["state"] == "deleted"
+            and env.name + "-" + record["id"] not in namespaces
+        ):
+            continue
         # Revisit deleted records too: an accepted asynchronous allocation can appear late.
         if record["expires_at"] <= now() or record["state"] in {"deleting", "deleted"}:
             try:

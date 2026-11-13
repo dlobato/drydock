@@ -596,6 +596,35 @@ class OwnershipTests(unittest.TestCase):
             self.assertTrue(cloud.reap(self.env)[0]["deleted"])
         self.assertFalse(self.env.namespaces)
 
+    def test_completed_history_does_not_repeat_cleanup_or_delay_expired_labs(self):
+        for index in range(3):
+            lab = f"lab-{index:012x}"
+            cloud.create_lab(self.env, self.bundle, IDENTITY, lab=lab)
+            cloud.delete_lab(self.env, lab)
+        history = json.loads(json.dumps(self.env.records))
+        expired = cloud.create_lab(self.env, self.bundle, IDENTITY, lab=LAB)
+        with (
+            patch("drydock.lifecycle.now", return_value=expired["expires_at"] + 1),
+            patch.object(self.env, "objects", wraps=self.env.objects) as objects,
+            patch.object(self.env, "kube", wraps=self.env.kube) as kube,
+        ):
+            outcomes = cloud.reap(self.env)
+        self.assertEqual([outcome["lab"] for outcome in outcomes], [LAB])
+        self.assertTrue(outcomes[0]["deleted"])
+        self.assertEqual(objects.call_count, 6)
+        self.assertEqual(kube.call_count, 3)
+        self.assertFalse(self.env.namespaces)
+        self.assertEqual({lab: self.env.records[lab] for lab in history}, history)
+        records = json.loads(json.dumps(self.env.records))
+        with (
+            patch.object(self.env, "objects", wraps=self.env.objects) as objects,
+            patch.object(self.env, "kube", wraps=self.env.kube) as kube,
+        ):
+            self.assertEqual(cloud.reap(self.env), [])
+        self.assertEqual(objects.call_count, 2)
+        kube.assert_not_called()
+        self.assertEqual(self.env.records, records)
+
     def test_refuse_foreign_namespace(self):
         cloud.create_lab(self.env, self.bundle, IDENTITY, lab=LAB)
         self.env.namespaces[0]["metadata"]["labels"] = {
