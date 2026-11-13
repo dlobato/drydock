@@ -49,28 +49,39 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(
             set(manual["on"]["workflow_dispatch"]["inputs"]), {"pull_request"}
         )
-        self.assertEqual(set(manual["jobs"]), {"select", "approval-placeholder"})
+        self.assertEqual(set(manual["jobs"]), {"select", "gke-access"})
         selection = manual["jobs"]["select"]
         self.assertNotIn("environment", selection)
         self.assertEqual(selection["runs-on"], "ubuntu-24.04")
-        placeholder = manual["jobs"]["approval-placeholder"]
-        self.assertEqual(placeholder["needs"], "select")
+        access = manual["jobs"]["gke-access"]
+        self.assertEqual(access["needs"], "select")
         self.assertEqual(
-            placeholder["if"], "${{ needs.select.outputs.requested == 'true' }}"
+            access["if"], "${{ needs.select.outputs.requested == 'true' }}"
         )
         self.assertEqual(
             selection["outputs"]["requested"], "${{ steps.select.outputs.requested }}"
         )
-        self.assertEqual(placeholder["environment"]["name"], "gke")
-        self.assertEqual(placeholder["permissions"], {})
-        self.assertEqual(placeholder["runs-on"], "ubuntu-24.04")
-        self.assertEqual(len(placeholder["steps"]), 1)
-        step = placeholder["steps"][0]
+        self.assertEqual(access["environment"]["name"], "gke")
+        self.assertEqual(
+            access["permissions"], {"contents": "read", "id-token": "write"}
+        )
+        self.assertEqual(
+            access["runs-on"], ["self-hosted", "linux", "x64", "drydock-gke"]
+        )
+        self.assertEqual(len(access["steps"]), 3)
+        checkout, authentication, step = access["steps"]
+        self.assertEqual(checkout["with"]["ref"], "${{ github.workflow_sha }}")
+        self.assertEqual(authentication["with"]["access_token_lifetime"], "900s")
+        self.assertEqual(authentication["with"]["create_credentials_file"], "false")
+        self.assertEqual(
+            authentication["with"]["export_environment_variables"], "false"
+        )
+        self.assertIn("probe-gke-access.py", step["run"])
         self.assertIn("No lab was created. No network tests ran.", step["run"])
         self.assertNotIn("uses", step)
         self.assertEqual(step["env"]["PR_COMMIT"], "${{ needs.select.outputs.commit }}")
         self.assertIn(
-            "${{ needs.select.outputs.commit }}", placeholder["environment"]["url"]
+            "${{ needs.select.outputs.commit }}", access["environment"]["url"]
         )
 
     def test_selection_uses_the_trusted_workflow_revision(self):
@@ -112,9 +123,13 @@ class WorkflowTests(unittest.TestCase):
             self.assertNotIn("id-token", definition["permissions"])
             self.assertNotIn("github.actor", path.read_text())
             self.assertNotIn("github.triggering_actor", path.read_text())
-            for job in definition["jobs"].values():
+            for name, job in definition["jobs"].items():
                 self.assertNotIn("secrets", job)
-                self.assertNotIn("id-token", job.get("permissions", {}))
+                if name == "gke-access":
+                    self.assertEqual(job["environment"]["name"], "gke")
+                    self.assertEqual(job["permissions"]["id-token"], "write")
+                else:
+                    self.assertNotIn("id-token", job.get("permissions", {}))
                 for step in job["steps"]:
                     if "uses" in step:
                         self.assertRegex(step["uses"], re.compile(r"@[0-9a-f]{40}$"))

@@ -1,5 +1,5 @@
-name: Opt-in pre-deployment approval (placeholder)
-run-name: 'Pre-deployment request for PR #${{ github.event.pull_request.number || inputs.pull_request }} (placeholder)'
+name: Opt-in GKE access probe
+run-name: 'GKE access request for PR #${{ github.event.pull_request.number || inputs.pull_request }}'
 
 on:
   pull_request_target:
@@ -51,23 +51,44 @@ jobs:
               await core.summary.addRaw('No pre-deployment request for this PR event.').write();
             }
 
-  approval-placeholder:
-    name: 'Approve PR #${{ needs.select.outputs.pull_request }} at ${{ needs.select.outputs.commit }} (no lab)'
+  gke-access:
+    name: 'Approve access for PR #${{ needs.select.outputs.pull_request }} at ${{ needs.select.outputs.commit }} (no lab)'
     needs: select
     if: ${{ needs.select.outputs.requested == 'true' }}
     environment:
       name: gke
       url: https://github.com/dlobato/drydock/commit/${{ needs.select.outputs.commit }}
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, drydock-gke]
     timeout-minutes: 5
-    permissions: {}
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: Record approval without cloud access
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - name: Exchange the approved identity for a 15-minute token
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GKE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GKE_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_lifetime: 900s
+          create_credentials_file: false
+          export_environment_variables: false
+      - name: Prove the scoped access without creating a lab
         env:
+          DRYDOCK_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          GKE_CLUSTER_RESOURCE: ${{ vars.GKE_CLUSTER_RESOURCE }}
+          GKE_WORKFLOW_USERNAME: ${{ vars.GKE_WORKFLOW_USERNAME }}
+          DRYDOCK_SYSTEM_NAMESPACE: ${{ vars.DRYDOCK_SYSTEM_NAMESPACE }}
           PR_NUMBER: ${{ needs.select.outputs.pull_request }}
           PR_COMMIT: ${{ needs.select.outputs.commit }}
           WORKFLOW_COMMIT: ${{ github.workflow_sha }}
         run: |
-          printf 'Approved placeholder for PR #%s at `%s`.\n\n' "$PR_NUMBER" "$PR_COMMIT" >> "$GITHUB_STEP_SUMMARY"
+          python3 .github/scripts/probe-gke-access.py >> "$GITHUB_STEP_SUMMARY"
+          printf 'Approved access probe for PR #%s at `%s`.\n\n' "$PR_NUMBER" "$PR_COMMIT" >> "$GITHUB_STEP_SUMMARY"
           printf 'Trusted workflow: `%s`. Run: `%s`, attempt: `%s`.\n\n' "$WORKFLOW_COMMIT" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_STEP_SUMMARY"
-          printf 'No lab was created. No network tests ran. This result only tests the approval flow.\n' >> "$GITHUB_STEP_SUMMARY"
+          printf 'No lab was created. No network tests ran. This result tests temporary access only.\n' >> "$GITHUB_STEP_SUMMARY"

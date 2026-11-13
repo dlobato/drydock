@@ -69,6 +69,12 @@ context: |
   automatic PR lint and unit tests plus opt-in, environment-approved GKE tests.
   Task 8.1 implements automatic PR checks and an opt-in approval placeholder without cloud access.
   The user authorized the placeholder and marker to test native approval. Live GKE integration remains open.
+  Task 8.2 adds a no-lab access probe, disabled Google federation setup,
+  and an operator-installed Python TLS admission webhook with namespaced reader bindings.
+  The user approved that admission component on November 13.
+  Reuse lifecycle topology validation and existing dependencies. Do not add a general service framework.
+  Keep federation disabled until the target cluster boundary, controlled private runner,
+  and trusted workflow revision are ready. Local Kubernetes evidence is not live GitHub-to-GKE acceptance.
   Read only PR metadata through pull_request_target. Never execute PR code in that trigger.
   Keep the change active until implementation and live acceptance are complete.
 

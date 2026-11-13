@@ -79,9 +79,10 @@ Kubernetes certificate verification remains enabled.
 Task 8.1 runs hosted lint and unit tests automatically on every PR and update, including eligible fork PRs.
 Use `[digital-twin-test]` in the latest PR commit to request native `gke` environment approval for that exact commit.
 The separate trusted workflow also accepts manual dispatch.
-Its placeholder job tests approval without cloud credentials, lab allocation, or network acceptance.
-The [workflow instructions](docs/workflows.md) describe environment protection and how to test both paths.
-Temporary credentials, private execution, and live pipeline acceptance remain open tasks.
+Its access probe requests temporary credentials after approval without allocating a lab or running network tests.
+The [workflow instructions](docs/workflows.md) describe both paths.
+The [GKE access instructions](docs/github-gke-access.md) cover disabled federation setup, scoped permissions, and the admission webhook.
+Live GitHub-to-GKE acceptance remains open. The configured provider stays disabled until the target boundary passes.
 
 ## Develop
 

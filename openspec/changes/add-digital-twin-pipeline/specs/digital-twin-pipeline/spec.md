@@ -47,12 +47,12 @@ Earlier marked commits and stale events MUST NOT request approval for a new head
 The marker MUST NOT bypass environment approval.
 Manual dispatch MUST remain available as an alternative request.
 
-#### Scenario: Latest PR commit requests the placeholder
+#### Scenario: Latest PR commit requests the access probe
 
 - WHEN an open same-repository PR into `main` opens, reopens, or updates with `[digital-twin-test]` in its latest commit message
 - THEN the trusted workflow selects that exact event commit and requests `gke` approval
 - AND lint and unit tests remain independent of that request
-- AND the hosted placeholder receives no cloud access and does not run NRFU
+- AND the access probe requests only temporary scoped access after approval without allocating a lab or running NRFU
 
 #### Scenario: New head has no marker
 
@@ -66,12 +66,12 @@ Manual dispatch MUST remain available as an alternative request.
 - THEN the marker selector requests no environment approval
 - AND ordinary hosted PR checks remain eligible under GitHub's native policies
 
-#### Scenario: Approval placeholder runs before GKE integration
+#### Scenario: Access probe runs before lab integration
 
-- WHEN the user requests the approval-only placeholder for a selected PR commit
-- THEN the hosted placeholder waits for native `gke` environment approval
-- AND it executes no PR code, receives no cloud credentials, and allocates no lab
-- AND successful completion reports only the approval result without claiming live network acceptance
+- WHEN the user requests the access probe for a selected PR commit
+- THEN the private access job waits for native `gke` environment approval
+- AND it executes only the trusted workflow revision with temporary scoped credentials and allocates no lab
+- AND successful completion reports only access and permission outcomes without claiming live network acceptance
 
 ### Requirement: Native environment approval for lab access
 
@@ -162,6 +162,18 @@ Credentials MUST remain absent from logs, caches, lifecycle output, and uploaded
 - WHEN a workflow identity attempts to read an unrelated Secret, change permissions, or allocate cloud workers
 - THEN the authorization boundary denies the operation
 - AND the job cannot grant itself additional permissions
+
+#### Scenario: Unsafe topology bypasses the CLI
+
+- WHEN the workflow identity sends an unsafe Topology directly to Kubernetes
+- THEN the operator-installed admission webhook rejects execution hooks, unsupported devices, unsafe mounts, unapproved images, and external payloads
+- AND the workflow cannot create Pods directly or read unrelated workloads and Secrets
+
+#### Scenario: Admission is unavailable
+
+- WHEN the admission service is unavailable or its certificate fails verification
+- THEN restricted mutations fail closed without bypassing the lab policy
+- AND the operator must restore admission before workflow allocation and cleaner deletion resume
 
 ### Requirement: Standard playbooks own network acceptance
 

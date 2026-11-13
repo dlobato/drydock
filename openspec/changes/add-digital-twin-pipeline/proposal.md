@@ -28,7 +28,9 @@ The six-switch fabric remains an anonymized acceptance example with both MLAG pa
 
 Task 8.1 implements automatic PR checks and a separate opt-in approval placeholder for an exact PR commit.
 The user authorized the placeholder and commit marker to test native environment approval without cloud access or lab allocation.
-Live GKE integration and runtime acceptance remain incomplete.
+Task 8.2 adds disabled federation setup, an approved no-lab access probe, scoped permissions, and an operator-installed admission webhook.
+The user approved the webhook to enforce switch-only policy on embedded topology YAML.
+Live GitHub-to-GKE integration and runtime acceptance remain incomplete.
 
 ## Capabilities
 
