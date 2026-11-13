@@ -45,17 +45,20 @@ If the runner uses a read-only container, supply writable Ansible temporary dire
 ## Prepare the cleaner image
 
 The cleaner runs inside Kubernetes independently of the runner.
-The current demo image uses a Google Cloud CLI slim base for its existing package repositories.
-The cleaner itself requires only Python, `kubectl`, and the lifecycle dependency.
+The image uses Python slim and copies `kubectl` from its upstream image.
+The cleaner requires only Python, `kubectl`, and the lifecycle dependency.
 It does not use Google Cloud CLI or cloud credentials.
 
-Set `DRYDOCK_GCLOUD_IMAGE` to a digest-pinned Google Cloud CLI slim image with Debian package support.
+Set `DRYDOCK_PYTHON_IMAGE` to a digest-pinned Python 3.13 slim image.
+Set `DRYDOCK_KUBECTL_IMAGE` to a digest-pinned `registry.k8s.io/kubectl` image compatible with the cluster.
+The kubectl image must supply `/bin/kubectl` for the target architecture.
 Set `DRYDOCK_CLEANER_TAG` to the destination image tag.
 Build and publish the cleaner:
 
 ```sh
 docker build -f Dockerfile.cleaner \
-  --build-arg GCLOUD_IMAGE="$DRYDOCK_GCLOUD_IMAGE" \
+  --build-arg PYTHON_IMAGE="$DRYDOCK_PYTHON_IMAGE" \
+  --build-arg KUBECTL_IMAGE="$DRYDOCK_KUBECTL_IMAGE" \
   -t "$DRYDOCK_CLEANER_TAG" .
 docker push "$DRYDOCK_CLEANER_TAG"
 ```

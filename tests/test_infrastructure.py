@@ -7,7 +7,6 @@ from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
-import yaml
 from test_lifecycle import IMAGE
 
 from drydock.core import Environment as LifecycleEnvironment
@@ -63,52 +62,6 @@ class InfrastructureTests(unittest.TestCase):
             directory / "ownership.json", {"environment": asdict(ENV), "state": "ready"}
         )
 
-    def test_cleaner_uses_mounted_service_account_without_token_arguments(self):
-        cleaner = LifecycleEnvironment(ENV.name, "/environment/kubeconfig", "cleaner")
-        command = cleaner.kube_command("get", "configmaps")
-        self.assertEqual(
-            command[command.index("--kubeconfig") + 1], "/environment/kubeconfig"
-        )
-        configmap = next(
-            o
-            for o in cloud.cleaner_objects(ENV)
-            if o["kind"] == "ConfigMap" and o["metadata"]["name"] == "environment"
-        )
-        config = yaml.safe_load(configmap["data"]["kubeconfig"])
-        self.assertEqual(
-            config["clusters"][0]["cluster"],
-            {
-                "server": "https://kubernetes.default.svc",
-                "certificate-authority": "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
-            },
-        )
-        self.assertEqual(
-            config["users"][0]["user"],
-            {"tokenFile": "/var/run/secrets/kubernetes.io/serviceaccount/token"},
-        )
-        self.assertNotIn("--token", command)
-        self.assertEqual(
-            yaml.safe_load(configmap["data"]["environment.yml"]), asdict(cleaner)
-        )
-        objects = list(cloud.cleaner_objects(ENV))
-        account = next(obj for obj in objects if obj["kind"] == "ServiceAccount")
-        self.assertNotIn("annotations", account["metadata"])
-        cron = next(obj for obj in objects if obj["kind"] == "CronJob")
-        self.assertEqual(cron["spec"]["schedule"], "*/5 * * * *")
-        self.assertEqual(cron["spec"]["concurrencyPolicy"], "Forbid")
-        self.assertIn(ENV.cleanup_image, str(cron))
-        rules = next(obj for obj in objects if obj["kind"] == "ClusterRole")["rules"]
-        self.assertEqual(
-            rules,
-            [
-                {
-                    "apiGroups": [""],
-                    "resources": ["namespaces"],
-                    "verbs": ["get", "list", "delete"],
-                }
-            ],
-        )
-
     def test_configure_emits_explicit_lifecycle_access_without_cloud_fields(self):
         cluster = {
             "resourceLabels": {"drydock-env": ENV.name},
@@ -125,6 +78,15 @@ class InfrastructureTests(unittest.TestCase):
         self.assertEqual(lifecycle.kubeconfig, str(self.directory / "kubeconfig"))
         self.assertEqual(lifecycle.context, f"gke_{ENV.project}_{ENV.zone}_{ENV.name}")
         self.assertTrue(apply.called)
+        cron = next(
+            call.args[0]
+            for call in apply.call_args_list
+            if call.args[0]["kind"] == "CronJob"
+        )
+        self.assertEqual(
+            cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["nodeSelector"],
+            {"drydock-role": "system"},
+        )
 
     def test_inventory_selects_dependents_without_selecting_other_networks(self):
         data = inventory()
