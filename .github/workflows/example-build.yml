@@ -1,24 +1,37 @@
-name: Offline example build
+name: PR checks
 
 on:
-  push:
-    branches: [main]
   pull_request:
-  workflow_dispatch:
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.13'
+      - run: python -m pip install pre-commit==4.6.0
+      - run: pre-commit run --all-files
+
+  test:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.13'
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
       - name: Install OpenSpec
@@ -27,13 +40,12 @@ jobs:
         run: make spec-check
       - name: Install example dependencies
         run: make example-deps
-      - name: Build the example
+      - name: Build and test the example offline
         env:
           DRYDOCK_LAB_PASSWORD: offline-example-only
           DRYDOCK_CEOS_IMAGE: ceos:offline-placeholder
         run: |
           export DRYDOCK_LAB_PASSWORD_HASH="$(printf '%s' "$DRYDOCK_LAB_PASSWORD" | openssl passwd -6 -stdin)"
-          make example-build
-          make example-bundle-test
-      - name: Test the CLI offline
-        run: make test
+          make example-build example-bundle-test
+      - name: Test the CLI and workflow boundaries offline
+        run: make test workflow-test

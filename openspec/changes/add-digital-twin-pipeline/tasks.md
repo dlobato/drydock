@@ -1,6 +1,7 @@
 # Tasks
 
-The November 12 planning revision records the lifecycle-only requirements without authorizing automatic workflow execution.
+The November 12 planning revision records the lifecycle-only requirements.
+The November 13 workflow decision requires automatic PR lint and unit tests and opt-in GKE tests with native environment approval.
 Sections 1 through 5 retain completed work from the earlier GKE demo.
 Task 6.1 records the first revised implementation and its offline and live evidence.
 Tasks 6.2 and 6.3 record topology admission, ownership isolation, and their offline evidence.
@@ -11,6 +12,7 @@ Task 7.2 records authenticated runtime inventory and controlled endpoint replace
 Task 7.3 records the 30-minute default, 60-minute maximum, and controlled expiry evidence.
 Task 7.4 records the Kubernetes-only cleaner, image build, and controlled cleanup recovery evidence.
 Task 7.5 records standalone command acceptance and complete lab removal on a bounded local private runtime.
+Task 8.1 records automatic PR checks, an opt-in approval placeholder, and native environment protection.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -19,7 +21,7 @@ The former open demo tasks are replaced without claiming their completion:
 |---|---|
 | 3.7: Concurrent isolation and expiry | 7.4, 9.2, and 9.3 |
 | 4.1: GitHub orchestration | 8.1 through 8.5 |
-| 4.5: Artifact upload and future automatic triggers | 8.1 and 8.4. Automatic triggers are excluded. |
+| 4.5: Artifact upload and future automatic triggers | 8.1 and 8.4. PR checks are automatic. GKE tests remain opt-in. |
 | 5.2: Live failure paths | 9.3 |
 | 5.3: Complete scenario review | 9.4 |
 
@@ -78,13 +80,15 @@ The former open demo tasks are replaced without claiming their completion:
 - [x] 7.7 Skip completed cleanup records with absent namespaces using one namespace list per cleaner sweep. Test bounded API work, expired-lab cleanup, and late namespace discovery while preserving deletion ownership guards.
 - [x] 7.8 Clear the overdue flag after successful deletion. Test repeated deletion after the cleanup deadline and retain overdue status for incomplete cleanup.
 
-## 8. Integrate the owner-launched pipeline
+## 8. Integrate automatic PR checks and opt-in lab tests
 
-- [ ] 8.1 Replace automatic triggers with manual dispatch in every workflow, including offline builds. Enforce the authorized launch and rerun actor before private runner assignment. Test exact-commit selection, trusted workflow revisions, and rejection of unauthorized runs.
-- [ ] 8.2 Document and configure temporary GKE authentication through GitHub OIDC federation outside the lifecycle core. Deliver scoped RBAC and admission policy for the lab boundary. Demonstrate denial of unrelated Secret access, RBAC changes, cloud worker allocation, and unsafe workloads without personal keys.
+- [x] 8.1 Run hosted lint and unit tests automatically on every PR and update without custom author restrictions or cloud approval. Replace custom actor authorization with a separate opt-in PR test request and native `gke` environment protection. Document both paths. Use the user-authorized hosted placeholder to test approval without cloud access or lab allocation. Test fork eligibility, exact-commit selection, trusted workflow revisions, absence of GKE jobs on PR events, and the environment gate before placeholder execution. Leave live private-execution denial evidence in tasks 8.2 and 8.5.
+- [ ] 8.2 Document and configure temporary GKE authentication through GitHub OIDC federation bound to the approved `gke` environment and trusted workflow outside the lifecycle core. Deliver scoped RBAC and admission policy for the lab boundary. Demonstrate denial before approval and denial of unrelated Secret access, RBAC changes, cloud worker allocation, and unsafe workloads without personal keys.
 - [ ] 8.3 Connect the standard AVD build and ANTA playbooks through the lifecycle CLI and runtime connection inventory. Isolate Ansible from Kubernetes credentials and use a pinned trusted CLI. Test model consistency, mandatory coverage, preserved inventory groups, and cleanup after each failure stage.
 - [ ] 8.4 Select a finite artifact retention duration and retain safe reports with exact input provenance. Test upload failure without blocking deletion. Inspect final artifacts for credentials, startup files, and sensitive structured data. Document report paths and cleanup outcomes.
-- [ ] 8.5 Run the documented workflow through an owner-authorized manual launch on the private self-hosted runner. Demonstrate temporary access, complete test reports, and lab deletion. Show that a new PR commit does not start another run or reuse the previous lab.
+- [ ] 8.5 Exercise automatic PR lint and unit tests plus a separate opt-in pre-deployment request with native `gke` approval. Demonstrate temporary access, complete test reports, and lab deletion. Show that a new unmarked PR commit runs its checks without starting another GKE test, inheriting approval, or reusing a previous lab.
+
+- [x] 8.6 Add `[digital-twin-test]` in the latest PR commit as an explicit request through a trusted metadata-only PR trigger. Preserve hosted checks and native environment approval. Retain the placeholder without cloud access or NRFU. Test exact-marker matching, absent markers, stale events, fork exclusion, fixed commits, and API failures. Document that the trusted trigger must reach `main` before its first live approval test.
 
 ## 9. Qualify scale and concurrency
 
@@ -366,8 +370,75 @@ The final follow-up passes all 88 offline regression tests, six bundle tests, st
 These follow-up tests do not add live runtime qualification.
 Task 7.4 records broader controlled cleanup evidence above. Task 7.5 retains live command acceptance.
 
+## Historical manual-only workflow evidence (former task 8.1)
+
+The following evidence records the earlier manual-only policy.
+The November 13 decision supersedes that policy with automatic PR checks and optional, environment-approved GKE tests.
+The initial planning revision reopened task 8.1 because the earlier workflow code did not implement the revised policy.
+The implementation evidence below supersedes that earlier workflow without adding cloud access.
+
+The offline workflow accepts only manual dispatch for an exact PR head commit.
+Every job requires the original owner ID, triggering owner, and workflow reference on protected `main` before runner assignment.
+The authorization job runs trusted code from the workflow commit on a hosted runner.
+It rejects forks, closed PRs, changed heads, unprotected defaults, and mismatched identities or workflow revisions.
+The separate build uses the approved SHA and read-only repository permissions without retained checkout credentials.
+Every job repeats the owner condition because failed-job reruns can reuse a successful authorization job.
+The authorization summary identifies the input commit, workflow commit, repository, run, and attempt.
+
+All 25 Node.js authorization tests and 96 Python regression tests pass.
+The Python cases exercise the actual job conditions, including refusal of unauthorized failed-job reruns.
+Both example builds, six bundle tests, actionlint 1.7.12, pinned Ruff and mypy hooks, and strict OpenSpec validation pass.
+The [workflow instructions](../../../docs/workflows.md) document launch, rerun, and trust requirements.
+
+No GitHub Actions run or cloud allocation occurred during this task.
+The shipped workflow uses hosted runners without private access or lab allocation.
+A modified branch workflow can remove its own guard.
+Tasks 8.2 and 8.3 retain platform restrictions on private runners, temporary credentials, isolated execution, and the pinned lifecycle tool.
+Task 8.5 retains live workflow acceptance.
+
+## Automatic PR checks and opt-in approval evidence (task 8.1)
+
+The user authorized implementation and an approval-only placeholder on November 13.
+PR opening, reopening, and update events now start hosted lint and unit jobs without custom actor restrictions.
+Eligible fork PRs use the same jobs under GitHub's native execution policies.
+These jobs run the offline builds and tests without private runners, cloud credentials, or environment approval.
+
+A separate manual workflow accepts one PR number from protected `main`.
+Its selector records the exact open same-repository PR head, trusted workflow commit, run, and attempt before requesting approval.
+The hosted placeholder depends on that selection and references `gke` before execution.
+It executes no PR code and has no repository token permissions or cloud access.
+Its summary explicitly records that no lab was created and no network tests ran.
+New PR commits start automatic checks without another GKE request or an inherited approval.
+The selected commit remains fixed within the waiting approval job.
+
+The repository's `gke` environment now requires reviewer `dlobato`, allows self-review, and disables administrator bypass.
+Its selected-branch policy contains one branch rule for `main` and no tag rules.
+API readback confirms these rules. No environment credentials or cloud resources were added.
+The [workflow instructions](../../../docs/workflows.md) cover automatic checks, environment configuration, and manual approval tests after merge.
+
+All 18 Node.js selection tests, 97 Python regression tests, and six bundle tests pass.
+Both offline AVD builds, actionlint 1.7.12, pinned Ruff and mypy hooks, strict OpenSpec validation, and local link targets pass.
+Tests cover immutable selection, invalid input, untrusted workflow revisions, fork eligibility for hosted checks, and the separate environment boundary.
+No manual workflow was dispatched. The new manual definition must reach `main` before its first launch.
+Live approval enforcement, temporary GKE access, private-runner denial, and network acceptance remain in tasks 8.2 through 8.5.
+
+## Commit-marker request evidence (task 8.6)
+
+The user selected `[digital-twin-test]` and retained the hosted placeholder until live integration is complete.
+The trusted `pull_request_target` workflow reads the current event commit through GitHub's API without executing PR code.
+The exact, case-sensitive marker in the head commit subject or body requests `gke` approval.
+Unmarked heads, earlier markers, stale events, and fork PRs request no approval.
+The existing manual request remains available. Hosted lint and unit jobs remain independent.
+
+All 32 Node.js selection tests and 97 Python regression tests pass.
+Actionlint, Ruff, mypy, strict OpenSpec validation, and local link targets pass.
+The existing `gke` environment still requires owner review with administrator bypass disabled.
+API inspection found only `example-build.yml` on `main` before publication of this change.
+The new trusted trigger must reach `main` before a marker commit can test its live approval flow.
+No live marker-triggered approval, cloud allocation, or NRFU result is claimed by this implementation evidence.
+
 ## Workflow follow-up
 
-- Use the apply-change workflow only after explicit implementation authorization for the revised plan.
+- Continue tasks 8.2 through 8.5 as separate authentication, integration, report, and live acceptance work.
 - Keep the change active until the revised implementation, scenario evidence, and review are complete.
 - Archive and inspect the archived specifications only after the project acceptance requirements are satisfied.

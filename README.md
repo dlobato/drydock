@@ -76,6 +76,13 @@ The November 11 demo passed 54 live ANTA results and both MLAG pairs on the reco
 The private demo retains its switch TLS certificate exception with password authentication and hostname comparison.
 Kubernetes certificate verification remains enabled.
 
+Task 8.1 runs hosted lint and unit tests automatically on every PR and update, including eligible fork PRs.
+Use `[digital-twin-test]` in the latest PR commit to request native `gke` environment approval for that exact commit.
+The separate trusted workflow also accepts manual dispatch.
+Its placeholder job tests approval without cloud credentials, lab allocation, or network acceptance.
+The [workflow instructions](docs/workflows.md) describe environment protection and how to test both paths.
+Temporary credentials, private execution, and live pipeline acceptance remain open tasks.
+
 ## Develop
 
 Install the Git hooks in the lifecycle virtual environment:
@@ -94,6 +101,7 @@ With lifecycle dependencies installed, run `make lifecycle-test`.
 After the documented example build, run `make test` and `make spec-check`.
 The lifecycle tests use controlled Kubernetes and eAPI responses without cloud resources or switches.
 The example tests also exercise actual AVD catalog generation offline.
+With Node.js 22 installed, run `make workflow-test` for the offline PR selection tests.
 
 Use OpenSpec 1.16.0 and [the active change](openspec/changes/add-digital-twin-pipeline/proposal.md).
 Keep the change active until implementation and live acceptance are complete.

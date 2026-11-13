@@ -2,33 +2,94 @@
 
 ## Purpose
 
-Test owner-approved PR commits through ephemeral labs while keeping Ansible execution, network acceptance, and reports under pipeline control.
+Run automatic PR checks and optional approved lab tests before merge while keeping network acceptance and reports under pipeline control.
 
 ## ADDED Requirements
 
-### Requirement: Owner-authorized manual workflows
+### Requirement: Automatic unrestricted PR checks
 
-All GitHub workflows, including offline builds, MUST start only through an owner-authorized manual launch.
-Push and pull-request events MUST NOT start jobs or allocate labs.
-Manual launches and reruns by another actor MUST NOT receive the private runner or credentials.
-Each run MUST identify the authorized commit.
+Lint and unit tests MUST run automatically when a PR opens, reopens, or receives a new commit.
+These checks MUST NOT require a custom author allowlist, manual dispatch, or GKE environment approval.
+They MUST use hosted runners without private lab access, cloud credentials, or cloud token issuance permissions.
+Fork PRs MUST be eligible under GitHub's native execution policies.
 
-#### Scenario: PR changes without a manual launch
+#### Scenario: Contributor opens or updates a PR
 
-- WHEN a PR opens or receives a new commit without owner authorization
-- THEN no workflow job starts and no lab is allocated
+- WHEN any contributor opens, reopens, or updates a PR
+- THEN the lint and unit jobs start under GitHub's native execution policies without custom actor authorization
+- AND those jobs do not receive GKE access or request a lab
 
-#### Scenario: Owner launches a run
+#### Scenario: PR comes from a fork
 
-- WHEN the owner manually launches the trusted workflow for an identified PR commit
-- THEN the run can execute against that exact commit
-- AND it receives a distinct workflow-attempt identity
+- WHEN GitHub permits a fork PR workflow to execute
+- THEN the same lint and unit jobs can run without a repository-specific author restriction
+- AND no private runner or cloud access is granted
 
-#### Scenario: Another actor launches or reruns
+### Requirement: Opt-in pre-deployment tests
 
-- WHEN another actor attempts a manual launch or rerun
-- THEN the trusted workflow rejects that actor before private runner assignment or credential issuance
-- AND permission to dispatch a GitHub workflow alone does not authorize a lab
+GKE pre-deployment tests MUST require an explicit request for an identified PR commit.
+PR opening, reopening, and update events alone MUST NOT request lab work or create a pending GKE approval job.
+Each requested run MUST identify its selected commit and distinct workflow attempt.
+Automatic lint and unit results MUST remain independent of whether GKE testing is requested.
+
+#### Scenario: PR changes without a GKE request
+
+- WHEN a PR opens or receives a new commit without an explicit pre-deployment request
+- THEN lint and unit tests can run
+- AND no GKE job waits for approval or allocates a lab
+- AND the absence of a GKE run does not report successful live network acceptance
+
+### Requirement: Commit marker requests
+
+The latest same-repository PR commit MUST use the literal, case-sensitive `[digital-twin-test]` marker to request approval.
+The trusted workflow MUST read its message through GitHub without executing PR code.
+Earlier marked commits and stale events MUST NOT request approval for a new head.
+The marker MUST NOT bypass environment approval.
+Manual dispatch MUST remain available as an alternative request.
+
+#### Scenario: Latest PR commit requests the placeholder
+
+- WHEN an open same-repository PR into `main` opens, reopens, or updates with `[digital-twin-test]` in its latest commit message
+- THEN the trusted workflow selects that exact event commit and requests `gke` approval
+- AND lint and unit tests remain independent of that request
+- AND the hosted placeholder receives no cloud access and does not run NRFU
+
+#### Scenario: New head has no marker
+
+- WHEN a new PR head omits the marker but an earlier commit contains it
+- THEN no approval job starts for that new head
+- AND earlier requests retain their selected commits without authorizing the new head
+
+#### Scenario: PR event is stale or comes from a fork
+
+- WHEN the PR head differs from its event SHA or the PR comes from a fork
+- THEN the marker selector requests no environment approval
+- AND ordinary hosted PR checks remain eligible under GitHub's native policies
+
+#### Scenario: Approval placeholder runs before GKE integration
+
+- WHEN the user requests the approval-only placeholder for a selected PR commit
+- THEN the hosted placeholder waits for native `gke` environment approval
+- AND it executes no PR code, receives no cloud credentials, and allocates no lab
+- AND successful completion reports only the approval result without claiming live network acceptance
+
+### Requirement: Native environment approval for lab access
+
+Requested tests MUST require the repository owner's approval through the protected `gke` environment before private runner assignment or credential issuance.
+Native GitHub environment protection MUST enforce approval without custom actor authorization code.
+A marker MUST only request that approval.
+
+#### Scenario: Requested test receives approval
+
+- WHEN a user requests a pre-deployment test and the owner approves its `gke` environment job
+- THEN the run can test its identified PR commit before merge
+- AND the run receives its own workflow-attempt identity
+
+#### Scenario: Approval is absent or rejected
+
+- WHEN a requested run does not receive environment approval
+- THEN it receives no private runner or cloud credentials
+- AND it allocates no lab
 
 ### Requirement: Trusted workflow and immutable input
 
@@ -45,17 +106,18 @@ Build and test provenance MUST identify the exact commit and input digest.
 
 #### Scenario: PR receives another commit
 
-- WHEN a new commit reaches the PR after a manual launch
+- WHEN a new commit reaches the PR after a pre-deployment request
 - THEN the existing run continues to identify its originally selected commit
-- AND testing the new commit requires a new owner-authorized launch
+- AND lint and unit tests run for the new commit without custom actor authorization
+- AND GKE testing of the new commit requires a new explicit request and environment approval
 
 ### Requirement: Private self-hosted runner
 
-The workflow MUST use a dedicated self-hosted runner with private access to the Kubernetes API and switch management endpoints.
-It MUST isolate Ansible build and test execution from credentialed lifecycle execution.
+Approved lab jobs MUST use a dedicated self-hosted runner with private access to the Kubernetes API and switch management endpoints.
+The workflow MUST isolate Ansible build and test execution from credentialed lifecycle execution.
 Ansible jobs MUST NOT receive Kubernetes credentials or cloud token issuance permissions.
 Unapproved PR code MUST NOT execute on the private runner.
-Fork execution MUST remain outside the initial trusted workflow.
+Private lab jobs MUST NOT execute fork code.
 
 #### Scenario: Standard playbooks use private endpoints
 
@@ -78,7 +140,7 @@ Provider-specific token exchange MUST remain outside the lifecycle core.
 
 #### Scenario: Authorized GKE run obtains access
 
-- WHEN the owner launches the trusted workflow and its repository, actor, and workflow identity satisfy the configured trust
+- WHEN an environment-approved run's repository, environment, and trusted workflow identity satisfy the configured trust
 - THEN the provider issues temporary access for the authorized lab operations
 - AND the job does not receive personal Google credentials or a service-account key
 

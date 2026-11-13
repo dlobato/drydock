@@ -1,0 +1,73 @@
+name: Opt-in pre-deployment approval (placeholder)
+run-name: 'Pre-deployment request for PR #${{ github.event.pull_request.number || inputs.pull_request }} (placeholder)'
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Open same-repository PR number into main
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  select:
+    if: >-
+      ${{ github.repository == 'dlobato/drydock' &&
+          github.ref == 'refs/heads/main' &&
+          github.workflow_ref == 'dlobato/drydock/.github/workflows/pre-deployment.yml@refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      requested: ${{ steps.select.outputs.requested }}
+      commit: ${{ steps.select.outputs.commit }}
+      pull_request: ${{ steps.select.outputs.pull_request }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Select the exact PR commit before approval
+        id: select
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const select = require('./trusted/.github/scripts/select-pr.cjs');
+            const provenance = await select({github, context, env: process.env});
+            core.setOutput('requested', Boolean(provenance));
+            if (provenance) {
+              core.setOutput('commit', provenance.commit);
+              core.setOutput('pull_request', provenance.pull_request);
+              await core.summary.addHeading('Selected input (no lab requested yet)')
+                .addCodeBlock(JSON.stringify(provenance, null, 2), 'json').write();
+            } else {
+              await core.summary.addRaw('No pre-deployment request for this PR event.').write();
+            }
+
+  approval-placeholder:
+    name: 'Approve PR #${{ needs.select.outputs.pull_request }} at ${{ needs.select.outputs.commit }} (no lab)'
+    needs: select
+    if: ${{ needs.select.outputs.requested == 'true' }}
+    environment:
+      name: gke
+      url: https://github.com/dlobato/drydock/commit/${{ needs.select.outputs.commit }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Record approval without cloud access
+        env:
+          PR_NUMBER: ${{ needs.select.outputs.pull_request }}
+          PR_COMMIT: ${{ needs.select.outputs.commit }}
+          WORKFLOW_COMMIT: ${{ github.workflow_sha }}
+        run: |
+          printf 'Approved placeholder for PR #%s at `%s`.\n\n' "$PR_NUMBER" "$PR_COMMIT" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Trusted workflow: `%s`. Run: `%s`, attempt: `%s`.\n\n' "$WORKFLOW_COMMIT" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_STEP_SUMMARY"
+          printf 'No lab was created. No network tests ran. This result only tests the approval flow.\n' >> "$GITHUB_STEP_SUMMARY"
