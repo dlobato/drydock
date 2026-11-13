@@ -263,3 +263,15 @@ Federation stayed disabled throughout. No lab or switch was allocated.
 
 This result establishes the corrected probe's live behavior through the private endpoint before merge.
 Task 8.2 retains the complete GitHub workflow test after the correction reaches the trusted default branch.
+
+## Final trusted workflow request
+
+PR #22 merged into protected `main` as `d3ab11a`.
+That revision contains the denial parser that passed the standalone private endpoint test.
+This evidence PR supplies an exact input commit for a fresh request on the corrected trusted revision.
+The requested probe uses the existing access target and creates no switch lab.
+
+The operator must pin the disabled provider to that reviewed revision before the request.
+Native `gke` review must approve the exact request before private runner allocation or token issuance.
+Task 8.2 stays open until the complete probe passes and independent inspection confirms disposable runner removal.
+Federation must return to its disabled state after the attempt.
