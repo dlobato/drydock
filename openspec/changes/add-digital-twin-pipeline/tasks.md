@@ -287,8 +287,16 @@ The built image passes all 70 lifecycle tests with networking disabled and only 
 A separate container smoke test passes manifest generation, CLI help, and kubectl execution without cloud tools or credentials.
 The [cleaner installation procedure](../../../docs/lifecycle.md#install-the-independent-cleaner) documents permissions, scheduling, retries, and cleanup observations.
 
-These tests do not measure live CronJob scheduling, runner-loss recovery, or the 30-minute deletion target.
+The offline tests do not measure live CronJob scheduling, runner-loss recovery, or the 30-minute deletion target.
 Tasks 7.5, 8.2, and section 9 retain live command acceptance, enforced authorization policy, and runtime qualification.
+
+The November 13 [focused live cleanup test](../../../docs/live-cleanup-validation.md) adds evidence for Kubernetes 1.36.4 with the same executable source.
+Two native CronJob sweeps ran exactly 300 seconds apart.
+Live namespace fixtures passed interruption recovery, overdue retries, late-resource discovery, ownership preservation, repeated deletion, and cleanup timestamp assertions.
+The cleaner used its mounted Kubernetes identity with CA verification and no cloud tools.
+Independent observations found all fixture namespaces absent before the temporary local cluster and kubeconfig were removed.
+Default access configuration remained unchanged, and no cloud resources were provisioned.
+These results do not qualify clabernetes deletion, real switch workloads, GKE, or the broader live acceptance tasks.
 
 ## Historical demo evidence
 

@@ -460,6 +460,9 @@ An overdue result remains visible until deletion succeeds.
 Worker scale-down and zero cloud cost are separate operator outcomes.
 Keep the cleaner and ownership records available until cleanup completes.
 
+The [focused live cleanup record](live-cleanup-validation.md) covers real scheduled retries and namespace recovery on local Kubernetes 1.36.4.
+It does not qualify clabernetes deletion or cloud worker behavior.
+
 ## Offline evidence
 
 Run `make lifecycle-test` with only `requirements.txt` installed.

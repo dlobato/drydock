@@ -68,6 +68,7 @@ The [runtime inventory instructions](docs/lifecycle.md#use-runtime-connections) 
 Task 7.3 applies these lifetime limits to both CLIs. Capacity waiting and retries do not renew expiry.
 Task 7.4 supplies a Kubernetes-only cleaner image and [installation procedure](docs/lifecycle.md#install-the-independent-cleaner).
 The cleaner retries incomplete deletion every five minutes and records cleanup observations without deleting cloud workers.
+A [focused live test](docs/live-cleanup-validation.md) covers scheduled retries and cleanup recovery on local Kubernetes.
 Live scale qualification remains open.
 
 The November 11 demo passed 54 live ANTA results and both MLAG pairs on the recorded private runtime.
