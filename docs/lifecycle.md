@@ -463,6 +463,9 @@ Keep the cleaner and ownership records available until cleanup completes.
 The [focused live cleanup record](live-cleanup-validation.md) covers real scheduled retries and namespace recovery on local Kubernetes 1.36.4.
 It does not qualify clabernetes deletion or cloud worker behavior.
 
+The [standalone lifecycle record](live-lifecycle-validation.md) covers creation, authenticated readiness, inventory, status, and repeated deletion with two real cEOS switches.
+It includes independent removal observations and a test that rejects an untrusted Kubernetes CA on the recorded private runtime.
+
 ## Offline evidence
 
 Run `make lifecycle-test` with only `requirements.txt` installed.

@@ -10,6 +10,7 @@ Task 7.1 records bounded startup waiting and controlled capacity and timeout evi
 Task 7.2 records authenticated runtime inventory and controlled endpoint replacement evidence.
 Task 7.3 records the 30-minute default, 60-minute maximum, and controlled expiry evidence.
 Task 7.4 records the Kubernetes-only cleaner, image build, and controlled cleanup recovery evidence.
+Task 7.5 records standalone command acceptance and complete lab removal on a bounded local private runtime.
 The remaining revised implementation and live acceptance tasks remain unchecked.
 
 The former open demo tasks are replaced without claiming their completion:
@@ -72,7 +73,7 @@ The former open demo tasks are replaced without claiming their completion:
 - [x] 7.2 Derive authenticated readiness and connection inventory from all submitted switches and links. Test endpoint replacement, duplicate Pods, credential rejection, hostname mismatch, and different device names. Document private routing and runtime inventory use.
 - [x] 7.3 Set the lifetime default to 30 minutes and the maximum to 60 minutes from acceptance. Test invalid values, capacity waiting, and retries that cannot renew expiry. Update CLI help and operator examples together.
 - [x] 7.4 Make the independent cleaner and deletion path Kubernetes-only. Test five-minute retries, overdue cleanup, late resources, interruptions, and unrelated-resource preservation. Document complete lab deletion independently of worker scale-down and cloud cost.
-- [ ] 7.5 Exercise the documented standalone creation, readiness, inventory, status, and repeated deletion commands. Demonstrate JSON outcomes and complete removal of lab-owned resources. Keep the switch TLS exception explicit and preserve verification for Kubernetes endpoints.
+- [x] 7.5 Exercise the documented standalone creation, readiness, inventory, status, and repeated deletion commands. Demonstrate JSON outcomes and complete removal of lab-owned resources. Keep the switch TLS exception explicit and preserve verification for Kubernetes endpoints.
 - [x] 7.6 Replace optional demo ANTA results after every completed invocation, including empty results. Test that acceptance uses the current attempt and preserves diagnostics if invocation raises.
 - [x] 7.7 Skip completed cleanup records with absent namespaces using one namespace list per cleaner sweep. Test bounded API work, expired-lab cleanup, and late namespace discovery while preserving deletion ownership guards.
 - [x] 7.8 Clear the overdue flag after successful deletion. Test repeated deletion after the cleanup deadline and retain overdue status for incomplete cleanup.
@@ -297,6 +298,24 @@ The cleaner used its mounted Kubernetes identity with CA verification and no clo
 Independent observations found all fixture namespaces absent before the temporary local cluster and kubeconfig were removed.
 Default access configuration remained unchanged, and no cloud resources were provisioned.
 These results do not qualify clabernetes deletion, real switch workloads, GKE, or the broader live acceptance tasks.
+
+## Standalone lifecycle evidence (task 7.5)
+
+The November 13 [standalone lifecycle test](../../../docs/live-lifecycle-validation.md) used executable source `ad434368e4693031245f345808487c569605f204` on local Kubernetes 1.36.4.
+Two real cEOS switches with synthetic startup files passed creation, authenticated readiness, status, inventory retrieval, deletion, and repeated deletion.
+Each command returned JSON with the expected exit code. Wrong and missing credentials prevented readiness.
+The external runner retained original switch names and current Pod identities without AVD, ANTA, Ansible, or cloud tools.
+Readiness took 97.9 seconds from acceptance, and deletion took 47.5 seconds without changing the accepted lifetime.
+
+The agreed switch certificate exception remained explicit. Kubernetes rejected an unrelated CA, and registry access retained certificate verification.
+Independent API reads found all lab namespaces and workloads absent while baseline namespaces and cluster nodes retained their identities.
+Ownership records retained successful deletion outcomes for the accepted lab and rejected input fixtures.
+The temporary infrastructure and credentials were removed without changing default access configuration or provisioning cloud resources.
+All 93 offline regression tests and strict OpenSpec validation pass.
+
+This evidence covers the recorded private runtime and two-switch lifecycle behavior only.
+It does not qualify the official release, cloud providers, 100-switch scale, concurrent labs, or the pipeline authorization policy.
+No network acceptance or MLAG test ran in this task. Section 8 and section 9 retain their separate implementation and qualification work.
 
 ## Historical demo evidence
 
