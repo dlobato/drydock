@@ -16,6 +16,7 @@ Live GKE integration remains in tasks 8.2 through 8.5.
 `PR checks` runs on GitHub-hosted Ubuntu runners with read-only repository permissions.
 The lint job uses the pinned Ruff and mypy hooks through `pre-commit`.
 The test job runs strict OpenSpec validation, both offline AVD builds, bundle tests, CLI tests, and workflow tests.
+It also tests dispatcher authorization, Go formatting, race detection, and static analysis.
 The builds use synthetic credentials and a placeholder cEOS image name.
 They do not pull or boot a switch image.
 
@@ -41,7 +42,7 @@ It does not require the PR branch to deploy or execute its own workflow definiti
 
 Complete [the GKE access setup](github-gke-access.md) before requesting the credentialed probe.
 The provider stays disabled until the target cluster's admission and private runner controls pass.
-Configure a disposable private runner with the required labels and enforced trusted-workflow assignment.
+Use [the operator dispatcher](runner-dispatcher.md) for disposable private execution after native approval.
 The probe receives a 15-minute token. It needs no personal key or lab password.
 
 ## Request with a commit marker
@@ -93,7 +94,9 @@ This restriction does not apply to automatic fork PR checks.
 
 Before approval, make sure that the access job waits for review.
 Reject the request to test denial, or approve `gke` through Review deployments to test completion.
-After approval, read the access summary. It identifies the selected commit and states that no network tests ran.
+After approval, the operator starts the dispatcher for that exact run and attempt.
+Without a dispatcher, the approved job remains queued without private capacity.
+After execution, read the access summary. It identifies the selected commit and states that no network tests ran.
 Rejection prevents token issuance and probe execution. Neither outcome allocates a lab.
 
 To test commit selection, push an unmarked commit to the PR while approval waits.

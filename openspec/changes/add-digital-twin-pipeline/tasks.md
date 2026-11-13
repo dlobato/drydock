@@ -506,7 +506,8 @@ Live run `43450512721` proved matching-label workflow refusal before registratio
 The first approved attempt of run `43450817485` passed the guard and disposed its VM, keys, registration, and scale set.
 Federation was disabled, so its authentication failure was expected.
 Concurrent untrusted run `43451266506` received no runner or steps.
-The operator-loss test continues separately from that completed disposal evidence.
+The operator-loss test also passed. GCE independently removed the VM and boot disk after its fixed runtime.
+The documented recovery command then removed its orphaned GitHub registration, scale set, and local keys.
 
 The isolated GKE `drydock-access` target passed 18 actual API boundary cases with real workflow and cleaner tokens.
 These cases include unsafe Topology requests, unrelated reads, privilege escalation, expiry protection, independent cleaner execution, and unavailable admission.
@@ -521,3 +522,19 @@ The setup also enables the Cloud Resource Manager API that the permission probe 
 The final successful GitHub probe must wait for this correction on protected `main`.
 Task 8.2 remains unchecked. No PR code runs in the credentialed job to bypass that requirement.
 See [the live record](../../../docs/live-github-gke-access.md) for the target, runs, and evidence limits.
+
+The live exchange also exposed GitHub's immutable subject format for this repository.
+The disabled provider and sole impersonation binding now use `repo:dlobato@1379455/drydock@1452964696:environment:gke`.
+The old name-only binding was removed. No other identity restriction was relaxed.
+The setup and regression tests now require that exact immutable subject.
+
+Attempt 2 of run `43453975643` passed the official Google exchange for a 900-second token on the trusted workflow SHA.
+Untrusted hosted run `43455725603` was rejected by the enabled provider's attribute condition.
+The trusted probe then failed at the merged script's invalid permission request.
+The dispatcher removed all private runner resources and the operator disabled federation again.
+The shared access target remains available for the corrected post-merge test.
+No active lab or switch remains.
+
+Local validation passed 121 Python tests, 32 selector tests, Go race tests and static analysis, actionlint, pre-commit, and strict OpenSpec validation.
+Task 8.2 remains unchecked at 36/44 overall because the complete corrected trusted probe requires the fix on protected `main`.
+Start a fresh request after merge with an open same-repository PR, rather than rerunning the old workflow revision.

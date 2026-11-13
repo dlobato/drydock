@@ -31,16 +31,25 @@ This is an initial setup script. It stops if a named resource already exists.
 It does not adopt existing resources or replace their permissions.
 After a partial failure, inspect the created resources before continuing the remaining commands.
 
+For an existing setup, enable the permission probe's API with the isolated operator profile:
+
+```sh
+gcloud services enable cloudresourcemanager.googleapis.com --project="$DRYDOCK_PROJECT"
+```
+
 The provider requires all these GitHub claims:
 
 - The numeric repository and owner IDs match this repository.
-- The subject is `repo:dlobato/drydock:environment:gke`.
+- The subject is `repo:dlobato@1379455/drydock@1452964696:environment:gke`.
 - The branch is `refs/heads/main`.
 - The workflow is `.github/workflows/pre-deployment.yml` on `main`.
 - The workflow commit matches the operator-approved SHA.
 - The event is `workflow_dispatch` or `pull_request_target`.
 
 The subject requires the protected environment. Omitting that environment changes the subject and prevents federation.
+This repository uses GitHub's [immutable subject format](https://docs.github.com/en/actions/reference/security/oidc#immutable-subject-claims), which includes numeric owner and repository IDs.
+Inspect `gh api repos/dlobato/drydock/actions/oidc/customization/sub` before setup.
+Its `sub_claim_prefix` must match `repo:dlobato@1379455/drydock@1452964696` and `use_immutable_subject` must be true.
 A PR workflow, fork, other branch, or changed workflow commit fails the same condition.
 Keep owner review and disabled administrator bypass on the `gke` environment.
 Restrict environment deployments to `main`, as described in [the workflow instructions](workflows.md#protect-the-environment).

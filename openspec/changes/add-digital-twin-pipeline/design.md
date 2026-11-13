@@ -275,7 +275,8 @@ The probe authenticates to the private Kubernetes endpoint with its CA and remov
 It tests ownership reads, unrelated-operation denials, and Google permissions without allocating a lab.
 Longer lifecycle orchestration and credential renewal remain task 8.3.
 
-The initial Google provider remains disabled and pins numeric repository identities, the environment subject, branch, workflow, event, and exact workflow SHA.
+The initial Google provider remains disabled and pins numeric repository identities, the immutable environment subject, branch, workflow, event, and exact workflow SHA.
+Use this repository's GitHub-reported immutable subject prefix. Do not disable immutable subjects to retain a legacy name-only binding.
 Its service account receives only `container.clusters.get` for Google API access.
 Do not grant worker allocation, broad container roles, personal keys, or permanent operator impersonation access.
 Keep task 8.2 open until the approved GitHub-to-GKE probe passes on the target cluster.

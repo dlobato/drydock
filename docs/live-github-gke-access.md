@@ -5,7 +5,7 @@ This record covers task 8.2 access acceptance. It does not establish network acc
 ## Trusted revision
 
 PR #20 merged into protected `main` as `44e6caa176108eb5be62252bf1363678086680e0` on November 13, 2026.
-The Google federation provider trusts that exact workflow revision and retains every other identity restriction.
+The Google federation provider trusts that exact workflow revision and the immutable environment identity described below.
 The provider remains disabled.
 
 The `gke` environment requires owner review, disables administrator bypass, and restricts deployments to `main`.
@@ -53,8 +53,8 @@ Live runner authorization and disposal evidence remains required before federati
 
 ## Remaining target tests
 
-The remaining tests require a private GKE target, admission installation, and a controlled disposable runner.
-They must prove temporary identity exchange, GKE identity mapping, allowed lifecycle operations, and the specified Kubernetes and Google denials.
+The installed GKE target and controlled dispatcher now supply the required test boundary.
+The remaining GitHub test must prove temporary identity exchange and complete the trusted access probe after the merged-script correction.
 Task 8.2 remains unchecked until these tests pass.
 See [the operator procedure](github-gke-access.md) for the deployment requirements and denial cases.
 
@@ -77,7 +77,11 @@ The operator then canceled it.
 The second approved attempt tests operator loss.
 The operator hard-stopped only the test dispatcher process group after its VM entered `RUNNING`.
 The VM had a private address, no service account, and a GCE-enforced 900-second deletion deadline.
-The cloud deadline result remains pending in this record.
+GCE started termination at `2026-11-13T15:37:15Z` after the fixed runtime.
+At `15:38:17Z`, inspection found both the VM and its boot disk absent, 963.5 seconds after instance creation.
+The observer issued no instance or disk deletion command.
+The operator then used the documented recovery command to remove the orphaned registration, scale set, and local SSH keys.
+The recovery journal records successful removal.
 
 ## Target GKE boundary evidence
 
@@ -126,3 +130,57 @@ The final successful GitHub probe requires that correction on protected `main`.
 The credentialed job must continue to execute the reviewed default-branch revision.
 Executing the amended PR script in that job would break the source trust boundary.
 Keep task 8.2 unchecked until the corrected trusted workflow passes the complete probe.
+
+## Immutable GitHub subject
+
+The first trusted exchange attempt failed Google's attribute condition.
+GitHub's repository API reported `use_immutable_subject: true` and this prefix:
+
+```text
+repo:dlobato@1379455/drydock@1452964696
+```
+
+The initial setup used the older name-only subject.
+The operator corrected the disabled provider and its sole service-account impersonation binding to:
+
+```text
+repo:dlobato@1379455/drydock@1452964696:environment:gke
+```
+
+The operator removed the old subject binding and retained every repository, environment, branch, workflow, SHA, and event restriction.
+GitHub's immutable subject mode remains enabled.
+PR #21 updates the setup, documentation, and regression test for this exact identity.
+
+## Live identity exchange and final state
+
+[Attempt 2 of run 43453975643](https://github.com/dlobato/drydock/actions/runs/43453975643/attempts/2) passed the approved Google OIDC exchange.
+The official action issued the requested 900-second token to the dedicated service account.
+The private job executed the trusted workflow at `44e6caa176108eb5be62252bf1363678086680e0` and selected PR input `366d48777844cad3cd473cb4195b8411e41dc679`.
+No PR code executed.
+
+[Hosted run 43455725603](https://github.com/dlobato/drydock/actions/runs/43455725603) used the temporary test branch without the protected environment.
+Google rejected its identity through the provider's attribute condition while the provider was enabled.
+The test completed successfully because it required that refusal.
+This covers a real untrusted branch, workflow reference, and absent environment together.
+The numeric repository and owner restrictions remain pinned and covered by setup tests.
+
+The trusted job's probe then failed because the merged script requests the invalid `container.nodePools.create` permission.
+The local live API reproduction returned HTTP 400 for that request.
+The corrected permission test passed with the real dedicated account, as recorded above.
+This is successful token exchange and target-boundary evidence, not a successful complete GitHub-to-GKE probe.
+
+The dispatcher removed its VM, boot disk, SSH keys, registration, queue session, and scale set.
+The operator disabled federation again and retained the exact immutable subject and all other restrictions.
+The temporary test branch and synthetic unrelated-resource fixtures were removed.
+The shared GKE access target, NAT, private registry, admission service, and cleaner remain provisioned for the post-merge test.
+No lab or switch remains allocated.
+
+After PR #21 merges, pin the new reviewed `main` SHA while federation remains disabled.
+Start a fresh trusted request with an open same-repository PR as its input.
+The final evidence update can supply that PR. A rerun of the old run retains its old workflow revision.
+Enable federation only for the approved test and retain the complete successful probe result.
+Task 8.2 remains unchecked until that result exists.
+
+Local validation passed 121 Python tests, 32 Node.js selector tests, Go race tests and static analysis, actionlint, pre-commit, and strict OpenSpec validation.
+The hosted PR checks also run both offline AVD builds and the six bundle tests.
+None of this evidence establishes switch startup, network behavior, MLAG, scale, concurrency qualification, or AWS support.
