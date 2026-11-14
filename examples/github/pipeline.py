@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 from collections import Counter
+from importlib.metadata import version
 from pathlib import Path
 from uuid import uuid4
 
@@ -146,6 +147,8 @@ def prepare(proposed, image, ceos_image, parent):
         state / "state.json",
         {
             "image": image,
+            "ceos_image": ceos_image,
+            "trusted_commit": os.environ["GITHUB_WORKFLOW_SHA"],
             "provenance": {
                 "repository": os.environ["GITHUB_REPOSITORY"],
                 "commit": os.environ["PR_COMMIT"],
@@ -164,28 +167,43 @@ def prepare(proposed, image, ceos_image, parent):
         "reports",
     ):
         (state / name).mkdir(mode=0o700)
+    with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
+        stream.write(f"state={state}\n")
+    data = json.loads((state / "state.json").read_text())
     try:
         with cancellation():
+            data["stage"] = "build"
+            save(state / "state.json", data)
             container(
                 state,
                 "build",
                 [(proposed, "/proposal", True), (state / "raw", "/output", False)],
             )
             snapshot(state / "raw", state / "input")
-            container(
-                state,
-                "preflight",
-                [
-                    (state / "input", "/input", True),
-                    (state / "preview", "/output", False),
-                ],
+            data.update(
+                stage="preflight",
+                bundle_digest=Bundle.load(state / "input/bundle.tar").digest,
             )
-            snapshot(state / "preview", state / "validated")
-    except BaseException:
-        shutil.rmtree(state)
+            save(state / "state.json", data)
+            try:
+                container(
+                    state,
+                    "preflight",
+                    [
+                        (state / "input", "/input", True),
+                        (state / "preview", "/output", False),
+                    ],
+                )
+            finally:
+                snapshot(state / "preview", state / "validated")
+    except (Exception, KeyboardInterrupt) as error:
+        data["prepare_error"] = type(error).__name__
+        save(state / "state.json", data)
         raise
     shutil.rmtree(state / "raw")
     shutil.rmtree(state / "preview")
+    data["stage"] = "prepared"
+    save(state / "state.json", data)
     return state
 
 
@@ -214,6 +232,7 @@ def execute(state, credentials, cluster, environment):
         "provenance": data["provenance"],
         "tests": {"passed": False},
         "passed": False,
+        "bundle_digest": data.get("bundle_digest"),
     }
     lifecycle_mounts = [
         (state / "input", "/input", True),
@@ -222,16 +241,19 @@ def execute(state, credentials, cluster, environment):
     ]
     with cancellation():
         try:
+            result["stage"] = "create"
             container(state, "create", lifecycle_mounts, credentialed=True, timeout=300)
             result["lab"] = json.loads(
                 (state / "lifecycle/allocation.json").read_text()
             )["lab"]
+            result["stage"] = "wait"
             container(state, "wait", lifecycle_mounts, credentialed=True, timeout=960)
             ready = json.loads((state / "lifecycle/inventory.json").read_text())
             remaining = min(600, ready["record"]["expires_at"] - time.time() - 30)
             if remaining <= 0:
                 raise TimeoutError("No test time remains before expiry.")
             save(state / "test.json", {"timeout": remaining})
+            result["stage"] = "test"
             try:
                 container(
                     state,
@@ -275,7 +297,9 @@ def execute(state, credentials, cluster, environment):
 
 def cleanup(state):
     if not (state / "lifecycle/allocation.json").exists():
-        return {"deleted": True, "allocation_attempted": False}
+        result: dict = {"deleted": True, "allocation_attempted": False}
+        save(state / "cleanup-result.json", result)
+        return result
     try:
         container(
             state,
@@ -287,9 +311,11 @@ def cleanup(state):
             credentialed=True,
             timeout=1860,
         )
-        return json.loads((state / "lifecycle/cleanup.json").read_text())
+        result = json.loads((state / "lifecycle/cleanup.json").read_text())
     except (Exception, KeyboardInterrupt) as error:
-        return {"deleted": False, "error": type(error).__name__}
+        result = {"deleted": False, "error": type(error).__name__}
+    save(state / "cleanup-result.json", result)
+    return result
 
 
 def lifecycle(stage):
@@ -365,6 +391,14 @@ def stage(action):
     inventory = Path("/input/inventory/inventory.yml")
     structured = Path("/input/intended/structured_configs")
     if action == "preflight":
+        save(
+            output / "runtime.json",
+            {
+                "python": sys.version.split()[0],
+                "pyavd": version("pyavd"),
+                "anta": version("anta"),
+            },
+        )
         anta.prepare(bundle, structured, "/tmp", output, inventory=inventory)
         return
     expected = Counter(
@@ -394,21 +428,27 @@ def main():
     os.umask(0o077)
     logging.disable(logging.CRITICAL)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["prepare", "execute", "cleanup", "stage"])
+    parser.add_argument(
+        "action", choices=["prepare", "execute", "cleanup", "collect", "stage"]
+    )
     parser.add_argument("value", nargs="?")
     args = parser.parse_args()
     try:
         if args.action == "stage":
             stage(args.value)
         elif args.action == "prepare":
-            state = prepare(
+            prepare(
                 Path(os.environ["PROPOSED_ROOT"]).resolve(),
                 os.environ["PIPELINE_IMAGE"],
                 os.environ["DRYDOCK_CEOS_IMAGE"],
                 Path(os.environ["RUNNER_TEMP"]),
             )
+        elif args.action == "collect":
+            from .reports import collect
+
+            path = collect(Path(args.value))
             with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
-                stream.write(f"state={state}\n")
+                stream.write(f"path={path}\n")
         elif args.action == "execute":
             result = execute(
                 Path(args.value),

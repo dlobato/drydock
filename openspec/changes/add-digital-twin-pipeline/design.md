@@ -328,5 +328,5 @@ Keep the cleaner active until all allocated labs are deleted, including failed m
 
 The initial startup deadline and per-switch resource requests require measurements from the 100-switch test.
 The evidence will establish the qualified simultaneous lab count and aggregate switch capacity.
-The pipeline's finite artifact retention duration remains to select before its first live run.
+The pipeline retains safe reports for seven days. It collects and uploads them after immediate deletion attempts.
 These values do not change the lifecycle boundary, manual approval requirement, or the 30/60-minute lifetime limits.

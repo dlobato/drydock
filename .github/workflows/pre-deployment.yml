@@ -124,6 +124,21 @@ jobs:
         env:
           PIPELINE_STATE: ${{ steps.prepare.outputs.state }}
         run: python3 -m examples.github.pipeline cleanup "$PIPELINE_STATE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect safe reports after deletion attempts
+        id: reports
+        if: ${{ always() && steps.prepare.outputs.state != '' }}
+        working-directory: trusted
+        env:
+          PIPELINE_STATE: ${{ steps.prepare.outputs.state }}
+        run: python3 -m examples.github.pipeline collect "$PIPELINE_STATE"
+      - name: Retain safe reports for seven days
+        if: ${{ always() && steps.reports.outputs.path != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digital-twin-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.reports.outputs.path }}
+          retention-days: 7
+          if-no-files-found: error
       - name: Remove private build files and credentials
         if: ${{ always() && steps.prepare.outputs.state != '' }}
         env:

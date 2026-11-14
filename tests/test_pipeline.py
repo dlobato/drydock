@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import tempfile
 import time
 import unittest
@@ -163,6 +164,8 @@ class PipelineTests(unittest.TestCase):
             "PR_COMMIT": "c" * 40,
             "GITHUB_RUN_ID": "42",
             "GITHUB_RUN_ATTEMPT": "1",
+            "GITHUB_WORKFLOW_SHA": "d" * 40,
+            "GITHUB_OUTPUT": str(self.directory / "github-output"),
         }
         for failure in ("build", "preflight"):
             with self.subTest(failure=failure), patch.dict(os.environ, environment):
@@ -171,11 +174,26 @@ class PipelineTests(unittest.TestCase):
                     if stage == failure:
                         raise RuntimeError("failed")
 
-                with patch.object(pipeline, "container", side_effect=run) as launch:
+                with (
+                    patch.object(pipeline, "container", side_effect=run) as launch,
+                    patch.object(
+                        pipeline.Bundle,
+                        "load",
+                        return_value=SimpleNamespace(digest="digest"),
+                    ),
+                ):
                     with self.assertRaises(RuntimeError):
                         pipeline.prepare(self.directory, IMAGE, IMAGE, self.directory)
                 self.assertEqual(launch.call_args.args[1], failure)
-                self.assertFalse(list(self.directory.glob("drydock-pipeline-*")))
+                state = next(self.directory.glob("drydock-pipeline-*"))
+                self.assertEqual(
+                    json.loads((state / "state.json").read_text())["stage"], failure
+                )
+                self.assertIn(
+                    f"state={state}", (self.directory / "github-output").read_text()
+                )
+                self.assertTrue(pipeline.cleanup(state)["deleted"])
+                shutil.rmtree(state)
 
     def test_malicious_build_cannot_smuggle_links_into_credentialed_containers(self):
         for kind in ("symlink", "directory-link", "hardlink", "fifo"):

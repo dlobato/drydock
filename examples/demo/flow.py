@@ -80,6 +80,7 @@ def reports(directory, results, expected):
         "testsuite", name="Drydock ANTA", tests=str(sum(expected.values()))
     )
     failures = 0
+    indexes: Counter[tuple[str, str]] = Counter()
     for (name, test, description), count in sorted(expected.items()):
         observed = [
             r
@@ -88,8 +89,12 @@ def reports(directory, results, expected):
             == (name, test, description)
         ]
         for index in range(count):
+            indexes[(name, test)] += 1
             case = ET.SubElement(
-                suite, "testcase", classname=name, name=f"{test}[{index + 1}]"
+                suite,
+                "testcase",
+                classname=name,
+                name=f"{test}[{indexes[(name, test)]}]",
             )
             result: dict = (
                 observed[index]
