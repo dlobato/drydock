@@ -44,7 +44,7 @@ The provider requires all these GitHub claims:
 - The branch is `refs/heads/main`.
 - The workflow is `.github/workflows/pre-deployment.yml` on `main`.
 - The workflow commit matches the operator-approved SHA.
-- The event is `workflow_dispatch` or `pull_request_target`.
+- The event is `workflow_dispatch`. The PR metadata event can only dispatch that workflow.
 
 The subject requires the protected environment. Omitting that environment changes the subject and prevents federation.
 This repository uses GitHub's [immutable subject format](https://docs.github.com/en/actions/reference/security/oidc#immutable-subject-claims), which includes numeric owner and repository IDs.
@@ -170,6 +170,7 @@ gcloud iam workload-identity-pools providers update-oidc pre-deployment \
 Inspect the new workflow on protected `main`.
 Replace only the SHA restriction in the existing attribute condition.
 Retain every repository, environment, branch, workflow, and event restriction.
+For task 8.3, also narrow the allowed event to `workflow_dispatch` when installing the reviewed workflow revision.
 Repeat the denial tests before enabling the provider.
 
 Disabling federation prevents new exchanges. Existing access tokens remain usable until they expire.
@@ -184,14 +185,14 @@ The result includes email identity, ownership reads, Kubernetes denials, and the
 Federation is disabled again, and independent inspection confirmed disposable runner removal.
 Repeat the following procedure for a new target or trusted workflow revision.
 
-The workflow replaces the hosted placeholder with a temporary-access probe.
-It uses only the reviewed workflow commit and never checks out PR code on the private runner.
-After `gke` approval, the official Google action requests a 900-second token.
-The probe uses the private API endpoint with the cluster CA certificate.
-It removes its temporary kubeconfig after success or failure.
-It tests the authenticated identity, ownership-record reads, eight Kubernetes denials, and cloud permission denials.
-It creates no lab and runs no network tests.
-The longer lifecycle workflow remains task 8.3 and requires credential renewal between isolated stages.
+The task 8.2 workflow used a temporary-access probe without PR code or lab allocation.
+That record remains the evidence for scoped access and denials.
+Task 8.3 replaces the probe with [isolated lab orchestration](workflows.md#isolated-pipeline-execution).
+The coordinator uses the reviewed workflow commit and treats the selected PR as uncredentialed container input.
+After `gke` approval and successful preflight, the official Google action prepares temporary federation.
+The lifecycle containers renew 900-second access through Google Cloud CLI and preserve the cluster CA certificate.
+The PR build and ANTA containers receive no federation file or GitHub token endpoint.
+Complete live workflow acceptance remains task 8.5.
 The initial implementation required a new GKE access target and controlled private execution.
 Use [the operator dispatcher](runner-dispatcher.md) to supply one approved disposable runner with Python 3 and kubectl.
 Its labels must include `self-hosted`, `linux`, `x64`, and `drydock-gke`.
@@ -207,10 +208,11 @@ Set these nonsecret variables on the protected `gke` environment:
 | `GKE_WORKLOAD_IDENTITY_PROVIDER` | The provider resource printed by the setup script |
 | `GKE_SERVICE_ACCOUNT` | `drydock-github@drydock-513410.iam.gserviceaccount.com` |
 | `GKE_CLUSTER_RESOURCE` | `projects/<project>/locations/<location>/clusters/<cluster>` |
-| `GKE_WORKFLOW_USERNAME` | The authenticated username bound by the access manifests |
-| `DRYDOCK_SYSTEM_NAMESPACE` | The lifecycle ownership namespace |
+| `GKE_PIPELINE_IMAGE` | The reviewed pipeline toolchain image, pinned by digest |
+| `DRYDOCK_CEOS_IMAGE` | The approved cEOS image, pinned by digest |
+| `DRYDOCK_ENVIRONMENT` | The existing lifecycle environment name, such as `drydock-demo` |
 
-The probe needs no lab password, image pull credentials, or personal Google credentials.
+The coordinator generates its lab password. The operator supplies switch image access through the existing cluster.
 The trusted credentialed workflow must reach protected `main` before a live federation test.
 
 Before enabling lab execution, retain evidence for these cases:

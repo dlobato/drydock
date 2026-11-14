@@ -42,7 +42,9 @@ Before dispatch, supply these existing resources:
 The VM receives no cloud service account, cloud scopes, administrative kubeconfig, or operator GitHub token.
 The operator passes its one-use registration through SSH standard input.
 The pinned startup script installs the runner and kubectl with SHA256 comparisons.
-The runner uses an unprivileged account without sudo access.
+The runner account has Docker access for the trusted coordinator and no sudo access.
+Docker access grants host control. Execute all PR code inside the restricted containers described in [the workflow procedure](workflows.md#isolated-pipeline-execution).
+The coordinator never mounts the Docker socket into those containers.
 
 Build and test the operator program:
 
@@ -54,7 +56,7 @@ mkdir -p artifacts/runner-dispatcher
 
 ## Dispatch one approved attempt
 
-Request an access probe through the trusted workflow on `main`.
+Request a lab through the trusted workflow on `main`.
 Approve its deployment through the native `gke` environment review.
 Record its run ID, attempt, and reviewed protected `main` SHA.
 The PR input SHA remains separate from the trusted workflow SHA.
@@ -85,17 +87,17 @@ unset GH_TOKEN
 
 The dispatcher creates a unique journal under `artifacts/runner-dispatcher/`.
 Its JSON records contain identities, decisions, and deletion outcomes without credentials.
-The VM has a 900-second GCE deletion deadline.
-The runner process has a 600-second deadline after startup.
-The operator process starts cleanup after its 20-minute execution deadline.
+The VM has a 4800-second GCE deletion deadline.
+The runner process has a 4200-second deadline after startup.
+The operator process starts cleanup after its 90-minute execution deadline.
 Cleanup has separate bounded API deadlines and allows six minutes for the VM driver to finish.
-The workflow retains its separate five-minute job deadline.
+The workflow retains its separate 65-minute job deadline.
 These deadlines do not extend a lab lifetime.
 
 The dispatcher removes the VM, SSH keys, runner registration, queue session, and scale set after the attempt.
-A failed access job still requires successful infrastructure deletion.
+A failed lab job still requires successful runner deletion.
 Inspect both the GitHub job result and the operator journal.
-A successful dispatcher exit describes runner execution and cleanup, not the probe's access or network result.
+A successful dispatcher exit describes runner execution and cleanup. Read the workflow result for network acceptance and lab deletion.
 
 ## Recover an interrupted operator
 

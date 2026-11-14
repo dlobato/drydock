@@ -202,6 +202,43 @@ class AntaRoleTests(unittest.TestCase):
                 command[command.index("-i") + 1], str(path / "ansible-inventory.json")
             )
 
+    def test_runtime_overlay_keeps_source_groups_and_test_variables(self):
+        source = Path("examples/evpn-symmetric-irb/inventory.yml").resolve()
+        hosts = [{"name": "leaf1", "host": "10.251.2.42", "port": 443}]
+        process = Mock(returncode=0)
+        process.poll.return_value = 0
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            with patch(
+                "examples.demo.anta.subprocess.Popen", return_value=process
+            ) as spawn:
+                anta.invoke(path, hosts, self.structured, True, 10, inventory=source)
+            args = spawn.call_args.args[0]
+            inventories = [args[i + 1] for i, arg in enumerate(args) if arg == "-i"]
+            self.assertEqual(
+                inventories, [str(source), str(path / "ansible-inventory.json")]
+            )
+            result = subprocess.run(
+                [
+                    str(Path(anta.sys.executable).with_name("ansible-inventory")),
+                    "-i",
+                    inventories[0],
+                    "-i",
+                    inventories[1],
+                    "--list",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            inventory = json.loads(result.stdout)
+            self.assertEqual(inventory["PAIR1"]["hosts"], ["leaf1", "leaf2"])
+            self.assertEqual(inventory["PAIR2"]["hosts"], ["leaf3", "leaf4"])
+            leaf = inventory["_meta"]["hostvars"]["leaf1"]
+            self.assertEqual(leaf["ansible_host"], "10.251.2.42")
+            self.assertEqual(leaf["anta_port"], 443)
+            self.assertTrue(leaf["l3leaf"]["defaults"]["mlag"])
+
 
 if __name__ == "__main__":
     unittest.main()

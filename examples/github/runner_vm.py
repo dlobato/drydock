@@ -111,7 +111,7 @@ class RunnerVM:
             "--boot-disk-auto-delete",
             "--no-service-account",
             "--no-scopes",
-            "--max-run-duration=900s",
+            "--max-run-duration=4800s",
             "--instance-termination-action=DELETE",
             "--tags=drydock-dispatcher",
             "--labels=drydock-dispatcher=" + self.name,
@@ -197,7 +197,7 @@ class RunnerVM:
                 data=json.dumps(
                     {"jit": registration, "configuration": self.configuration}
                 ),
-                timeout=630,
+                timeout=4230,
             )
         finally:
             try:

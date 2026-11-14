@@ -2,8 +2,9 @@
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl python3
+apt-get install -y -qq ca-certificates curl python3 python3-yaml docker.io openssl
 useradd --create-home --shell /bin/bash drydock-runner
+usermod -aG docker drydock-runner
 install -d -m 0755 /opt/actions-runner
 curl --fail --location --silent --show-error \
   https://github.com/actions/runner/releases/download/v2.338.2/actions-runner-linux-x64-2.338.2.tar.gz \
@@ -20,6 +21,7 @@ rm /tmp/kubectl
 chown -R drydock-runner:drydock-runner /opt/actions-runner
 cat > /opt/drydock-launch.py <<'PY'
 import json
+import grp
 import os
 import subprocess
 import sys
@@ -37,7 +39,7 @@ expected = {
     "GITHUB_REF": "refs/heads/main",
     "GITHUB_WORKFLOW_REF": "dlobato/drydock/.github/workflows/pre-deployment.yml@refs/heads/main",
     "GITHUB_WORKFLOW_SHA": configuration["workflow_sha"],
-    "GITHUB_JOB": "gke-access",
+    "GITHUB_JOB": "gke-lab",
 }
 Path("/opt/drydock-expected.json").write_text(json.dumps(expected))
 environment = {
@@ -53,12 +55,12 @@ result = subprocess.run(
     cwd="/opt/actions-runner",
     user="drydock-runner",
     group="drydock-runner",
-    extra_groups=[],
+    extra_groups=[grp.getgrnam("docker").gr_gid],
     env=environment,
     start_new_session=True,
     stdout=subprocess.DEVNULL,
     stderr=subprocess.DEVNULL,
-    timeout=600,
+    timeout=4200,
 )
 raise SystemExit(result.returncode)
 PY
@@ -75,7 +77,7 @@ from pathlib import Path
 try:
     expected = json.loads(Path("/opt/drydock-expected.json").read_text())
     allowed = all(os.environ.get(key) == value for key, value in expected.items())
-    allowed = allowed and os.environ.get("GITHUB_EVENT_NAME") in {"workflow_dispatch", "pull_request_target"}
+    allowed = allowed and os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
 except Exception:
     allowed = False
 if not allowed:

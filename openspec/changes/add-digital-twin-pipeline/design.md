@@ -209,6 +209,12 @@ Use a dedicated self-hosted runner with private connectivity for approved lab wo
 Separate uncredentialed PR build execution from credentialed lifecycle execution so build processes cannot inherit later credentials.
 Run Ansible without Kubernetes credentials. ANTA receives only the lab management credentials and connection inventory.
 Use separate disposable execution environments for build, lifecycle, tests, and deletion so background processes cannot cross credential boundaries.
+Task 8.3 implements these environments as separate restricted containers under a trusted coordinator.
+Only lifecycle containers mount the official action's external-account file.
+Ansible containers receive no Kubernetes credentials, GitHub token endpoint, host socket, or host process namespace.
+The coordinator copies bounded regular output files after each uncredentialed container stops and rejects links and special files.
+The metadata-only PR event dispatches the trusted workflow without executing PR code or requesting a private runner itself.
+The dispatched workflow selects the same exact head before native approval.
 Do not run unapproved PR code on the private runner.
 The platform operator owns runner deployment and private networking.
 Fork execution remains excluded from private lab jobs and their credentialed execution.
@@ -273,7 +279,8 @@ Only that job can request an identity token. It executes the exact trusted workf
 Use the official Google action to issue a 900-second token without creating a reusable credential file.
 The probe authenticates to the private Kubernetes endpoint with its CA and removes its temporary kubeconfig on exit.
 It tests ownership reads, unrelated-operation denials, and Google permissions without allocating a lab.
-Longer lifecycle orchestration and credential renewal remain task 8.3.
+Task 8.3 replaces that probe with isolated orchestration and renewable kubectl credentials through Google Cloud CLI.
+The official action supplies external-account federation. Each renewed service-account token retains a 900-second lifetime and both required scopes.
 
 The initial Google provider remains disabled and pins numeric repository identities, the immutable environment subject, branch, workflow, event, and exact workflow SHA.
 Use this repository's GitHub-reported immutable subject prefix. Do not disable immutable subjects to retain a legacy name-only binding.

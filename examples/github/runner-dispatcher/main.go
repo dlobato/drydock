@@ -242,7 +242,7 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Minute)
 	defer cancel()
 	if err := dispatch(ctx, c, state, os.Getenv("GH_TOKEN")); err != nil {
 		fmt.Fprintln(os.Stderr, err)

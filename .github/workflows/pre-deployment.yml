@@ -1,5 +1,5 @@
-name: Opt-in GKE access probe
-run-name: 'GKE access request for PR #${{ github.event.pull_request.number || inputs.pull_request }}'
+name: Opt-in digital twin
+run-name: 'Digital twin request for PR #${{ github.event.pull_request.number || inputs.pull_request }}'
 
 on:
   pull_request_target:
@@ -11,6 +11,10 @@ on:
         description: Open same-repository PR number into main
         required: true
         type: string
+      selected_commit:
+        description: Exact head selected by the metadata-only marker request
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -18,6 +22,10 @@ permissions:
 
 jobs:
   select:
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: write
     if: >-
       ${{ github.repository == 'dlobato/drydock' &&
           github.ref == 'refs/heads/main' &&
@@ -45,21 +53,27 @@ jobs:
             if (provenance) {
               core.setOutput('commit', provenance.commit);
               core.setOutput('pull_request', provenance.pull_request);
-              await core.summary.addHeading('Selected input (no lab requested yet)')
+              if (context.eventName === 'pull_request_target') {
+                await github.rest.actions.createWorkflowDispatch({
+                  ...context.repo, workflow_id: 'pre-deployment.yml', ref: 'main',
+                  inputs: {pull_request: String(provenance.pull_request), selected_commit: provenance.commit},
+                });
+              }
+              await core.summary.addHeading('Selected input')
                 .addCodeBlock(JSON.stringify(provenance, null, 2), 'json').write();
             } else {
               await core.summary.addRaw('No pre-deployment request for this PR event.').write();
             }
 
-  gke-access:
-    name: 'Approve access for PR #${{ needs.select.outputs.pull_request }} at ${{ needs.select.outputs.commit }} (no lab)'
+  gke-lab:
+    name: 'Approve lab for PR #${{ needs.select.outputs.pull_request }} at ${{ needs.select.outputs.commit }}'
     needs: select
-    if: ${{ needs.select.outputs.requested == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && needs.select.outputs.requested == 'true' }}
     environment:
       name: gke
       url: https://github.com/dlobato/drydock/commit/${{ needs.select.outputs.commit }}
     runs-on: [self-hosted, linux, x64, drydock-gke]
-    timeout-minutes: 5
+    timeout-minutes: 65
     permissions:
       contents: read
       id-token: write
@@ -67,8 +81,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.workflow_sha }}
+          path: trusted
           persist-credentials: false
-      - name: Exchange the approved identity for a 15-minute token
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.select.outputs.commit }}
+          path: proposed
+          persist-credentials: false
+      - name: Build and establish model consistency and mandatory coverage without cloud access
+        id: prepare
+        working-directory: trusted
+        env:
+          PROPOSED_ROOT: ${{ github.workspace }}/proposed
+          PIPELINE_IMAGE: ${{ vars.GKE_PIPELINE_IMAGE }}
+          DRYDOCK_CEOS_IMAGE: ${{ vars.DRYDOCK_CEOS_IMAGE }}
+          PR_COMMIT: ${{ needs.select.outputs.commit }}
+        run: python3 -m examples.github.pipeline prepare
+      - name: Prepare renewable, limited federation for lifecycle containers
         id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
@@ -79,19 +108,24 @@ jobs:
           access_token_scopes: >-
             https://www.googleapis.com/auth/cloud-platform,
             https://www.googleapis.com/auth/userinfo.email
-          create_credentials_file: false
+          create_credentials_file: true
           export_environment_variables: false
-      - name: Prove the scoped access without creating a lab
+      - name: Create, wait, run standard ANTA, and delete through trusted tools
+        working-directory: trusted
         env:
-          DRYDOCK_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          GOOGLE_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
           GKE_CLUSTER_RESOURCE: ${{ vars.GKE_CLUSTER_RESOURCE }}
-          GKE_WORKFLOW_USERNAME: ${{ vars.GKE_WORKFLOW_USERNAME }}
-          DRYDOCK_SYSTEM_NAMESPACE: ${{ vars.DRYDOCK_SYSTEM_NAMESPACE }}
-          PR_NUMBER: ${{ needs.select.outputs.pull_request }}
-          PR_COMMIT: ${{ needs.select.outputs.commit }}
-          WORKFLOW_COMMIT: ${{ github.workflow_sha }}
-        run: |
-          python3 .github/scripts/probe-gke-access.py >> "$GITHUB_STEP_SUMMARY"
-          printf 'Approved access probe for PR #%s at `%s`.\n\n' "$PR_NUMBER" "$PR_COMMIT" >> "$GITHUB_STEP_SUMMARY"
-          printf 'Trusted workflow: `%s`. Run: `%s`, attempt: `%s`.\n\n' "$WORKFLOW_COMMIT" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_STEP_SUMMARY"
-          printf 'No lab was created. No network tests ran. This result tests temporary access only.\n' >> "$GITHUB_STEP_SUMMARY"
+          DRYDOCK_ENVIRONMENT: ${{ vars.DRYDOCK_ENVIRONMENT }}
+          PIPELINE_STATE: ${{ steps.prepare.outputs.state }}
+        run: python3 -m examples.github.pipeline execute "$PIPELINE_STATE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Retry immediate lab deletion after any outcome
+        if: ${{ always() && steps.prepare.outputs.state != '' }}
+        working-directory: trusted
+        env:
+          PIPELINE_STATE: ${{ steps.prepare.outputs.state }}
+        run: python3 -m examples.github.pipeline cleanup "$PIPELINE_STATE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove private build files and credentials
+        if: ${{ always() && steps.prepare.outputs.state != '' }}
+        env:
+          PIPELINE_STATE: ${{ steps.prepare.outputs.state }}
+        run: rm -rf -- "$PIPELINE_STATE"

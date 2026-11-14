@@ -104,7 +104,7 @@ class RunnerDispatcherTests(unittest.TestCase):
             self.assertIn("--no-service-account", args)
             self.assertIn("--no-address", args)
             self.assertIn("--no-scopes", args)
-            self.assertIn("--max-run-duration=900s", args)
+            self.assertIn("--max-run-duration=4800s", args)
             self.assertIn("--instance-termination-action=DELETE", args)
             self.assertIn("--boot-disk-auto-delete", args)
 

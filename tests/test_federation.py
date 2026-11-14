@@ -71,7 +71,7 @@ class FederationTests(unittest.TestCase):
             "assertion.ref == 'refs/heads/main'",
             "assertion.workflow_ref == 'dlobato/drydock/.github/workflows/pre-deployment.yml@refs/heads/main'",
             f"assertion.workflow_sha == '{revision}'",
-            "assertion.event_name in ['workflow_dispatch', 'pull_request_target']",
+            "assertion.event_name == 'workflow_dispatch'",
         ):
             self.assertIn(restriction, condition)
         role = next(
