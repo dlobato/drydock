@@ -4,7 +4,9 @@ Task 9.1 requires live creation, authenticated readiness, ANTA acceptance, and c
 The `scale-100` selection prepares that test through the existing isolated pipeline.
 The default `example` selection still requires the original six switches and both MLAG pairs.
 Offline results do not qualify live capacity or network behavior.
-Task 9.1 remains open until the complete live attempt passes.
+The [November 14 live attempt](live-scale-100.md) authenticated all 100 switches in 414 seconds and deleted its lab within 30 minutes.
+ANTA acceptance failed with 458 successful results and 630 errors across 1,088 required results.
+Task 9.1 remains open at 40/44 tasks complete.
 
 ## Fabric and coverage
 
@@ -35,7 +37,7 @@ Removing MLAG coverage from `leaf98` failed the required coverage policy.
 The run used local toolchain image `sha256:0f5d2988fbcef7004e1d67186c7ca79ef10ec2d06454602acfb4d017655bb853`.
 It used no cloud credentials and allocated no lab.
 
-## Proposed live boundary
+## Tested live boundary
 
 The November 14 read-only inspection found the shared `drydock-shared` cluster running in `europe-west1-b`.
 Only its original system node and baseline namespaces remained.
@@ -44,11 +46,14 @@ The E2 limit was 24 vCPUs, so the earlier E2 worker arrangement cannot meet the 
 Quota availability does not establish available zonal capacity or approval to allocate it.
 Before allocation, inspect both project-wide `CPUS_ALL_REGIONS` quota and the applicable regional CPU quotas.
 Include the existing cluster, temporary workers, and disposable runner in the required total.
-The [first live preparation attempt](live-scale-100.md) stopped because its project-wide CPU quota was insufficient.
+The first live preparation stopped because its project-wide CPU quota was insufficient.
+After the user obtained an increase, a fresh quota read established an effective project-wide limit of 132 vCPUs.
+That limit covered the exact approved allocation, with no margin for additional CPUs at the existing baseline.
+It did not qualify concurrent labs or guarantee zonal capacity.
 
-The proposed single attempt uses this ceiling:
+The user approved one live attempt with this ceiling:
 
-| Resource | Proposed limit |
+| Resource | Approved limit |
 | --- | --- |
 | Existing shared cluster | Preserve `drydock-shared` and its original system pool |
 | Temporary switch pool | Four private `n2-standard-32` Ubuntu workers |
@@ -63,7 +68,11 @@ The proposed single attempt uses this ceiling:
 | Capacity window | Start removal within 90 minutes of the first temporary worker allocation |
 | Attempts | One attempt, with no automatic larger retry |
 
-This plan requires separate approval for cloud allocation and the temporary trust changes.
+After the test, the user separately requested deletion of the shared cluster and remaining owned resources.
+The [live record](live-scale-100.md) includes that final teardown.
+Future attempts require fresh infrastructure preparation.
+
+Further attempts require separate approval for cloud allocation and temporary trust changes.
 `AGENTS.md` requires authorization before cloud provisioning.
 Merge the reviewed pipeline change into protected `main` before credentialed execution.
 Rebuild the operator dispatcher from that revision to accept the job name with its selected fabric.
@@ -85,7 +94,8 @@ Record switch placement, node allocatable resources, memory pressure, CPU conten
 Require all 100 authenticated switch identities, all 294 links, every required result, and all 49 MLAG pairs.
 Inspect the downloaded artifact and its hashes after upload.
 
-Use the initial startup deadline as an unqualified test bound.
+Retain the 900-second startup deadline for another test of the exact measured profile.
+The 414-second authenticated startup supports that bound, but the failed ANTA outcome leaves task 9.1 incomplete.
 If the attempt misses that bound, report the failure and request deletion.
 Set a qualified startup deadline only from measured evidence within the accepted lifetime.
 Do not extend expiry or increase capacity to force a passing result.
