@@ -166,6 +166,25 @@ class ReportTests(unittest.TestCase):
             },
         )
 
+    def test_eos_build_version_preserves_spaces_and_rejects_unsafe_values(self):
+        inventory = json.loads((self.state / "lifecycle/inventory.json").read_text())
+        version = "4.36.1F-48405728.4361F (engineering build)"
+        inventory["eos_versions"]["leaf1"] = version
+        self.save("lifecycle/inventory.json", inventory)
+        output = reports.collect(self.state)
+        run = json.loads((output / "run.json").read_text())
+        self.assertEqual(run["runtime"]["eos"], {"leaf1": version})
+        for invalid in (version + "\ntext", version + "\ttext", "4" * 101, None):
+            with self.subTest(version=invalid):
+                inventory["eos_versions"]["leaf1"] = invalid
+                self.save("lifecycle/inventory.json", inventory)
+                with self.assertRaisesRegex(ValueError, "Invalid runtime version"):
+                    reports.collect(self.state)
+        inventory["eos_versions"]["leaf1"] = "4.36.1F " + self.secret
+        self.save("lifecycle/inventory.json", inventory)
+        with self.assertRaisesRegex(ValueError, "Sensitive data"):
+            reports.collect(self.state)
+
     def test_missing_duplicate_skipped_and_errored_results_still_fail_safe_reports(
         self,
     ):
