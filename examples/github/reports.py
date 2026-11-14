@@ -11,7 +11,7 @@ from collections import Counter
 from pathlib import Path
 
 from drydock.core import save
-from examples.demo.anta import NODES
+from examples.demo.anta import SCALE_NODES
 from examples.demo.flow import reports
 
 TESTS = {
@@ -68,14 +68,14 @@ def read(path, default=None):
     return json.loads(path.read_text())
 
 
-def catalog(value):
+def catalog(value, nodes):
     """Keep network parameters, excluding source descriptions and custom data."""
     if isinstance(value, dict):
-        return {k: catalog(v) for k, v in value.items() if k in CATALOG_KEYS}
+        return {k: catalog(v, nodes) for k, v in value.items() if k in CATALOG_KEYS}
     if isinstance(value, list):
-        return [catalog(v) for v in value]
+        return [catalog(v, nodes) for v in value]
     if isinstance(value, str):
-        if value in NODES | {"default", "VRF_A", "VRF_B", "up", "down"} or re.fullmatch(
+        if value in nodes | {"default", "VRF_A", "VRF_B", "up", "down"} or re.fullmatch(
             r"(?:Ethernet|Loopback|Port-Channel|Vlan|Vxlan)[0-9]+(?:/[0-9]+)*", value
         ):
             return value
@@ -102,10 +102,11 @@ def collect(state):
         if rows is None:
             rows = read(state / "reports/anta/reports/anta_report.json", [])
         expected = read(state / "validated/expected.json", [])
+        nodes = {row["name"] for row in expected}
         counts: Counter = Counter()
         safe_rows = []
         for row in expected:
-            if row["name"] not in NODES or row["test"] not in TESTS:
+            if row["name"] not in SCALE_NODES or row["test"] not in TESTS:
                 raise ValueError("Unknown example catalog identity.")
             if type(row["count"]) is not int or not 1 <= row["count"] <= 1000:
                 raise ValueError("Invalid required test count.")
@@ -113,7 +114,7 @@ def collect(state):
             counts[(row["name"], row["test"], description)] += row["count"]
         for row in rows:
             if (
-                row["name"] not in NODES
+                row["name"] not in nodes
                 or row["test"] not in TESTS
                 or row["result"] not in STATUSES
             ):
@@ -132,13 +133,14 @@ def collect(state):
         outcome["passed"] = outcome["passed"] and tests.get("passed") is True
         runtime = read(state / "validated/runtime.json", {})
         versions = {k: runtime[k] for k in ("python", "pyavd", "anta") if k in runtime}
-        eos = {k: v for k, v in ready.get("eos_versions", {}).items() if k in NODES}
+        eos = {k: v for k, v in ready.get("eos_versions", {}).items() if k in nodes}
         for value in [*versions.values(), *eos.values()]:
             if not isinstance(value, str) or not re.fullmatch(
                 r"[0-9][A-Za-z0-9.()+_ -]{0,99}", value
             ):
                 raise ValueError("Invalid runtime version.")
         summary = {
+            "fabric": data.get("fabric", "example"),
             "provenance": data["provenance"],
             "trusted_commit": data["trusted_commit"],
             "bundle_digest": data.get("bundle_digest"),
@@ -179,11 +181,11 @@ def collect(state):
                 "cleanup_deleted": cleanup.get("deleted") is True,
             },
         )
-        for name in sorted(NODES):
+        for name in sorted(nodes):
             source = state / f"validated/anta/avd_catalogs/{name}.json"
             value = read(source)
             if value is not None:
-                save(output / f"catalogs/{name}.json", catalog(value))
+                save(output / f"catalogs/{name}.json", catalog(value, nodes))
         manifest = {
             str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in sorted(output.rglob("*"))

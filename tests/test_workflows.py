@@ -48,9 +48,12 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn("pull_request", manual["on"])
         self.assertEqual(
             set(manual["on"]["workflow_dispatch"]["inputs"]),
-            {"pull_request", "selected_commit"},
+            {"pull_request", "selected_commit", "fabric"},
         )
         self.assertEqual(set(manual["jobs"]), {"select", "gke-lab"})
+        fabric = manual["on"]["workflow_dispatch"]["inputs"]["fabric"]
+        self.assertEqual(fabric["default"], "example")
+        self.assertEqual(fabric["options"], ["example", "scale-100"])
         selection = manual["jobs"]["select"]
         self.assertNotIn("environment", selection)
         self.assertEqual(selection["runs-on"], "ubuntu-24.04")
@@ -86,6 +89,9 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(proposed["with"]["ref"], "${{ needs.select.outputs.commit }}")
         self.assertEqual(proposed["with"]["path"], "proposed")
         self.assertEqual(prepare["id"], "prepare")
+        self.assertEqual(
+            prepare["env"]["PIPELINE_FABRIC"], "${{ inputs.fabric || 'example' }}"
+        )
         self.assertIn("always()", cleanup["if"])
         self.assertIn("pipeline cleanup", cleanup["run"])
         self.assertIn("always()", erase["if"])

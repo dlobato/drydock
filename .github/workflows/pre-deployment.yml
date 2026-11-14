@@ -15,6 +15,11 @@ on:
         description: Exact head selected by the metadata-only marker request
         required: false
         type: string
+      fabric:
+        description: Fabric to build and test after approval
+        type: choice
+        default: example
+        options: [example, scale-100]
 
 permissions:
   contents: read
@@ -66,7 +71,7 @@ jobs:
             }
 
   gke-lab:
-    name: 'Approve lab for PR #${{ needs.select.outputs.pull_request }} at ${{ needs.select.outputs.commit }}'
+    name: 'Approve ${{ inputs.fabric || ''example'' }} lab for PR #${{ needs.select.outputs.pull_request }} at ${{ needs.select.outputs.commit }}'
     needs: select
     if: ${{ github.event_name == 'workflow_dispatch' && needs.select.outputs.requested == 'true' }}
     environment:
@@ -96,6 +101,7 @@ jobs:
           PIPELINE_IMAGE: ${{ vars.GKE_PIPELINE_IMAGE }}
           DRYDOCK_CEOS_IMAGE: ${{ vars.DRYDOCK_CEOS_IMAGE }}
           PR_COMMIT: ${{ needs.select.outputs.commit }}
+          PIPELINE_FABRIC: ${{ inputs.fabric || 'example' }}
         run: python3 -m examples.github.pipeline prepare
       - name: Prepare renewable, limited federation for lifecycle containers
         id: auth

@@ -12,7 +12,7 @@ import (
 
 func fixture() (configuration, scaleset.JobMessageBase, map[string]any) {
 	c := configuration{RunID: 123, Attempt: 2, WorkflowSHA: strings.Repeat("a", 40)}
-	job := scaleset.JobMessageBase{OwnerName: "dlobato", RepositoryName: "drydock", JobWorkflowRef: workflowRef, WorkflowRunID: 123, JobID: "job-guid", EventName: "workflow_dispatch", RequestLabels: runnerLabels, JobDisplayName: "Approve lab for PR #21 at " + strings.Repeat("b", 40)}
+	job := scaleset.JobMessageBase{OwnerName: "dlobato", RepositoryName: "drydock", JobWorkflowRef: workflowRef, WorkflowRunID: 123, JobID: "job-guid", EventName: "workflow_dispatch", RequestLabels: runnerLabels, JobDisplayName: "Approve example lab for PR #21 at " + strings.Repeat("b", 40)}
 	evidence := map[string]any{
 		"branches/main":                                 map[string]any{"protected": true, "commit": map[string]any{"sha": c.WorkflowSHA}},
 		"actions/runs/123":                              map[string]any{"id": 123, "run_attempt": 2, "event": "workflow_dispatch", "path": workflowPath, "status": "queued", "repository": map[string]any{"id": 1452964696, "owner": map[string]any{"id": 1379455}}, "head_repository": map[string]any{"id": 1452964696}},
@@ -110,5 +110,18 @@ func TestNativeAssignedJobDoesNotRequireRequestID(t *testing.T) {
 	message.Statistics = nil
 	if _, _, err := queuedJob(message); err == nil {
 		t.Fatal("missing reservation evidence must prevent private capacity")
+	}
+}
+
+func TestOnlyReviewedFabricNamesReachPrivateExecution(t *testing.T) {
+	for fabric, allowed := range map[string]bool{"example": true, "scale-100": true, "scale-101": false, "": false} {
+		t.Run(fabric, func(t *testing.T) {
+			c, job, evidence := fixture()
+			job.JobDisplayName = "Approve " + fabric + " lab for PR #21 at " + strings.Repeat("b", 40)
+			evidence["actions/runs/123/attempts/2/jobs?per_page=100"].(map[string]any)["jobs"].([]any)[0].(map[string]any)["name"] = job.JobDisplayName
+			if err := authorize(context.Background(), c, job, evidenceReader(evidence)); (err == nil) != allowed {
+				t.Fatalf("fabric authorization result: %v", err)
+			}
+		})
 	}
 }

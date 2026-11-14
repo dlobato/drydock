@@ -85,6 +85,22 @@ class AntaRoleTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 anta.coverage(directory, self.bundle)
 
+    def test_partial_example_cannot_reduce_the_required_switch_set(self):
+        bundle = deepcopy(self.bundle)
+        del bundle.topology["topology"]["nodes"]["leaf4"]
+        with self.assertRaisesRegex(ValueError, "six-switch example"):
+            anta.coverage(self.directory / "preview", bundle)
+
+    def test_scale_requires_explicit_selection_before_any_model_is_read(self):
+        bundle = deepcopy(self.bundle)
+        bundle.topology["topology"]["nodes"] = dict.fromkeys(anta.SCALE_NODES, {})
+        with self.assertRaisesRegex(ValueError, "selected pipeline fabric"):
+            anta.prepare(bundle, Path("absent"), self.directory, self.directory)
+        with self.assertRaisesRegex(ValueError, "selected pipeline fabric"):
+            anta.prepare(
+                self.bundle, Path("absent"), self.directory, self.directory, scale=True
+            )
+
     def test_example_interprets_interface_mappings_for_coverage(self):
         bundle = deepcopy(self.bundle)
         mapping = json.loads(bundle.files["interface_mapping.json"])
