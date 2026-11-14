@@ -92,6 +92,9 @@ def container(state, stage, mounts, *, credentialed=False, timeout=300):
         "CLOUDSDK_CONFIG=/tmp/gcloud",
         "--env-file",
         str(state / "lab.env"),
+        "--env",
+        "DRYDOCK_PIPELINE_FABRIC="
+        + json.loads((state / "state.json").read_text()).get("fabric", "example"),
         "--mount",
         f"type=bind,src={ROOT},dst=/trusted,readonly",
     ]
@@ -131,7 +134,9 @@ def container(state, stage, mounts, *, credentialed=False, timeout=300):
         )
 
 
-def prepare(proposed, image, ceos_image, parent):
+def prepare(proposed, image, ceos_image, parent, *, fabric="example"):
+    if fabric not in {"example", "scale-100"}:
+        raise ValueError("Select example or scale-100 as the pipeline fabric.")
     require_digest(image)
     require_digest(ceos_image)
     state = Path(tempfile.mkdtemp(prefix="drydock-pipeline-", dir=parent))
@@ -148,6 +153,7 @@ def prepare(proposed, image, ceos_image, parent):
         {
             "image": image,
             "ceos_image": ceos_image,
+            "fabric": fabric,
             "trusted_commit": os.environ["GITHUB_WORKFLOW_SHA"],
             "provenance": {
                 "repository": os.environ["GITHUB_REPOSITORY"],
@@ -368,6 +374,10 @@ def stage(action):
             ),
             symlinks=True,
         )
+        if os.environ.get("DRYDOCK_PIPELINE_FABRIC") == "scale-100":
+            from examples.scale import expand
+
+            expand(source / EXAMPLE)
         env = {**os.environ, "ANSIBLE_CONFIG": str(source / "ansible.cfg")}
         command(
             [
@@ -399,7 +409,14 @@ def stage(action):
                 "anta": version("anta"),
             },
         )
-        anta.prepare(bundle, structured, "/tmp", output, inventory=inventory)
+        anta.prepare(
+            bundle,
+            structured,
+            "/tmp",
+            output,
+            inventory=inventory,
+            scale=os.environ.get("DRYDOCK_PIPELINE_FABRIC") == "scale-100",
+        )
         return
     expected = Counter(
         {
@@ -442,6 +459,7 @@ def main():
                 os.environ["PIPELINE_IMAGE"],
                 os.environ["DRYDOCK_CEOS_IMAGE"],
                 Path(os.environ["RUNNER_TEMP"]),
+                fabric=os.environ.get("PIPELINE_FABRIC", "example"),
             )
         elif args.action == "collect":
             from .reports import collect

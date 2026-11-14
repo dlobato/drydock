@@ -6,7 +6,8 @@ These jobs need no custom author approval or `gke` approval.
 GitHub can still require approval for workflows from fork contributors.
 
 A separate trusted workflow accepts `[digital-twin-test]` in the latest PR commit or a manual request.
-It requests a six-switch lab after approval through the protected `gke` environment.
+It requests a six-switch lab by default after approval through the protected `gke` environment.
+Manual dispatch also offers the explicit `scale-100` fabric for [scale qualification](scale-qualification.md).
 It builds the selected commit, establishes model consistency and coverage, and runs standard ANTA through the lifecycle CLI.
 Task 8.2 passed [scoped GitHub-to-GKE access acceptance](live-github-gke-access.md#email-scope-acceptance-request).
 Task 8.3 implements lab orchestration with isolated containers and controlled failure tests.
@@ -89,6 +90,9 @@ gh workflow run pre-deployment.yml --repo dlobato/drydock --ref main \
 
 Users with GitHub's native dispatch permission can request a run. Only the required environment reviewer can approve it.
 No custom launch or rerun actor allowlist applies.
+After separate capacity approval, add `-f fabric=scale-100` to request the 100-switch fabric.
+Merge the reviewed workflow and rebuild the operator dispatcher before that request.
+The approval job names the selected fabric, PR, and exact input commit.
 
 ## Test approval
 
@@ -201,7 +205,7 @@ The input digest identifies the admitted topology and startup files without reta
 Description hashes preserve distinct test identities without publishing source text.
 The collector preserves missing, duplicate, skipped, and errored results as failures.
 
-Catalog collection retains the six-switch example's network fields.
+Catalog collection retains the selected fabric's approved network fields and switch identities.
 It excludes free-text metadata and replaces unsupported parameter strings with `[redacted]`.
 Unknown test identities stop collection rather than upload unchecked data.
 New example test types require a reviewed extension to the collector's approved fields.

@@ -217,6 +217,24 @@ class PipelineTests(unittest.TestCase):
             self.assertTrue(pipeline.cleanup(self.state)["deleted"])
         run.assert_not_called()
 
+    def test_scale_selection_reaches_the_isolated_build_and_rejects_unknown_fabrics(
+        self,
+    ):
+        self.data["fabric"] = "scale-100"
+        pipeline.save(self.state / "state.json", self.data)
+        with (
+            patch.object(pipeline, "command") as command,
+            patch.object(pipeline.subprocess, "run"),
+        ):
+            pipeline.container(self.state, "build", [])
+        self.assertIn("DRYDOCK_PIPELINE_FABRIC=scale-100", command.call_args.args[0])
+        with patch.object(pipeline, "command") as command:
+            with self.assertRaisesRegex(ValueError, "pipeline fabric"):
+                pipeline.prepare(
+                    self.directory, IMAGE, IMAGE, self.directory, fabric="unbounded"
+                )
+        command.assert_not_called()
+
     def test_docker_client_failure_still_removes_the_whole_container(self):
         with (
             patch.object(pipeline, "command", side_effect=TimeoutError),

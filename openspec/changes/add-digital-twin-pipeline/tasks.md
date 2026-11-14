@@ -696,3 +696,24 @@ The unmarked input update passed hosted lint and tests while its metadata workfl
 The accepted live attempt required separate dispatch and fresh native review.
 The [acceptance record](../../../docs/live-github-pipeline.md) retains exact identities, earlier failures, validation, and cleanup evidence.
 Task 8.5 is complete at 40/44 tasks. The change remains active for section 9.
+
+## Scale preparation for task 9.1
+
+The pipeline adds an explicit `scale-100` selection for two spines and 49 MLAG pairs.
+The trusted helper expands a private copy of the existing synthetic inventory.
+The default selection still requires exactly six switches.
+Catalog generation and safe reports cover every switch in the selected fabric.
+Native approval, isolated containers, lifecycle ownership, and unconditional deletion remain required.
+The dispatcher accepts only the two reviewed fabric names in the approved job identity.
+
+The actual restricted containers built 100 switches, admitted all 294 links, and generated 1,088 required ANTA entries offline.
+All 100 sanitized catalogs parsed with ANTA, and the final safe directory contained 105 files.
+Missing MLAG coverage for the last leaf failed acceptance preparation.
+The 168 Python tests, six bundle tests, 33 selector tests, dispatcher race tests, and static analysis passed.
+Pinned repository hooks, actionlint, and strict OpenSpec validation passed.
+
+The [qualification plan](../../../docs/scale-qualification.md) records the proposed resource ceiling, evidence, approval boundary, and cleanup.
+Read-only inspection found the shared cluster available and the E2 quota insufficient for the current 100-switch resource requests.
+The proposed worker pool uses four private N2 workers within the observed regional quota.
+No scale lab, cloud capacity, or temporary trust change is authorized by this preparation alone.
+Task 9.1 remains unchecked at 40/44 tasks until live network acceptance and complete deletion pass.

@@ -167,7 +167,7 @@ func authorize(ctx context.Context, c configuration, job scaleset.JobMessageBase
 			matches++
 		}
 	}
-	if matches != 1 || !regexp.MustCompile(`^Approve lab for PR #[1-9][0-9]* at [a-f0-9]{40}$`).MatchString(job.JobDisplayName) {
+	if matches != 1 || !regexp.MustCompile(`^Approve (example|scale-100) lab for PR #[1-9][0-9]* at [a-f0-9]{40}$`).MatchString(job.JobDisplayName) {
 		return errors.New("exactly one approved lab coordinator is required")
 	}
 	return nil

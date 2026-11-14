@@ -1,4 +1,4 @@
-"""AVD catalog generation and required coverage for the six-switch example."""
+"""AVD catalog generation and required coverage for the EVPN examples."""
 
 import json
 import os
@@ -16,6 +16,14 @@ from drydock.core import UserError, save
 ROOT = Path(__file__).resolve().parents[2]
 PLAYBOOK = ROOT / "playbooks/anta.yml"
 NODES = {"spine1", "spine2", "leaf1", "leaf2", "leaf3", "leaf4"}
+SCALE_NODES = {"spine1", "spine2"} | {f"leaf{i}" for i in range(1, 99)}
+
+
+def nodes(bundle):
+    names = set(bundle.topology["topology"]["nodes"])
+    if names not in (NODES, SCALE_NODES):
+        raise UserError("Supply the six-switch example or the 100-switch scale fabric.")
+    return names
 
 
 def invoke(directory, hosts, structured_dir, dry_run, timeout, *, inventory=None):
@@ -96,7 +104,7 @@ def coverage(directory, bundle):
 
     expected: Counter[tuple[str, str, str]] = Counter()
     definition = bundle.topology["topology"]
-    for name in sorted(NODES):
+    for name in sorted(nodes(bundle)):
         node = definition["nodes"][name]
         binds = node.get("binds") or definition["kinds"]["arista_ceos"].get("binds", [])
         mapping = (
@@ -148,12 +156,15 @@ def coverage(directory, bundle):
     return expected
 
 
-def prepare(bundle, source, private, directory, *, inventory=None):
+def prepare(bundle, source, private, directory, *, inventory=None, scale=False):
     from pyavd import get_device_config
 
+    names = SCALE_NODES if scale else NODES
+    if nodes(bundle) != names:
+        raise UserError("The switch set does not match the selected pipeline fabric.")
     structured = Path(private) / "structured_configs"
     structured.mkdir(mode=0o700)
-    for name in sorted(NODES):
+    for name in sorted(names):
         text = (Path(source) / f"{name}.yml").read_text()
         model = yaml.safe_load(text)
         if (
@@ -168,7 +179,7 @@ def prepare(bundle, source, private, directory, *, inventory=None):
         (structured / f"{name}.yml").write_text(text)
     hosts = [
         {"name": name, "host": "127.0.0.1", "port": 10000 + index}
-        for index, name in enumerate(sorted(NODES))
+        for index, name in enumerate(sorted(names))
     ]
     code, rows = invoke(directory, hosts, structured, True, 120, inventory=inventory)
     if code:

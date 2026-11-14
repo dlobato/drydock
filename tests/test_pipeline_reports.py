@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from test_workflows import workflow
 
+from examples.demo.anta import SCALE_NODES
 from examples.github import pipeline, reports
 
 
@@ -184,6 +185,59 @@ class ReportTests(unittest.TestCase):
         self.save("lifecycle/inventory.json", inventory)
         with self.assertRaisesRegex(ValueError, "Sensitive data"):
             reports.collect(self.state)
+
+    def test_scale_reports_keep_all_100_identities_and_reject_unknown_names(self):
+        self.save(
+            "state.json",
+            {
+                **json.loads((self.state / "state.json").read_text()),
+                "fabric": "scale-100",
+            },
+        )
+        rows = [{**self.row, "name": name} for name in sorted(SCALE_NODES)]
+        self.save("reports/anta.json", rows)
+        self.save("validated/expected.json", [{**row, "count": 1} for row in rows])
+        for name in SCALE_NODES:
+            self.save(
+                f"validated/anta/avd_catalogs/{name}.json",
+                {
+                    "anta.tests.connectivity": [
+                        {
+                            "VerifyLLDPNeighbors": {
+                                "neighbors": [
+                                    {
+                                        "port": "Ethernet1",
+                                        "neighbor_device": "leaf98",
+                                        "neighbor_port": "Ethernet2",
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+            )
+        output = reports.collect(self.state)
+        self.assertEqual(
+            json.loads((output / "run.json").read_text())["fabric"], "scale-100"
+        )
+        self.assertEqual(len(list((output / "catalogs").glob("*.json"))), 100)
+        self.assertEqual(
+            {row["name"] for row in json.loads((output / "anta.json").read_text())},
+            SCALE_NODES,
+        )
+        self.assertEqual(len(ET.parse(output / "anta.xml").getroot()), 100)
+        self.assertIn("leaf98", (output / "catalogs/leaf98.json").read_text())
+        self.save("reports/anta.json", rows + [{**self.row, "name": "leaf99"}])
+        with self.assertRaisesRegex(ValueError, "Unknown ANTA result"):
+            reports.collect(self.state)
+        self.assertFalse((self.state / "public").exists())
+        for name in ("leaf99", "../leaf1", self.secret):
+            with self.subTest(name=name):
+                self.save(
+                    "validated/expected.json", [{**self.row, "name": name, "count": 1}]
+                )
+                with self.assertRaisesRegex(ValueError, "Unknown example catalog"):
+                    reports.collect(self.state)
 
     def test_missing_duplicate_skipped_and_errored_results_still_fail_safe_reports(
         self,
