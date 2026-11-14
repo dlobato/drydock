@@ -717,3 +717,38 @@ Read-only inspection found the shared cluster available and the E2 quota insuffi
 The proposed worker pool uses four private N2 workers within the observed regional quota.
 No scale lab, cloud capacity, or temporary trust change is authorized by this preparation alone.
 Task 9.1 remains unchecked at 40/44 tasks until live network acceptance and complete deletion pass.
+
+## Rejected scale capacity request (task 9.1)
+
+The user approved one 100-switch attempt after PR #29 merged as `43eb6a4b0916a6e4903486555f385a65d19ee8d8`.
+Google rejected the four-worker `n2-standard-32` pool before allocation.
+At that attempt, project-wide `CPUS_ALL_REGIONS` quota permitted 32 vCPUs, with two in use and 30 available.
+The 128-vCPU worker request exceeded available quota by 98 vCPUs despite sufficient regional N2 quota.
+A separate project quota read confirmed the limit.
+No scale worker, lab, switch, private runner, or scale workflow started.
+The operator stopped image publication and removed the temporary repository without a retry or quota change.
+Independent API inspection found only the original system pool, running Ready node, and disk.
+Namespaces, firewalls, and cluster access resources matched their saved baselines.
+Federation remained disabled with its original trust condition, and protected variables matched the saved baseline.
+No temporary repository, runner registration, scale set, token-minting grant, or local credential file remained.
+Task 9.1 remains unchecked at 40/44 tasks complete.
+See the [attempt record](../../../docs/live-scale-100.md) for the acceptance boundary and final cleanup evidence.
+
+## Resumed live scale attempt (task 9.1)
+
+The user obtained a quota increase and authorized continuation of the bounded test.
+A fresh read established an effective project-wide CPU limit of 132 before worker allocation.
+Owner-approved [run 43598152566](https://github.com/dlobato/drydock/actions/runs/43598152566) used trusted revision `43eb6a4b0916a6e4903486555f385a65d19ee8d8` and selected input `b06f9d433a8f596887ae7251c7d3e8a08be48fe8`.
+All 100 switches authenticated in 413.960 seconds, within the unchanged 900-second startup deadline.
+Independent reads established all 294 links and 25 switches on each of four approved N2 workers.
+The ANTA report contains all 1,088 required identities, with 458 successful results and 630 errors.
+ANTA and the complete MLAG requirement did not pass.
+The workflow deleted the lab, and independent reads found its namespace and topology absent within its accepted 30-minute lifetime.
+The downloaded seven-day artifact matched the archive digest and every manifest hash.
+All 100 sanitized catalogs parsed, and credential and private-file inspection passed across its 105 files.
+The operator made no second live attempt, resource increase, or lifetime extension.
+The user separately requested removal of the shared cluster after the test.
+The final inventories establish complete removal of the cluster, compute, disks, owned networking, registry, custom cloud identities, and GitHub federation.
+Default project resources and the Google-managed GKE trust domain remain.
+The [live record](../../../docs/live-scale-100.md) retains timings, resource observations, exact runtime identities, failure limits, and final teardown evidence.
+Task 9.1 remains unchecked at 40/44 tasks complete. Tasks 9.2 through 9.4 remain open.
