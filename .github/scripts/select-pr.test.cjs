@@ -89,6 +89,14 @@ test('API failure stops selection before approval', async () => {
   assert.equal(f.calls.some(([name]) => name === 'pr'), false);
 });
 
+test('marker dispatch cannot silently select a newer PR commit', async () => {
+  const f = fixture();
+  f.context.payload.inputs.selected_commit = 'a'.repeat(40);
+  assert.equal((await select(f)).commit, 'a'.repeat(40));
+  f.pr.head.sha = 'c'.repeat(40);
+  await assert.rejects(select(f), /head changed/);
+});
+
 function markerFixture() {
   const f = fixture();
   f.context.eventName = 'pull_request_target';

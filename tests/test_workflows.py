@@ -47,16 +47,18 @@ class WorkflowTests(unittest.TestCase):
         )
         self.assertNotIn("pull_request", manual["on"])
         self.assertEqual(
-            set(manual["on"]["workflow_dispatch"]["inputs"]), {"pull_request"}
+            set(manual["on"]["workflow_dispatch"]["inputs"]),
+            {"pull_request", "selected_commit"},
         )
-        self.assertEqual(set(manual["jobs"]), {"select", "gke-access"})
+        self.assertEqual(set(manual["jobs"]), {"select", "gke-lab"})
         selection = manual["jobs"]["select"]
         self.assertNotIn("environment", selection)
         self.assertEqual(selection["runs-on"], "ubuntu-24.04")
-        access = manual["jobs"]["gke-access"]
+        access = manual["jobs"]["gke-lab"]
         self.assertEqual(access["needs"], "select")
         self.assertEqual(
-            access["if"], "${{ needs.select.outputs.requested == 'true' }}"
+            access["if"],
+            "${{ github.event_name == 'workflow_dispatch' && needs.select.outputs.requested == 'true' }}",
         )
         self.assertEqual(
             selection["outputs"]["requested"], "${{ steps.select.outputs.requested }}"
@@ -68,9 +70,17 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(
             access["runs-on"], ["self-hosted", "linux", "x64", "drydock-gke"]
         )
-        self.assertEqual(len(access["steps"]), 3)
-        checkout, authentication, step = access["steps"]
+        checkout, proposed, prepare, authentication, step, cleanup, erase = access[
+            "steps"
+        ]
         self.assertEqual(checkout["with"]["ref"], "${{ github.workflow_sha }}")
+        self.assertEqual(checkout["with"]["path"], "trusted")
+        self.assertEqual(proposed["with"]["ref"], "${{ needs.select.outputs.commit }}")
+        self.assertEqual(proposed["with"]["path"], "proposed")
+        self.assertEqual(prepare["id"], "prepare")
+        self.assertIn("always()", cleanup["if"])
+        self.assertIn("pipeline cleanup", cleanup["run"])
+        self.assertIn("always()", erase["if"])
         self.assertEqual(authentication["with"]["access_token_lifetime"], "900s")
         self.assertEqual(
             {
@@ -82,14 +92,15 @@ class WorkflowTests(unittest.TestCase):
                 "https://www.googleapis.com/auth/userinfo.email",
             },
         )
-        self.assertEqual(authentication["with"]["create_credentials_file"], "false")
+        self.assertEqual(authentication["with"]["create_credentials_file"], "true")
         self.assertEqual(
             authentication["with"]["export_environment_variables"], "false"
         )
-        self.assertIn("probe-gke-access.py", step["run"])
-        self.assertIn("No lab was created. No network tests ran.", step["run"])
+        self.assertIn("pipeline execute", step["run"])
         self.assertNotIn("uses", step)
-        self.assertEqual(step["env"]["PR_COMMIT"], "${{ needs.select.outputs.commit }}")
+        self.assertEqual(
+            prepare["env"]["PR_COMMIT"], "${{ needs.select.outputs.commit }}"
+        )
         self.assertIn(
             "${{ needs.select.outputs.commit }}", access["environment"]["url"]
         )
@@ -123,6 +134,11 @@ class WorkflowTests(unittest.TestCase):
             "require('./trusted/.github/scripts/select-pr.cjs')",
             script["with"]["script"],
         )
+        self.assertIn(
+            "context.eventName === 'pull_request_target'", script["with"]["script"]
+        )
+        self.assertIn("createWorkflowDispatch", script["with"]["script"])
+        self.assertIn("selected_commit: provenance.commit", script["with"]["script"])
         self.assertEqual(
             selection["outputs"]["commit"], "${{ steps.select.outputs.commit }}"
         )
@@ -135,7 +151,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertNotIn("github.triggering_actor", path.read_text())
             for name, job in definition["jobs"].items():
                 self.assertNotIn("secrets", job)
-                if name == "gke-access":
+                if name == "gke-lab":
                     self.assertEqual(job["environment"]["name"], "gke")
                     self.assertEqual(job["permissions"]["id-token"], "write")
                 else:

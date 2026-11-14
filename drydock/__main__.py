@@ -18,8 +18,16 @@ def parser():
     lab = commands.add_parser("lab").add_subparsers(dest="action", required=True)
     create = lab.add_parser("create")
     for name in ("status", "wait", "inventory", "delete"):
-        lab.add_parser(name).add_argument("lab")
+        operation = lab.add_parser(name)
+        operation.add_argument("lab")
+        if name == "delete":
+            operation.add_argument("--allocation-id")
     create.add_argument("bundle", type=Path)
+    create.add_argument(
+        "--identity-file",
+        type=Path,
+        help="Write a new recovery identity file before allocating resources",
+    )
     create.add_argument(
         "--lifetime",
         type=int,
@@ -48,7 +56,7 @@ def dispatch(args):
         )
     if args.command == "lab" and args.action == "delete":
         with cancellation():
-            result = cleanup(env, args.lab)
+            result = cleanup(env, args.lab, allocation_id=args.allocation_id)
         return result, result["deleted"]
     if args.command == "lab" and args.action in {"status", "wait", "inventory"}:
         if not password:
@@ -73,6 +81,9 @@ def dispatch(args):
 
     allocation_id = uuid4().hex
     lab = "lab-" + allocation_id[:12]
+    if args.identity_file:
+        with args.identity_file.open("x") as stream:
+            json.dump({"lab": lab, "allocation_id": allocation_id}, stream)
     with cancellation():
         try:
             result = create_lab(

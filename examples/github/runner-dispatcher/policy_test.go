@@ -12,7 +12,7 @@ import (
 
 func fixture() (configuration, scaleset.JobMessageBase, map[string]any) {
 	c := configuration{RunID: 123, Attempt: 2, WorkflowSHA: strings.Repeat("a", 40)}
-	job := scaleset.JobMessageBase{OwnerName: "dlobato", RepositoryName: "drydock", JobWorkflowRef: workflowRef, WorkflowRunID: 123, JobID: "job-guid", EventName: "workflow_dispatch", RequestLabels: runnerLabels, JobDisplayName: "Approve access for PR #21 at aaaaa (no lab)"}
+	job := scaleset.JobMessageBase{OwnerName: "dlobato", RepositoryName: "drydock", JobWorkflowRef: workflowRef, WorkflowRunID: 123, JobID: "job-guid", EventName: "workflow_dispatch", RequestLabels: runnerLabels, JobDisplayName: "Approve lab for PR #21 at " + strings.Repeat("b", 40)}
 	evidence := map[string]any{
 		"branches/main":                                 map[string]any{"protected": true, "commit": map[string]any{"sha": c.WorkflowSHA}},
 		"actions/runs/123":                              map[string]any{"id": 123, "run_attempt": 2, "event": "workflow_dispatch", "path": workflowPath, "status": "queued", "repository": map[string]any{"id": 1452964696, "owner": map[string]any{"id": 1379455}}, "head_repository": map[string]any{"id": 1452964696}},
@@ -44,6 +44,12 @@ func TestQueueAuthorizationFailsClosed(t *testing.T) {
 		"fork repository":           func(_ *configuration, j *scaleset.JobMessageBase, _ map[string]any) { j.OwnerName = "fork" },
 		"different run":             func(_ *configuration, j *scaleset.JobMessageBase, _ map[string]any) { j.WorkflowRunID++ },
 		"PR event":                  func(_ *configuration, j *scaleset.JobMessageBase, _ map[string]any) { j.EventName = "pull_request" },
+		"metadata-only PR trigger": func(_ *configuration, j *scaleset.JobMessageBase, _ map[string]any) {
+			j.EventName = "pull_request_target"
+		},
+		"unexpected job": func(_ *configuration, j *scaleset.JobMessageBase, _ map[string]any) {
+			j.JobDisplayName = "Unapproved build"
+		},
 		"unprotected main": func(_ *configuration, _ *scaleset.JobMessageBase, e map[string]any) {
 			e["branches/main"].(map[string]any)["protected"] = false
 		},

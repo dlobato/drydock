@@ -18,9 +18,9 @@ PLAYBOOK = ROOT / "playbooks/anta.yml"
 NODES = {"spine1", "spine2", "leaf1", "leaf2", "leaf3", "leaf4"}
 
 
-def invoke(directory, hosts, structured_dir, dry_run, timeout):
+def invoke(directory, hosts, structured_dir, dry_run, timeout, *, inventory=None):
     directory = Path(directory).resolve()
-    inventory = {
+    overlay = {
         "all": {
             "vars": {
                 "ansible_connection": "local",
@@ -39,7 +39,7 @@ def invoke(directory, hosts, structured_dir, dry_run, timeout):
             },
         }
     }
-    save(directory / "ansible-inventory.json", inventory)
+    save(directory / "ansible-inventory.json", overlay)
     variables = {
         "root_dir": str(directory),
         "structured_dir": str(structured_dir),
@@ -51,8 +51,12 @@ def invoke(directory, hosts, structured_dir, dry_run, timeout):
     environment = {
         **os.environ,
         "ANSIBLE_CONFIG": str(ROOT / "ansible.cfg"),
-        "ANSIBLE_COLLECTIONS_PATH": str(ROOT / ".collections"),
-        "ANSIBLE_LOCAL_TEMP": str(ROOT / ".ansible/tmp"),
+        "ANSIBLE_COLLECTIONS_PATH": os.environ.get(
+            "ANSIBLE_COLLECTIONS_PATH", str(ROOT / ".collections")
+        ),
+        "ANSIBLE_LOCAL_TEMP": os.environ.get(
+            "ANSIBLE_LOCAL_TEMP", str(ROOT / ".ansible/tmp")
+        ),
         "ANSIBLE_LOG_PATH": "/dev/null",
         "ANSIBLE_NOCOLOR": "1",
     }
@@ -60,6 +64,7 @@ def invoke(directory, hosts, structured_dir, dry_run, timeout):
         [
             str(Path(sys.executable).with_name("ansible-playbook")),
             str(PLAYBOOK),
+            *(["-i", str(inventory)] if inventory else []),
             "-i",
             str(directory / "ansible-inventory.json"),
             "-e",
@@ -143,7 +148,7 @@ def coverage(directory, bundle):
     return expected
 
 
-def prepare(bundle, source, private, directory):
+def prepare(bundle, source, private, directory, *, inventory=None):
     from pyavd import get_device_config
 
     structured = Path(private) / "structured_configs"
@@ -165,7 +170,7 @@ def prepare(bundle, source, private, directory):
         {"name": name, "host": "127.0.0.1", "port": 10000 + index}
         for index, name in enumerate(sorted(NODES))
     ]
-    code, rows = invoke(directory, hosts, structured, True, 120)
+    code, rows = invoke(directory, hosts, structured, True, 120, inventory=inventory)
     if code:
         raise UserError("AVD anta_runner failed to generate the required catalogs.")
     expected = coverage(directory, bundle)
@@ -179,7 +184,9 @@ def prepare(bundle, source, private, directory):
     return structured, expected
 
 
-def converge(hosts, structured, directory, expected, timeout, results):
+def converge(
+    hosts, structured, directory, expected, timeout, results, *, inventory=None
+):
     from .flow import acceptance
 
     deadline = time.monotonic() + timeout
@@ -187,7 +194,9 @@ def converge(hosts, structured, directory, expected, timeout, results):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError("ANTA convergence timed out.")
-        code, rows = invoke(directory, hosts, structured, False, remaining)
+        code, rows = invoke(
+            directory, hosts, structured, False, remaining, inventory=inventory
+        )
         results[:] = rows
         outcome = acceptance(results, expected)
         if not code and outcome["passed"]:

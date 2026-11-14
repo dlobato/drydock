@@ -81,6 +81,13 @@ context: |
   A root-owned guard must stop unexpected jobs before any workflow steps.
   Keep operator credentials outside the runner and enforce compute deletion through GCE's maximum runtime.
   Read only PR metadata through pull_request_target. Never execute PR code in that trigger.
+  Task 8.3 implements isolated pipeline containers under a coordinator from the reviewed main revision.
+  The PR metadata trigger dispatches workflow_dispatch for the same exact head before native approval.
+  Build and preflight run without networking. ANTA receives private switch connections and no federation material.
+  Only lifecycle containers receive the official action's refreshable external-account file.
+  The CLI records a recovery identity file before allocation and guards recovery deletion with that allocation ID.
+  The operator supplies the pinned toolchain image and an existing usable clabernetes target.
+  Local container tests establish build and preflight behavior. Tasks 8.4 and 8.5 retain report uploads and live workflow acceptance.
   Keep the change active until implementation and live acceptance are complete.
 
 rules:

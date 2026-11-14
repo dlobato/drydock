@@ -1,0 +1,18 @@
+# The operator supplies all three source images pinned by SHA-256 digest.
+ARG PYTHON_IMAGE
+ARG KUBECTL_IMAGE
+ARG GCLOUD_IMAGE
+FROM ${KUBECTL_IMAGE} AS kubectl
+FROM ${GCLOUD_IMAGE} AS gcloud
+FROM ${PYTHON_IMAGE}
+COPY --from=kubectl /bin/kubectl /usr/local/bin/kubectl
+COPY --from=gcloud /usr/lib/google-cloud-sdk /opt/google-cloud-sdk
+ENV PATH=/opt/venv/bin:/opt/google-cloud-sdk/bin:$PATH
+COPY requirements.txt requirements-example.txt collection-requirements.yml /tmp/dependencies/
+RUN python3 -m venv /opt/venv \
+    && pip install --no-cache-dir -r /tmp/dependencies/requirements-example.txt \
+    && ansible-galaxy collection install -r /tmp/dependencies/collection-requirements.yml -p /opt/collections \
+    && chmod -R a+rX /opt/collections /opt/venv \
+    && gcloud version \
+    && kubectl version --client
+WORKDIR /trusted

@@ -1,5 +1,7 @@
 *
 !Dockerfile.cleaner
 !requirements.txt
+!requirements-example.txt
+!collection-requirements.yml
 !drydock/
 !drydock/*.py

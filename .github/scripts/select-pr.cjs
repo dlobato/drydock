@@ -32,6 +32,10 @@ module.exports = async function select({github, context, env}) {
     const {data: commit} = await github.rest.repos.getCommit({...context.repo, ref: pr.head.sha});
     if (!commit.commit.message.includes('[digital-twin-test]')) return null;
   }
+  const selected = context.payload.inputs?.selected_commit;
+  if (!fromPR && selected && selected !== pr.head.sha) {
+    throw new Error('The requested PR head changed before dispatch selection.');
+  }
   return {
     repository: repository.full_name,
     pull_request: pr.number,

@@ -85,7 +85,7 @@ The former open demo tasks are replaced without claiming their completion:
 
 - [x] 8.1 Run hosted lint and unit tests automatically on every PR and update without custom author restrictions or cloud approval. Replace custom actor authorization with a separate opt-in PR test request and native `gke` environment protection. Document both paths. Use the user-authorized hosted placeholder to test approval without cloud access or lab allocation. Test fork eligibility, exact-commit selection, trusted workflow revisions, absence of GKE jobs on PR events, and the environment gate before placeholder execution. Leave live private-execution denial evidence in tasks 8.2 and 8.5.
 - [x] 8.2 Document and configure temporary GKE authentication through GitHub OIDC federation bound to the approved `gke` environment and trusted workflow outside the lifecycle core. Deliver scoped RBAC and admission policy for the lab boundary. Deliver the approved operator-controlled dispatcher with queue authorization before runner registration and an independent execution guard and disposable private runners. Prove unauthorized-workflow denial and bounded runner disposal. Demonstrate denial before approval and denial of unrelated Secret access, RBAC changes, cloud worker allocation, and unsafe workloads without personal keys.
-- [ ] 8.3 Connect the standard AVD build and ANTA playbooks through the lifecycle CLI and runtime connection inventory. Isolate Ansible from Kubernetes credentials and use a pinned trusted CLI. Test model consistency, mandatory coverage, preserved inventory groups, and cleanup after each failure stage.
+- [x] 8.3 Connect the standard AVD build and ANTA playbooks through the lifecycle CLI and runtime connection inventory. Isolate Ansible from Kubernetes credentials and use a pinned trusted CLI. Test model consistency, mandatory coverage, preserved inventory groups, and cleanup after each failure stage.
 - [ ] 8.4 Select a finite artifact retention duration and retain safe reports with exact input provenance. Test upload failure without blocking deletion. Inspect final artifacts for credentials, startup files, and sensitive structured data. Document report paths and cleanup outcomes.
 - [ ] 8.5 Exercise automatic PR lint and unit tests plus a separate opt-in pre-deployment request with native `gke` approval. Demonstrate temporary access, complete test reports, and lab deletion. Show that a new unmarked PR commit runs its checks without starting another GKE test, inheriting approval, or reusing a previous lab.
 
@@ -618,3 +618,29 @@ See [the successful access record](../../../docs/live-github-gke-access.md#email
 
 All 123 Python tests, 32 selector tests, dispatcher race tests, and static analysis pass on the merged revision.
 Pre-commit, actionlint, strict OpenSpec validation, and whitespace validation pass.
+
+## Isolated AVD and ANTA orchestration evidence (task 8.3)
+
+The trusted workflow now connects the selected PR build, preflight, lifecycle CLI, runtime inventory, standard ANTA playbook, and deletion.
+The PR metadata event dispatches the trusted workflow without executing PR code or assigning private capacity.
+The dispatch selector rejects a changed head before native approval. The selected commit remains fixed after approval starts.
+Each stage uses a separate restricted container. Only lifecycle stages receive refreshable federation.
+The CLI writes a new recovery identity file before allocation. Recovery deletion requires its allocation ID.
+The connection overlay retains both MLAG groups and the source test variables.
+
+All 157 Python tests and 33 selector tests pass.
+Controlled cases cover build, preflight, allocation, readiness, ANTA, report, cancellation, and deletion failures.
+Caller identity tests cover lost ownership responses, existing identity files, and recovery that preserves a different allocation.
+Dispatcher race tests, static analysis, actionlint 1.7.12, pre-commit, strict OpenSpec validation, and whitespace validation pass.
+
+The new Dockerfile builds locally from digest-pinned Python, kubectl, and Google Cloud CLI images.
+The actual restricted containers build the six-switch example and generate all 54 required catalog entries, including both MLAG pairs.
+A changed model fails preflight. A test container cannot read the synthetic host credential canary, GitHub token endpoint, or Docker socket.
+The real SDK helper also passes a synthetic exchange against local fake identity endpoints with a 900-second lifetime and both required scopes.
+These tests use no cloud credentials and allocate no lab or switch.
+
+The workflow uploads no artifacts in this increment and removes its temporary files after deletion attempts.
+Task 8.4 retains safe report retention. Task 8.5 retains complete approved GitHub-to-GKE execution and network acceptance.
+The operator must supply the reviewed toolchain image and a usable clabernetes target before that live test.
+No federation, cluster, runner registration, or cloud resource was changed during task 8.3.
+Overall progress is 38/44 tasks complete. The change remains active.

@@ -81,6 +81,45 @@ def ready_items(names=NODES, link_count=12):
 
 
 class LifecycleCliCase(unittest.TestCase):
+    def test_caller_identity_survives_before_cli_allocation(self):
+        identity_file = self.directory / "identity.json"
+        code, record = self.invoke(
+            *self.create_args, "--identity-file", str(identity_file)
+        )
+        self.assertEqual(code, 0)
+        identity = json.loads(identity_file.read_text())
+        self.assertEqual(
+            identity, {"lab": record["id"], "allocation_id": record["allocation_id"]}
+        )
+        code, result = self.invoke(
+            "lab", "delete", record["id"], "--allocation-id", identity["allocation_id"]
+        )
+        self.assertEqual(code, 0)
+        self.assertTrue(result["deleted"])
+
+    def test_existing_identity_file_does_not_allocate_or_delete(self):
+        existing = dict(self.backend.records)
+        identity_file = self.directory / "identity.json"
+        identity_file.write_text("existing identity")
+        code, result = self.invoke(
+            *self.create_args, "--identity-file", str(identity_file)
+        )
+        self.assertEqual(code, 1)
+        self.assertEqual(result["error"], "FileExistsError")
+        self.assertEqual(identity_file.read_text(), "existing identity")
+        self.assertEqual(self.backend.records, existing)
+
+    def test_recovery_delete_requires_the_original_allocation(self):
+        code, record = self.invoke(*self.create_args)
+        self.assertEqual(code, 0)
+        before = json.loads(json.dumps(self.backend.records))
+        code, result = self.invoke(
+            "lab", "delete", record["id"], "--allocation-id", "other-allocation"
+        )
+        self.assertEqual(code, 1)
+        self.assertFalse(result["deleted"])
+        self.assertEqual(self.backend.records, before)
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -245,17 +284,22 @@ class LifecycleCliTests(LifecycleCliCase):
 
     def test_lost_ownership_response_still_cleans_up_its_own_record(self):
         original = self.backend.kube
+        identity_file = self.directory / "recovery.json"
 
         def lost_response(*args, data=None):
+            self.assertTrue(identity_file.is_file())
             result = original(*args, data=data)
             if args[0] == "create" and json.loads(data)["kind"] == "ConfigMap":
                 raise TimeoutError("private-provider-output")
             return result
 
         with patch.object(self.backend, "kube", side_effect=lost_response):
-            code, result = self.invoke(*self.create_args)
+            code, result = self.invoke(
+                *self.create_args, "--identity-file", str(identity_file)
+            )
         self.assertEqual(code, 1)
         self.assertEqual(result["error"], "TimeoutError")
+        self.assertEqual(json.loads(identity_file.read_text())["lab"], result["lab"])
         self.assertTrue(result["cleanup"]["deleted"])
         self.assertNotIn("private-provider-output", json.dumps(result))
         self.assertEqual(

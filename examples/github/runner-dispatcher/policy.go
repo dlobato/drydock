@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"regexp"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/actions/scaleset"
@@ -82,7 +81,7 @@ func sameLabels(labels []string) bool {
 func authorize(ctx context.Context, c configuration, job scaleset.JobMessageBase, read apiRead) error {
 	if job.OwnerName != "dlobato" || job.RepositoryName != "drydock" || job.JobWorkflowRef != workflowRef ||
 		job.WorkflowRunID != c.RunID || job.JobID == "" || !sameLabels(job.RequestLabels) ||
-		(job.EventName != "workflow_dispatch" && job.EventName != "pull_request_target") {
+		job.EventName != "workflow_dispatch" {
 		return errors.New("queued job is outside the trusted workflow")
 	}
 	var branch struct {
@@ -168,8 +167,8 @@ func authorize(ctx context.Context, c configuration, job scaleset.JobMessageBase
 			matches++
 		}
 	}
-	if matches != 1 || !strings.HasPrefix(job.JobDisplayName, "Approve access for PR #") || !strings.HasSuffix(job.JobDisplayName, " (no lab)") {
-		return errors.New("exactly one approved access probe is required")
+	if matches != 1 || !regexp.MustCompile(`^Approve lab for PR #[1-9][0-9]* at [a-f0-9]{40}$`).MatchString(job.JobDisplayName) {
+		return errors.New("exactly one approved lab coordinator is required")
 	}
 	return nil
 }

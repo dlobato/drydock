@@ -79,11 +79,13 @@ Kubernetes certificate verification remains enabled.
 Task 8.1 runs hosted lint and unit tests automatically on every PR and update, including eligible fork PRs.
 Use `[digital-twin-test]` in the latest PR commit to request native `gke` environment approval for that exact commit.
 The separate trusted workflow also accepts manual dispatch.
-Its access probe requests temporary credentials after approval without allocating a lab or running network tests.
+Its trusted coordinator builds and tests the selected PR through isolated containers after approval.
+Only lifecycle containers receive renewable Kubernetes access. ANTA retains the original inventory groups and test variables.
 The [workflow instructions](docs/workflows.md) describe both paths.
 The [GKE access instructions](docs/github-gke-access.md) cover disabled federation setup, scoped permissions, and the admission webhook.
 The [approved GitHub-to-GKE access probe](docs/live-github-gke-access.md#email-scope-acceptance-request) passed identity, permissions, and disposable-runner cleanup.
-Federation is disabled again. Lab orchestration and network acceptance remain open.
+Federation remains disabled. Task 8.3 implements orchestration with controlled failure tests.
+Safe report uploads and complete live workflow acceptance remain tasks 8.4 and 8.5.
 
 ## Develop
 

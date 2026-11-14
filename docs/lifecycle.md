@@ -397,6 +397,10 @@ Its `data.record` field contains JSON with these values:
 - `cleanup_started_at` records the first deletion attempt. `cleanup.observed_at` records the latest deletion observation, in Unix seconds.
 
 The allocation ID identifies one creation request. It is not a credential or an authorization policy.
+Callers can supply `lab create --identity-file <new-path>` to retain the lab ID and allocation ID before resource creation.
+The path must not exist. An existing path fails before Kubernetes allocation.
+Use `lab delete <lab> --allocation-id <recorded-allocation>` for recovery after lost creation output.
+A different allocation ID prevents deletion, even when the shortened lab ID matches.
 The namespace label `drydock.io/allocation` must match the record before status or deletion can use that namespace.
 Automatic cleanup after failed creation also requires the allocation ID from that request.
 An ID collision cannot authorize cleanup of the earlier lab.
