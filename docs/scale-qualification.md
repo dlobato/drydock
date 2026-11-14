@@ -42,6 +42,9 @@ Only its original system node and baseline namespaces remained.
 Regional quotas allowed 200 N2 vCPUs with zero recorded N2 usage.
 The E2 limit was 24 vCPUs, so the earlier E2 worker arrangement cannot meet the existing switch requests.
 Quota availability does not establish available zonal capacity or approval to allocate it.
+Before allocation, inspect both project-wide `CPUS_ALL_REGIONS` quota and the applicable regional CPU quotas.
+Include the existing cluster, temporary workers, and disposable runner in the required total.
+The [first live preparation attempt](live-scale-100.md) stopped because its project-wide CPU quota was insufficient.
 
 The proposed single attempt uses this ceiling:
 

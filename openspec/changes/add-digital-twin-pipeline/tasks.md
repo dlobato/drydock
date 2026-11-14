@@ -717,3 +717,19 @@ Read-only inspection found the shared cluster available and the E2 quota insuffi
 The proposed worker pool uses four private N2 workers within the observed regional quota.
 No scale lab, cloud capacity, or temporary trust change is authorized by this preparation alone.
 Task 9.1 remains unchecked at 40/44 tasks until live network acceptance and complete deletion pass.
+
+## Rejected scale capacity request (task 9.1)
+
+The user approved one 100-switch attempt after PR #29 merged as `43eb6a4b0916a6e4903486555f385a65d19ee8d8`.
+Google rejected the four-worker `n2-standard-32` pool before allocation.
+The project-wide `CPUS_ALL_REGIONS` quota permits 32 vCPUs, with two in use and 30 available.
+The 128-vCPU worker request exceeded available quota by 98 vCPUs despite sufficient regional N2 quota.
+A separate project quota read confirmed the limit.
+No scale worker, lab, switch, private runner, or scale workflow started.
+The operator stopped image publication and removed the temporary repository without a retry or quota change.
+Independent API inspection found only the original system pool, running Ready node, and disk.
+Namespaces, firewalls, and cluster access resources matched their saved baselines.
+Federation remained disabled with its original trust condition, and protected variables matched the saved baseline.
+No temporary repository, runner registration, scale set, token-minting grant, or local credential file remained.
+Task 9.1 remains unchecked at 40/44 tasks complete.
+See the [attempt record](../../../docs/live-scale-100.md) for the acceptance boundary and final cleanup evidence.
