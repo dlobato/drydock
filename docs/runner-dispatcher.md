@@ -16,6 +16,9 @@ The dispatcher accepts that routing message only after authorization.
 For `JobAvailable`, it also acquires the exact request through the SDK.
 It refuses multiple reservations, existing runners, and an existing scale set.
 There is no warm capacity or concurrent execution.
+The dispatcher acknowledges the selected queue message before VM creation.
+It continues queue polling during VM preparation, job execution, and disposal.
+Unexpected jobs, excess capacity, or queue API failures stop the VM driver and wait for disposal.
 
 A root-owned start guard compares the actual job with the approved attempt and workflow SHA.
 An unexpected job causes the guard to kill the whole runner process group before workflow steps.
@@ -128,3 +131,6 @@ Live evidence belongs in [the access acceptance record](live-github-gke-access.m
 Keep federation disabled until runner authorization, disposal, and the target Kubernetes boundary pass.
 This component supplies infrastructure for the no-lab probe in task 8.2.
 It does not implement the isolated build, lifecycle, ANTA, and deletion stages in task 8.3.
+
+The [November 14 pipeline attempt](live-github-pipeline.md) records a queued-job stall and the subsequent queue correction.
+That attempt does not establish complete live pipeline acceptance.

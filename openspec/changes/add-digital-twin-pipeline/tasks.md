@@ -675,3 +675,12 @@ The dry-run results remain unaccepted as network evidence.
 No cloud credentials, cloud resource changes, lab allocation, or live network tests occur in this validation.
 Task 8.5 retains the approved hosted upload and complete GitHub-to-GKE workflow acceptance.
 Overall progress is 39/44 tasks complete. The change remains active.
+
+## Live pipeline attempt (task 8.5)
+
+The November 14 approved attempt reached an online private runner, but its job remained queued.
+No workflow step, switch lab, network test, or uploaded report started.
+The operator canceled the attempt and disabled federation.
+The focused correction maintains queue polling and acknowledgement during VM preparation and execution.
+The [attempt record](../../../docs/live-github-pipeline.md) retains exact identities, validation, cleanup, and remaining acceptance.
+Task 8.5 remains unchecked at 39/44 tasks complete.

@@ -142,15 +142,17 @@ func dispatch(ctx context.Context, c configuration, state string, token string) 
 				return err
 			}
 			input, _ := json.Marshal(map[string]any{"configuration": c, "jit": jit.EncodedJITConfig, "directory": state})
-			command := exec.CommandContext(ctx, "python3", "examples/github/runner_vm.py")
-			command.Stdin = bytes.NewReader(input)
-			command.Stdout, command.Stderr = os.Stdout, os.Stderr
-			command.Cancel = func() error { return command.Process.Signal(syscall.SIGTERM) }
-			command.WaitDelay = 6 * time.Minute
-			if err := command.Run(); err != nil {
-				return errors.New("runner execution or disposal failed; inspect the operator journal")
-			}
-			return nil
+			return runWithQueue(ctx, session, message.MessageID, job.JobID, func(runContext context.Context) error {
+				command := exec.CommandContext(runContext, "python3", "examples/github/runner_vm.py")
+				command.Stdin = bytes.NewReader(input)
+				command.Stdout, command.Stderr = os.Stdout, os.Stderr
+				command.Cancel = func() error { return command.Process.Signal(syscall.SIGTERM) }
+				command.WaitDelay = 6 * time.Minute
+				if err := command.Run(); err != nil {
+					return errors.New("runner execution or disposal failed; inspect the operator journal")
+				}
+				return nil
+			})
 		}
 		if message != nil {
 			last = message.MessageID
