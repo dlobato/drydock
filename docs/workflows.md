@@ -10,7 +10,8 @@ It requests a six-switch lab after approval through the protected `gke` environm
 It builds the selected commit, establishes model consistency and coverage, and runs standard ANTA through the lifecycle CLI.
 Task 8.2 passed [scoped GitHub-to-GKE access acceptance](live-github-gke-access.md#email-scope-acceptance-request).
 Task 8.3 implements lab orchestration with isolated containers and controlled failure tests.
-Report uploads and complete live workflow acceptance remain in tasks 8.4 and 8.5.
+Task 8.4 adds safe reports with seven-day retention.
+Complete live workflow acceptance remains in task 8.5.
 
 ## Automatic PR checks
 
@@ -164,8 +165,9 @@ It requests deletion after every allocation attempt and repeats deletion in an u
 Test and deletion failures remain separate, and either failure prevents success.
 
 Generated startup files and models remain on the disposable runner.
-The workflow uploads no artifacts in task 8.3. Its final step removes temporary input, credentials, and local reports.
-Task 8.4 must add safe report retention before task 8.5 establishes complete workflow acceptance.
+After deletion attempts, the workflow collects safe reports and uploads them with seven-day retention.
+Its final unconditional step removes temporary input, credentials, and local reports, even if the upload fails.
+Task 8.5 retains complete live workflow acceptance.
 GitHub holds its environment job until the protection rules permit execution.
 Local tests establish the workflow structure and selection behavior. They do not establish live approval enforcement.
 
@@ -174,7 +176,51 @@ Restrict private runner assignment to trusted workflows and isolate Ansible from
 Credentialed jobs must use a pinned trusted lifecycle CLI and treat PR topology files as data.
 A workflow condition alone cannot protect credentials from a modified workflow that removes that condition.
 Task 8.2 records scoped access and disposable-runner acceptance.
-Tasks 8.4 and 8.5 retain report handling and complete live workflow acceptance.
+Task 8.5 retains complete live workflow acceptance.
+
+## Retained reports
+
+The artifact name is `digital-twin-<run-id>-<attempt>`.
+GitHub retains each artifact for seven days.
+The upload action reads only the coordinator's `public/` directory, a separate directory of collected reports.
+It never uploads the private state directory.
+The artifact contains these files when their source data is available:
+
+| Path | Contents |
+| --- | --- |
+| `run.json` | Exact PR and trusted commits, repository, run, attempt, input digest, lab, runtime, test outcome, and latest cleanup outcome |
+| `anta.json` | Switch names, test names, result statuses, and hashes of test descriptions |
+| `anta.xml` | JUnit test results without free-text failure messages |
+| `catalogs/<switch>.json` | Catalogs with approved network parameters and no descriptions, custom fields, or credential fields |
+| `diagnostics.json` | Last stage, readiness, available timestamps, initial deletion outcome, and latest deletion outcome |
+| `manifest.json` | SHA-256 digest of each retained file |
+
+Runtime data identifies the toolchain and cEOS image digests, Python, AVD, ANTA, and observed EOS versions.
+Early failures retain only the available runtime data.
+The input digest identifies the admitted topology and startup files without retaining their contents.
+Description hashes preserve distinct test identities without publishing source text.
+The collector preserves missing, duplicate, skipped, and errored results as failures.
+
+Catalog collection retains the six-switch example's network fields.
+It excludes free-text metadata and replaces unsupported parameter strings with `[redacted]`.
+Unknown test identities stop collection rather than upload unchecked data.
+New example test types require a reviewed extension to the collector's approved fields.
+
+The collector rejects links, special files, and individual source files above 4 MiB.
+It inspects the final upload files for the generated password, its hash, and credential patterns.
+Startup files, structured configurations, allocation recovery tokens, connection inventories, Secret data, and arbitrary logs stay private.
+These exclusions also apply when a private directory contains a file with a report filename.
+
+Build and preflight failures retain their stage and exception class without command output.
+The workflow records its state path before either stage starts, so failure cannot skip report collection or private-file removal.
+After an allocation attempt, the coordinator requests deletion before report collection.
+An unconditional workflow step retries deletion before collection and upload.
+The reports distinguish the initial deletion result from the latest result.
+
+If upload fails, the workflow fails after its deletion attempts.
+If deletion remains incomplete, the workflow fails even when the network tests pass.
+The cluster-side cleaner retains responsibility after runner loss or incomplete immediate deletion.
+A passing local `run.json` records tests and deletion only. Overall workflow success also requires report collection and upload.
 
 ## Test locally
 

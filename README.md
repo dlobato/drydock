@@ -85,7 +85,8 @@ The [workflow instructions](docs/workflows.md) describe both paths.
 The [GKE access instructions](docs/github-gke-access.md) cover disabled federation setup, scoped permissions, and the admission webhook.
 The [approved GitHub-to-GKE access probe](docs/live-github-gke-access.md#email-scope-acceptance-request) passed identity, permissions, and disposable-runner cleanup.
 Federation remains disabled. Task 8.3 implements orchestration with controlled failure tests.
-Safe report uploads and complete live workflow acceptance remain tasks 8.4 and 8.5.
+The workflow retains safe reports for seven days after deletion attempts.
+Complete live workflow acceptance remains task 8.5.
 
 ## Develop
 

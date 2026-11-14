@@ -65,6 +65,12 @@ class AcceptanceTests(unittest.TestCase):
             }
         ] * 2
         self.assertFalse(flow.acceptance(rows, expected)["passed"])
+        import xml.etree.ElementTree as ET
+
+        with tempfile.TemporaryDirectory() as directory:
+            flow.reports(Path(directory), rows, expected)
+            cases = ET.parse(Path(directory) / "anta.xml").getroot().findall("testcase")
+            self.assertEqual(len({case.get("name") for case in cases}), 2)
 
 
 class FlowTests(unittest.TestCase):

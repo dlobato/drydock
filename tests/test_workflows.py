@@ -70,9 +70,17 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(
             access["runs-on"], ["self-hosted", "linux", "x64", "drydock-gke"]
         )
-        checkout, proposed, prepare, authentication, step, cleanup, erase = access[
-            "steps"
-        ]
+        (
+            checkout,
+            proposed,
+            prepare,
+            authentication,
+            step,
+            cleanup,
+            collect,
+            upload,
+            erase,
+        ) = access["steps"]
         self.assertEqual(checkout["with"]["ref"], "${{ github.workflow_sha }}")
         self.assertEqual(checkout["with"]["path"], "trusted")
         self.assertEqual(proposed["with"]["ref"], "${{ needs.select.outputs.commit }}")
@@ -81,6 +89,14 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("always()", cleanup["if"])
         self.assertIn("pipeline cleanup", cleanup["run"])
         self.assertIn("always()", erase["if"])
+        self.assertIn("always()", collect["if"])
+        self.assertIn("pipeline collect", collect["run"])
+        self.assertIn("always()", upload["if"])
+        self.assertTrue(upload["uses"].startswith("actions/upload-artifact@"))
+        self.assertEqual(upload["with"]["path"], "${{ steps.reports.outputs.path }}")
+        self.assertEqual(upload["with"]["retention-days"], "7")
+        self.assertEqual(upload["with"]["if-no-files-found"], "error")
+        self.assertNotIn("continue-on-error", upload)
         self.assertEqual(authentication["with"]["access_token_lifetime"], "900s")
         self.assertEqual(
             {

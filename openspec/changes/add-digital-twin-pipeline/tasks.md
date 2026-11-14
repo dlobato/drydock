@@ -86,7 +86,7 @@ The former open demo tasks are replaced without claiming their completion:
 - [x] 8.1 Run hosted lint and unit tests automatically on every PR and update without custom author restrictions or cloud approval. Replace custom actor authorization with a separate opt-in PR test request and native `gke` environment protection. Document both paths. Use the user-authorized hosted placeholder to test approval without cloud access or lab allocation. Test fork eligibility, exact-commit selection, trusted workflow revisions, absence of GKE jobs on PR events, and the environment gate before placeholder execution. Leave live private-execution denial evidence in tasks 8.2 and 8.5.
 - [x] 8.2 Document and configure temporary GKE authentication through GitHub OIDC federation bound to the approved `gke` environment and trusted workflow outside the lifecycle core. Deliver scoped RBAC and admission policy for the lab boundary. Deliver the approved operator-controlled dispatcher with queue authorization before runner registration and an independent execution guard and disposable private runners. Prove unauthorized-workflow denial and bounded runner disposal. Demonstrate denial before approval and denial of unrelated Secret access, RBAC changes, cloud worker allocation, and unsafe workloads without personal keys.
 - [x] 8.3 Connect the standard AVD build and ANTA playbooks through the lifecycle CLI and runtime connection inventory. Isolate Ansible from Kubernetes credentials and use a pinned trusted CLI. Test model consistency, mandatory coverage, preserved inventory groups, and cleanup after each failure stage.
-- [ ] 8.4 Select a finite artifact retention duration and retain safe reports with exact input provenance. Test upload failure without blocking deletion. Inspect final artifacts for credentials, startup files, and sensitive structured data. Document report paths and cleanup outcomes.
+- [x] 8.4 Select a finite artifact retention duration and retain safe reports with exact input provenance. Test upload failure without blocking deletion. Inspect final artifacts for credentials, startup files, and sensitive structured data. Document report paths and cleanup outcomes.
 - [ ] 8.5 Exercise automatic PR lint and unit tests plus a separate opt-in pre-deployment request with native `gke` approval. Demonstrate temporary access, complete test reports, and lab deletion. Show that a new unmarked PR commit runs its checks without starting another GKE test, inheriting approval, or reusing a previous lab.
 
 - [x] 8.6 Add `[digital-twin-test]` in the latest PR commit as an explicit request through a trusted metadata-only PR trigger. Preserve hosted checks and native environment approval. Retain the placeholder without cloud access or NRFU. Test exact-marker matching, absent markers, stale events, fork exclusion, fixed commits, and API failures. Document that the trusted trigger must reach `main` before its first live approval test.
@@ -644,3 +644,34 @@ Task 8.4 retains safe report retention. Task 8.5 retains complete approved GitHu
 The operator must supply the reviewed toolchain image and a usable clabernetes target before that live test.
 No federation, cluster, runner registration, or cloud resource was changed during task 8.3.
 Overall progress is 38/44 tasks complete. The change remains active.
+
+## Safe report retention evidence (task 8.4)
+
+The trusted workflow collects reports after immediate deletion and its unconditional retry.
+It uploads only the separate public directory and retains the artifact for seven days.
+Collection or upload failure prevents workflow success without blocking either deletion attempt.
+The final unconditional step removes private input, credentials, and local reports after upload failure.
+
+The reports identify the exact PR commit, trusted workflow commit, run, attempt, input digest, lab, and available runtime versions.
+They retain safe ANTA JSON, JUnit, catalogs, stage diagnostics, and separate initial and latest deletion outcomes.
+Description hashes preserve distinct result identities without retaining free text.
+JUnit case names remain distinct when one switch has several tests of the same class.
+The collector excludes startup files, models, recovery tokens, raw logs, and credential-bearing fields.
+It rejects linked or oversized source files and scans the final upload bytes for credentials.
+
+All 162 Python tests, six bundle tests, and 33 selector tests pass.
+Both offline AVD builds, pinned pre-commit hooks, actionlint, and strict OpenSpec validation pass.
+Controlled tests inspect final report files and exercise upload failure after actual coordinator deletion with a controlled backend.
+They also cover partial build evidence, stale upload removal, and missing, duplicate, skipped, or errored results.
+
+The existing local toolchain image builds the synthetic example inside the restricted build and preflight containers.
+Its immutable local image ID is `sha256:0f5d2988fbcef7004e1d67186c7ca79ef10ec2d06454602acfb4d017655bb853`.
+The offline harness permits that local image ID instead of a registry digest reference.
+Production still requires the reviewed registry digest reference.
+The collected ZIP contains 11 approved files and excludes the generated password and its hash.
+All six sanitized catalogs parse with ANTA and preserve all 54 required entries, including both MLAG pairs.
+The dry-run results remain unaccepted as network evidence.
+
+No cloud credentials, cloud resource changes, lab allocation, or live network tests occur in this validation.
+Task 8.5 retains the approved hosted upload and complete GitHub-to-GKE workflow acceptance.
+Overall progress is 39/44 tasks complete. The change remains active.
