@@ -135,7 +135,7 @@ def collect(state):
         eos = {k: v for k, v in ready.get("eos_versions", {}).items() if k in NODES}
         for value in [*versions.values(), *eos.values()]:
             if not isinstance(value, str) or not re.fullmatch(
-                r"[0-9][A-Za-z0-9.()+_-]{0,99}", value
+                r"[0-9][A-Za-z0-9.()+_ -]{0,99}", value
             ):
                 raise ValueError("Invalid runtime version.")
         summary = {
