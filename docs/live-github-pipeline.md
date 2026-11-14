@@ -1,11 +1,12 @@
-# Live GitHub pipeline attempt
+# Live GitHub pipeline attempts
 
-Task 8.5 remains incomplete after the November 14, 2026 attempt.
-The private runner became available, but GitHub left the approved job queued.
-No workflow step, switch lab, ANTA test, or artifact upload started.
-The operator canceled the attempt and disabled federation.
+Task 8.5 remains incomplete after two attempts on November 14, 2026.
+The first attempt stalled before workflow execution.
+The approved retry passed all 54 network tests and deleted its lab, but report collection failed.
+Neither attempt uploaded an artifact.
+The operator disabled federation and removed all temporary resources after each attempt.
 
-## Exact request
+## Initial request
 
 | Item | Recorded value |
 | --- | --- |
@@ -68,7 +69,49 @@ No modified lifecycle code ran with cloud credentials.
 
 Race tests cover queue progress during blocked startup, unexpected jobs, excess capacity, API failures, and disposal before return.
 The existing runner safety tests, static analysis, and required repository hooks pass.
-A fresh protected workflow attempt must establish live acceptance after review of this correction.
+The approved retry below establishes live queue progress and runner disposal with this correction.
+Complete pipeline acceptance remains open because report collection failed.
+
+## Approved retry
+
+| Item | Recorded value |
+| --- | --- |
+| Selected input and operator dispatcher revision | `a19de65403904b23e4b6f55febababd0969df2e1` |
+| Trusted protected `main` | `afe9d1836cea6bf32738d7538df41028606a2011` |
+| Dispatched run | [43590604930](https://github.com/dlobato/drydock/actions/runs/43590604930), attempt 1 |
+| Native environment review | Fresh `gke` approval by `dlobato` |
+| Workflow lab | `lab-3714cc80d869` |
+| Input digest | `b05a1648dc63c576522b3c15e8e9b0fcc70dbae4378a178797a62064f4827418` |
+| Final live result | Network tests and lab deletion passed; report collection failed |
+
+The retry reused the same image digests, shared cluster, and two-worker limit.
+All 162 Python tests, six bundle tests, and 33 selector tests passed before dispatch.
+Both offline AVD builds, Go race tests and static analysis, repository hooks, actionlint, and strict OpenSpec validation passed.
+The restricted container preflight generated six catalogs with all 54 required entries.
+Its 11-file offline archive passed credential inspection.
+
+Actual Kubernetes probes repeated the permission denials, unsafe-topology rejection, expiry protection, cleaner deletion, and rejection when admission was unavailable.
+The runtime controller remained paused during these probes.
+The first cleaner sweep encountered asynchronous deletion; the next sweep completed the fixture cleanup.
+The operator removed the temporary token-minting grant before runner execution.
+
+The corrected operator dispatcher accepted the exact approved run before it created its private runner.
+The root-owned guard accepted the exact workflow attempt.
+GitHub reported one busy runner and one running job while the dispatcher maintained its queue session.
+The workflow used protected-main lifecycle code and isolated the proposed build from cloud credentials.
+
+All six switches became ready across the two temporary workers, with all 12 links accepted.
+The workflow established authenticated management readiness and passed all 54 required ANTA results, including both MLAG pairs.
+A bounded status read retained the passing acceptance result and 54 successful result statuses.
+Independent Kubernetes reads established that the lab namespace and topology were deleted.
+
+Report collection then failed with `ValueError` and uploaded no artifact.
+The observed EOS version was `4.36.1F-48405728.4361F (engineering build)`.
+The collector rejected the spaces in that valid build label.
+The regression test in [PR #28](https://github.com/dlobato/drydock/pull/28) reproduces this exact failure.
+That focused fix retains the length limit, rejects control characters, and preserves the final credential scan.
+It still needs a fresh workflow run from protected `main`.
+The passing network snapshot does not replace the missing uploaded JSON, JUnit, catalogs, and provenance artifact.
 
 ## Preparation evidence
 
@@ -103,9 +146,16 @@ The original node is ready, and the namespace and firewall inventories match the
 The shared cluster and network remain in place.
 No resource added for this attempt remains.
 
+Independent reads after the retry reached the same cleanup result.
+The dispatcher exited successfully and removed its VM, disk, registration, keys, queue session, and scale set.
+The operator removed all temporary workers, repositories, permissions, runtime components, firewall rules, and local credential files.
+Namespace, firewall, and cluster-wide resource names match their saved baselines.
+Only the original `default-pool`, running system node, and disk remain.
+Federation is disabled, and protected variables match their saved values.
+
 ## Remaining acceptance
 
-A fresh approved attempt must pass all 54 live ANTA results, including both MLAG pairs.
+A fresh approved attempt after the report fix must repeat all 54 live ANTA results, including both MLAG pairs.
 Its downloaded seven-day artifact must establish safe contents, exact provenance, and complete network results.
 Independent Kubernetes reads must establish complete workflow lab deletion.
 The correction uses an unmarked PR update.
