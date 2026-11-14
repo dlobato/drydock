@@ -14,7 +14,8 @@ Task 7.4 records the Kubernetes-only cleaner, image build, and controlled cleanu
 Task 7.5 records standalone command acceptance and complete lab removal on a bounded local private runtime.
 Task 8.1 records automatic PR checks, an opt-in approval placeholder, and native environment protection.
 Task 8.2 records scoped federation, admission, approved disposable runners, and complete live GitHub-to-GKE access acceptance.
-The remaining revised implementation and live acceptance tasks remain unchecked.
+Task 8.5 records bounded live workflow acceptance, inspected uploaded reports, and independent lab deletion.
+Section 9 retains the remaining scale, concurrency, failure, and provider qualification.
 
 The former open demo tasks are replaced without claiming their completion:
 
@@ -87,7 +88,7 @@ The former open demo tasks are replaced without claiming their completion:
 - [x] 8.2 Document and configure temporary GKE authentication through GitHub OIDC federation bound to the approved `gke` environment and trusted workflow outside the lifecycle core. Deliver scoped RBAC and admission policy for the lab boundary. Deliver the approved operator-controlled dispatcher with queue authorization before runner registration and an independent execution guard and disposable private runners. Prove unauthorized-workflow denial and bounded runner disposal. Demonstrate denial before approval and denial of unrelated Secret access, RBAC changes, cloud worker allocation, and unsafe workloads without personal keys.
 - [x] 8.3 Connect the standard AVD build and ANTA playbooks through the lifecycle CLI and runtime connection inventory. Isolate Ansible from Kubernetes credentials and use a pinned trusted CLI. Test model consistency, mandatory coverage, preserved inventory groups, and cleanup after each failure stage.
 - [x] 8.4 Select a finite artifact retention duration and retain safe reports with exact input provenance. Test upload failure without blocking deletion. Inspect final artifacts for credentials, startup files, and sensitive structured data. Document report paths and cleanup outcomes.
-- [ ] 8.5 Exercise automatic PR lint and unit tests plus a separate opt-in pre-deployment request with native `gke` approval. Demonstrate temporary access, complete test reports, and lab deletion. Show that a new unmarked PR commit runs its checks without starting another GKE test, inheriting approval, or reusing a previous lab.
+- [x] 8.5 Exercise automatic PR lint and unit tests plus a separate opt-in pre-deployment request with native `gke` approval. Demonstrate temporary access, complete test reports, and lab deletion. Show that a new unmarked PR commit runs its checks without starting another GKE test, inheriting approval, or reusing a previous lab.
 
 - [x] 8.6 Add `[digital-twin-test]` in the latest PR commit as an explicit request through a trusted metadata-only PR trigger. Preserve hosted checks and native environment approval. Retain the placeholder without cloud access or NRFU. Test exact-marker matching, absent markers, stale events, fork exclusion, fixed commits, and API failures. Document that the trusted trigger must reach `main` before its first live approval test.
 
@@ -675,3 +676,23 @@ The dry-run results remain unaccepted as network evidence.
 No cloud credentials, cloud resource changes, lab allocation, or live network tests occur in this validation.
 Task 8.5 retains the approved hosted upload and complete GitHub-to-GKE workflow acceptance.
 Overall progress is 39/44 tasks complete. The change remains active.
+
+## Live pipeline acceptance (task 8.5)
+
+The first November 14 attempt stalled before private workflow execution and was canceled.
+The dispatcher correction maintains queue polling and acknowledges the selected message during VM preparation and execution.
+The first retry confirmed that correction and passed all 54 required network tests, but report collection rejected spaces in the EOS version.
+It uploaded no artifact and did not complete acceptance.
+[PR #28](https://github.com/dlobato/drydock/pull/28) fixed that separate report boundary and merged into protected `main`.
+
+The fresh owner-approved [run 43592511128](https://github.com/dlobato/drydock/actions/runs/43592511128) passed with trusted revision `33774b867491e88636397924f1345baa5a816331`.
+It tested PR input `5626f17e853bf6a226b415509f40b2784dc58a6e` in `lab-84ce30d51d84`.
+All 54 required ANTA results passed, including both MLAG pairs, and both caller deletion stages succeeded.
+Independent Kubernetes reads established complete lab deletion.
+The downloaded seven-day artifact matched GitHub's digest and all manifest hashes.
+Its 11 files retained six valid catalogs, 54 passing JUnit cases, exact provenance, runtime versions, and safe diagnostics.
+Credential and private-file inspection passed, and the EOS labels retained their spaces.
+The unmarked input update passed hosted lint and tests while its metadata workflow skipped GKE without another approval or runner.
+The accepted live attempt required separate dispatch and fresh native review.
+The [acceptance record](../../../docs/live-github-pipeline.md) retains exact identities, earlier failures, validation, and cleanup evidence.
+Task 8.5 is complete at 40/44 tasks. The change remains active for section 9.

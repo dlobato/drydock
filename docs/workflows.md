@@ -11,7 +11,7 @@ It builds the selected commit, establishes model consistency and coverage, and r
 Task 8.2 passed [scoped GitHub-to-GKE access acceptance](live-github-gke-access.md#email-scope-acceptance-request).
 Task 8.3 implements lab orchestration with isolated containers and controlled failure tests.
 Task 8.4 adds safe reports with seven-day retention.
-Complete live workflow acceptance remains in task 8.5.
+Task 8.5 passed [bounded live workflow acceptance](live-github-pipeline.md), including downloaded reports and complete lab deletion.
 
 ## Automatic PR checks
 
