@@ -132,6 +132,6 @@ Keep federation disabled until runner authorization, disposal, and the target Ku
 This component supplies infrastructure for the no-lab probe in task 8.2.
 It does not implement the isolated build, lifecycle, ANTA, and deletion stages in task 8.3.
 
-The [November 14 pipeline attempts](live-github-pipeline.md) record the initial queue stall and live confirmation of the queue correction.
-The retry passed all 54 network tests and deleted its lab, but report collection failed.
-Complete live pipeline acceptance remains open.
+The [November 14 pipeline record](live-github-pipeline.md) retains the initial queue stall and live acceptance of the queue correction.
+The final attempt passed all 54 required network tests, uploaded inspected reports, and deleted its lab.
+The dispatcher removed its private runner and scale set.
